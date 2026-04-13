@@ -1,0 +1,19 @@
+# Seed list for the Nanite plugin catalog.
+#
+# Tiers:
+#   - core      : compiled into nanite. Listed here only for discoverability;
+#                 source.type: builtin, no archives published.
+#   - default   : auto-installed on first run once Track G lands.
+#   - available : opt-in via Plugin Manager.
+#
+# As of Track F bootstrap, no external plugins are in the catalog — giphy,
+# oembed, and support-ticket all rebuild during Phase 2 per M1 D2 and will
+# be added here once their release pipelines publish signed archives to
+# archives.nanite.hollislabs.dev.
+#
+# Built-in plugins (e.g. core-commands, slash-registry) are compiled into
+# nanite and are NOT listed here by design — they are not installable.
+
+catalog_version: "0.1.0-bootstrap"
+
+plugins: []

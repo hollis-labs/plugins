@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plugins.nanite.hollislabs.dev/catalog.schema.v1.json",
+  "title": "Nanite plugin catalog v1",
+  "description": "Signed YAML document listing Nanite plugins available for install. Served at https://plugins.nanite.hollislabs.dev/catalog.yaml with a detached Ed25519 signature at catalog.yaml.sig. Nanite verifies the signature against its embedded catalog root key before trusting any entry.",
+  "type": "object",
+  "required": ["schema_version", "catalog_version", "generated_at", "plugins"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Schema version of this catalog document. Consumers must refuse unknown schema versions.",
+      "type": "integer",
+      "const": 1
+    },
+    "catalog_version": {
+      "description": "Version of the catalog content itself. Monotonically increasing semver-ish string; used for rollback and staleness detection.",
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_at": {
+      "description": "RFC 3339 UTC timestamp when this catalog was built.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "plugins": {
+      "description": "Plugins listed in the catalog. May be empty (placeholder / bootstrap state).",
+      "type": "array",
+      "items": {"$ref": "#/$defs/Plugin"}
+    }
+  },
+  "$defs": {
+    "Plugin": {
+      "type": "object",
+      "required": ["id", "name", "version", "tier", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Plugin ID, matches plugin.yaml `id`. Lowercase, dash-separated, no dots.",
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "name": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "version": {
+          "description": "Plugin release version (semver).",
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?(\\+[A-Za-z0-9.-]+)?$"
+        },
+        "tier": {
+          "description": "Distribution tier. `core` = compiled-in, informational only; `default` = auto-install on first run; `available` = opt-in.",
+          "type": "string",
+          "enum": ["core", "default", "available"]
+        },
+        "author": {"type": "string"},
+        "license": {"type": "string"},
+        "homepage": {"type": "string", "format": "uri"},
+        "source": {
+          "description": "Where the plugin source lives.",
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {"type": "string", "enum": ["git", "builtin"]},
+            "repo": {"type": "string", "description": "github.com/owner/name (for type=git)"},
+            "tag": {"type": "string", "description": "Git tag corresponding to this version"}
+          }
+        },
+        "nanite_compat": {
+          "description": "Semver range of nanite host versions this plugin is compatible with.",
+          "type": "string"
+        },
+        "archives": {
+          "description": "Per-platform release archives. Omitted for type=builtin plugins.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/Archive"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"source": {"properties": {"type": {"const": "git"}}}}},
+          "then": {"required": ["archives"], "properties": {"source": {"required": ["repo", "tag"]}}}
+        }
+      ]
+    },
+    "Archive": {
+      "type": "object",
+      "required": ["platform", "url", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "description": "GOOS-GOARCH string, e.g. darwin-arm64, linux-amd64.",
+          "type": "string",
+          "pattern": "^(darwin|linux|windows)-(amd64|arm64)$"
+        },
+        "url": {
+          "description": "HTTPS URL of the .tar.gz archive. Expected origin: https://archives.nanite.hollislabs.dev/...",
+          "type": "string",
+          "format": "uri"
+        },
+        "sha256": {
+          "description": "Hex-encoded SHA-256 of the archive bytes.",
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sig_url": {
+          "description": "Optional per-archive Ed25519 detached signature (for plugin-level signing in addition to catalog signing).",
+          "type": "string",
+          "format": "uri"
+        },
+        "size": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
