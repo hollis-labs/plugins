@@ -3,7 +3,7 @@ module github.com/hollis-labs/cerberus-plugins/contextforge
 go 1.26.3
 
 require (
-	github.com/hollis-labs/cerberus v0.4.0-beta.1
+	github.com/hollis-labs/cerberus v0.4.0-beta.2
 	github.com/hollis-labs/plugin-sdk v0.4.0
 	github.com/leefowlercu/go-contextforge v0.9.0
 	github.com/zalando/go-keyring v0.2.8
@@ -21,4 +21,3 @@ require (
 
 // pkg/plugin landed after v0.4.0-beta.1 and is not in a published tag yet.
 // Remove this once a tag containing pkg/plugin is pushed.
-replace github.com/hollis-labs/cerberus => /Users/me/src/cerberus
