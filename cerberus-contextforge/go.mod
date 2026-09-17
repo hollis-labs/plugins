@@ -18,6 +18,3 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
-
-// pkg/plugin landed after v0.4.0-beta.1 and is not in a published tag yet.
-// Remove this once a tag containing pkg/plugin is pushed.
