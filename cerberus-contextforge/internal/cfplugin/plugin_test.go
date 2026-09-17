@@ -172,3 +172,89 @@ func TestConnectorIDDoesNotCollideWithABuiltIn(t *testing.T) {
 		}
 	}
 }
+
+// The credential arrives from the host over init config. Before Cerberus grew a
+// plugin secret channel this plugin read the keychain itself, which meant every
+// plugin reimplemented secret resolution and connector-secrets.yaml never
+// reached one.
+func TestTokenComesFromHostInitConfig(t *testing.T) {
+	var got struct {
+		address string
+		token   string
+	}
+	p := &Plugin{newBackend: func(address, token string) (Backend, error) {
+		got.address, got.token = address, token
+		return &fakeBackend{}, nil
+	}}
+
+	if _, err := p.Init(context.Background(), subprocess.InitParams{
+		Config: map[string]string{SecretToken: "host-resolved-jwt"},
+	}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if _, err := p.Load(context.Background()); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got.token != "host-resolved-jwt" {
+		t.Fatalf("token = %q, want the value the host resolved", got.token)
+	}
+	if got.address != DefaultAddress {
+		t.Fatalf("address = %q, want the tunnel default", got.address)
+	}
+}
+
+// The secret key the plugin reads must be the one its manifest declares —
+// that name is what the host resolves and keys the init config by.
+func TestDeclaredSecretMatchesTheKeyRead(t *testing.T) {
+	secrets := Definition().Config.Secrets
+	if len(secrets) != 1 {
+		t.Fatalf("Secrets = %+v, want exactly the token", secrets)
+	}
+	if secrets[0].Name != SecretToken {
+		t.Fatalf("declared secret %q does not match the key the plugin reads, %q", secrets[0].Name, SecretToken)
+	}
+	if !secrets[0].Required {
+		t.Fatal("the token is required; declaring it optional would hide a missing credential from the host")
+	}
+}
+
+// A credential the host could not resolve must not fail the load: get_health is
+// open, and is how an operator tells a down tunnel from a down gateway.
+func TestLoadSucceedsWithoutAToken(t *testing.T) {
+	t.Setenv(TokenEnvVar, "")
+	var got string
+	p := &Plugin{newBackend: func(_, token string) (Backend, error) {
+		got = token
+		return &fakeBackend{health: Health{OK: true}}, nil
+	}}
+
+	if _, err := p.Init(context.Background(), subprocess.InitParams{Config: map[string]string{}}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if _, err := p.Load(context.Background()); err != nil {
+		t.Fatalf("Load without a token: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("token = %q, want empty when the host resolved none", got)
+	}
+	if status, err := p.Health(context.Background()); err != nil || !status.OK {
+		t.Fatalf("Health = %+v, %v; the open endpoint must still work", status, err)
+	}
+}
+
+// The binary is also runnable outside the host, where there is no init config.
+func TestDirectRunFallsBackToTheEnvironment(t *testing.T) {
+	t.Setenv(TokenEnvVar, "direct-run-jwt")
+	var got string
+	p := &Plugin{newBackend: func(_, token string) (Backend, error) {
+		got = token
+		return &fakeBackend{}, nil
+	}}
+
+	if _, err := p.Load(context.Background()); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got != "direct-run-jwt" {
+		t.Fatalf("token = %q, want the direct-run fallback", got)
+	}
+}

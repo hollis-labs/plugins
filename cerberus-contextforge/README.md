@@ -26,16 +26,22 @@ the gateway — a refused connection on a loopback port cannot mean the remote
 service is down, and sending an operator to host-a for a local problem wastes
 a VPN round trip.
 
-**Token.** A ContextForge admin JWT, resolved in this order:
+**Token.** A ContextForge admin JWT. The plugin does not look it up: it declares
+`token` in its manifest, and Cerberus resolves it host-side and hands the value
+over in init config. Supply it the way you would for any connector —
+`CERBERUS_CONTEXTFORGE_TOKEN`, a `contextforge: token:` reference in
+`~/.cerberus/connector-secrets.yaml`, or `keychain://contextforge/token`
+(go-keyring, service `cerberus`).
 
-1. `CONTEXTFORGE_TOKEN` — only reaches the plugin when the binary is run
-   directly. The host launches plugins with a fixed environment allow-list that
-   carries no credentials, by design.
-2. `keychain://contextforge/token` — go-keyring, service `cerberus`. This is the
-   path that works under the daemon.
+`CONTEXTFORGE_TOKEN` remains a fallback for running the binary directly, outside
+the host, where there is no init config. It does not reach the plugin under the
+daemon: the host launches plugins with a fixed environment allow-list carrying
+no credentials, by design, which is why the credential travels in init config.
 
-Never in config. ContextForge requires a JWT; an API key or a raw token is
-rejected with a 401.
+A token added or rotated after the plugin loaded is not seen until the plugin is
+reloaded: `cerberus connectors plugin managed load contextforge`.
+
+ContextForge requires a JWT; an API key or a raw token is rejected with a 401.
 
 > Store the entry with go-keyring, not `security add-generic-password` — the
 > latter does not write the `go-keyring-base64:` prefix the library expects.

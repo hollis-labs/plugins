@@ -14,22 +14,34 @@ import (
 	"time"
 
 	cf "github.com/leefowlercu/go-contextforge/contextforge"
-	"github.com/zalando/go-keyring"
 )
 
 // DefaultAddress is ContextForge through the tunnel-host-a resource.
 // 14444 is the local end of the tunnel; 4444 is the gateway on the box.
 const DefaultAddress = "http://127.0.0.1:14444"
 
-// keychainService and keychainKey mirror the `keychain://contextforge/token`
-// reference in docs/secrets.md: go-keyring, login keychain, service "cerberus".
+// SecretToken is the credential this plugin declares in its manifest, and the
+// key the host hands the resolved value back under in init config. The two must
+// agree, so they read from one constant.
+const SecretToken = "token"
+
+// ConfigAddress is the manifest config field naming the gateway base URL.
+const ConfigAddress = "address"
+
+// keychainService and keychainKey name where an operator stores the JWT:
+// `keychain://contextforge/token`, go-keyring, login keychain, service
+// "cerberus". The *host* reads it — Cerberus resolves every secret a plugin's
+// manifest declares and passes the value in init config. They are named here
+// only so a 401 can tell an operator where to put a token.
 const (
 	keychainService = "cerberus"
 	keychainKey     = "contextforge/token"
 
-	// TokenEnvVar is honored when the plugin binary is run directly. It does
-	// NOT reach the plugin under the daemon: the host launches plugins with an
-	// allow-listed environment that carries no credentials by design.
+	// TokenEnvVar is the direct-run fallback, for the binary invoked outside
+	// the host with no init config. It does NOT reach the plugin under the
+	// daemon: the host launches plugins with an allow-listed environment that
+	// carries no credentials by design, which is exactly why the credential
+	// travels in init config instead.
 	TokenEnvVar = "CONTEXTFORGE_TOKEN"
 
 	// AddressEnvVar overrides the gateway address for the same direct-run case.
@@ -69,20 +81,6 @@ func NewSDKBackend(address, token string) (Backend, error) {
 		return nil, fmt.Errorf("build contextforge client: %w", err)
 	}
 	return &sdkBackend{address: address, client: client, http: httpClient}, nil
-}
-
-// ResolveToken reads the JWT from the secret store. Config never carries it.
-func ResolveToken() (string, error) {
-	if token := os.Getenv(TokenEnvVar); token != "" {
-		return token, nil
-	}
-	token, err := keyring.Get(keychainService, keychainKey)
-	if err != nil {
-		return "", fmt.Errorf(
-			"no ContextForge token: set %s, or store one at keychain://%s (go-keyring service %q). %w",
-			TokenEnvVar, keychainKey, keychainService, err)
-	}
-	return token, nil
 }
 
 // ResolveAddress prefers an explicit override, then the tunnel default.
@@ -157,7 +155,8 @@ func (b *sdkBackend) describeError(action string, err error) error {
 			// host redacts /(?i)\bBearer[ \t]+\S+/ on every error path, which
 			// would garble the very instruction this message carries.
 			"%s at %s: unauthorized (401). ContextForge requires a JWT — an API key or a raw token is rejected. "+
-				"Store a token at keychain://%s (go-keyring service %q), or set %s when running the plugin directly: %w",
+				"Store a token at keychain://%s (go-keyring service %q) and reload the plugin — Cerberus resolves it and hands it over — "+
+				"or set %s when running the plugin directly: %w",
 			action, b.address, keychainKey, keychainService, TokenEnvVar, err)
 	}
 	if isConnectionRefused(err) && isLoopback(b.address) {
