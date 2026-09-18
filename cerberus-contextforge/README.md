@@ -1,7 +1,15 @@
 # contextforge
 
 Cerberus connector for the [ContextForge](https://github.com/IBM/mcp-context-forge)
-MCP gateway — the gateway that fronts our upstream MCP servers.
+MCP gateway: read the gateways, virtual servers and tools a ContextForge
+instance has registered.
+
+> **Pre-release — v0.1.0.** Four read-only operations. No write, registration
+> or lifecycle operations are implemented. Verified against a live gateway
+> reached over a loopback tunnel; no outside users, no compatibility
+> guarantees, no support channel. `go-contextforge` is itself a v0.x dependency
+> behind a `Backend` interface, so its API can move under us. Built in the
+> open: interfaces and behavior can change without notice.
 
 ## Operations
 
@@ -17,14 +25,15 @@ implemented yet.
 
 ## Configuration
 
-**Address.** Defaults to `http://127.0.0.1:14444`, the local end of the
-`tunnel-host-a` resource. Override with `CONTEXTFORGE_ADDRESS` when running
-the binary directly.
+**Address.** Defaults to `http://127.0.0.1:14444`, which assumes the gateway is
+reached through a local SSH tunnel — the common case when the gateway sits on a
+host you reach over a jump box or a VPN. Point it anywhere with the `address`
+config field, or `CONTEXTFORGE_ADDRESS` when running the binary directly.
 
 If the tunnel is down, every operation reports *the tunnel* as the failure, not
-the gateway — a refused connection on a loopback port cannot mean the remote
-service is down, and sending an operator to host-a for a local problem wastes
-a VPN round trip.
+the gateway. A refused connection on a loopback port cannot mean the remote
+service is down, and an operator sent to debug the remote host for a local
+problem spends the trip finding nothing wrong.
 
 **Token.** A ContextForge admin JWT. The plugin does not look it up: it declares
 `token` in its manifest, and Cerberus resolves it host-side and hands the value
