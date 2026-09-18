@@ -2,11 +2,22 @@
 
 Read-only Kubernetes cluster inspection for Cerberus.
 
-Built ahead of the cluster it will point at. How that cluster authenticates is
-still an open question — WP-K0 in `docs/plans/k8s-connector-plugin.md` in the
-Cerberus repo — so rather than guess one mechanism, every plausible answer is a
-named mode in `auth.go`, the plugin classifies whichever one it is handed, and
-`check_access` reports the classification before anything is attempted.
+> **Pre-release — v0.1.0.** Nine read-only operations, verified end to end
+> against a `kind` cluster running Kubernetes v1.37.0 (matching client-go
+> v0.37.0), both over the plugin protocol directly and through an installed
+> Cerberus daemon. **Not yet verified:** the `exec` credential-plugin path
+> (kind authenticates with a client certificate, so the PATH resolution and
+> interactive-mode refusal are unit-tested only), and behavior under a
+> restricted RBAC role. No write, scale, delete or exec operations exist — see
+> [Locked operations](#locked-operations). No outside users, no compatibility
+> guarantees, no support channel. Built in the open: interfaces and behavior
+> can change without notice.
+
+Clusters differ in how they authenticate, and the answer decides more than it
+looks like it should. So rather than assume one mechanism, every plausible
+answer is a named mode in `auth.go`, the plugin classifies whichever one it is
+handed, and `check_access` reports the classification before anything is
+attempted.
 
 ## Operations
 
@@ -56,9 +67,10 @@ never modified. Add locations with `CERBERUS_KUBE_CREDENTIAL_PATH` or the
 `credential_path` config field.
 
 **The credential helper wants a terminal.** A Cerberus-launched process has no
-TTY. `interactiveMode: Always` is reported as a problem rather than attempted;
-retrying an interactive corporate login on a timer is how an account gets locked
-out, which is the same reason the SSH tunnel resources are not auto-started.
+TTY. `interactiveMode: Always` is reported as a problem rather than attempted.
+Retrying an interactive SSO login on a timer is a reliable way to get an account
+locked out, which is the same reason Cerberus does not auto-start its SSH tunnel
+resources.
 
 ## Arguments arrive typed two different ways
 
@@ -75,7 +87,9 @@ dropped. Fake-backend tests cannot catch it, because they supply JSON types,
 which is what the MCP path sends. If you add an argument here, assert both
 typings.
 
-## What is deliberately absent
+## Locked operations
+
+What is deliberately absent, and why:
 
 - **No `get_secret`**, in any form, including keys-only. It is the one read
   where a DTO slip is unrecoverable, and nobody has asked for it.
@@ -115,7 +129,8 @@ cerberus connectors plugin managed load kubernetes
 
 ## Testing against a real cluster
 
-There is no corporate cluster yet, so verification runs against `kind`:
+Verification runs against a throwaway `kind` cluster, so the suite needs no
+access to anything you care about:
 
 ```bash
 go install sigs.k8s.io/kind@latest
@@ -126,6 +141,9 @@ kind delete cluster --name cerberus-probe
 
 kind authenticates with a client certificate, which is useful in itself — it
 proves the daemon's minimal `PATH` is only a problem for the `exec` modes. It
-also means the `exec` credential path is still unit-tested only. See
-"Verified against a real cluster" in `docs/plans/k8s-connector-plugin.md` for
-what that run settled and what it did not.
+also means the `exec` credential path is still unit-tested only.
+
+If you are pointing this at a cluster whose kubeconfig uses an `exec` credential
+plugin, run `check_access` first. It is the operation that tells you whether the
+helper resolves from where the daemon actually runs, which is not the same place
+your shell runs.
