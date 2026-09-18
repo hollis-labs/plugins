@@ -3,12 +3,19 @@
 Cerberus connector for Azure Resource Manager — read-only inventory, and the
 model deployments an AI Services account actually serves.
 
+> **Pre-release — v0.1.0.** Six read-only operations. No provisioning, write or
+> lifecycle operations are implemented; cost reporting, Key Vault and Resource
+> Graph were each probed and are documented as blocked with what would unlock
+> them. No outside users, no compatibility guarantees, no support channel.
+> Built in the open: interfaces and behavior can change without notice.
+
 ## Scope: read and probe only
 
-Cerberus is not taking over management of work infrastructure. An infrastructure
-team administers the Azure estate; this connector helps operate it, it does not
-own it. So every operation here is read-only: none is destructive, none takes
-`--ack`, and a test asserts that rather than leaving it to review.
+This connector assumes you do not own the estate it reads. A subscription is
+usually administered by someone else, and a tool that helps you operate it is a
+different thing from a tool that manages it. So every operation here is
+read-only: none is destructive, none takes `--ack`, and a test asserts that
+rather than leaving it to review.
 
 Write and lifecycle operations are listed under
 [Not implemented, and why](#not-implemented-and-why) with what would unlock
@@ -27,7 +34,7 @@ them.
 
 ```bash
 cerberus connectors plugin managed exec azure list_model_deployments
-cerberus connectors plugin managed exec azure list_model_deployments --arg account=example-ai-account
+cerberus connectors plugin managed exec azure list_model_deployments --arg account=my-ai-account
 ```
 
 `subscription_id` is accepted by every operation, so reading a second
@@ -102,36 +109,38 @@ type can hold serializes none of them. This is
 ## Not implemented, and why
 
 These are the VM lifecycle operations an Azure connector would normally carry.
-They are blocked, and the block is not a code problem — probed 2026-09-17
-against `example-subscription`:
+They are absent because on the subscriptions this was developed against they
+could not have worked, and building them unverified would have shipped six
+operations nobody had ever seen succeed.
 
-| Operation | Blocked by |
+| Operation | Needs |
 |---|---|
-| `list_vms`, `get_vm` | `Microsoft.Compute` is **NotRegistered** on the subscription — no VM can exist |
-| `start_vm`, `deallocate_vm` | same, plus Virtual Machine Contributor |
-| `create_vm`, `delete_vm` | same, plus `Microsoft.Network`, plus Contributor on a resource group |
+| `list_vms`, `get_vm` | `Microsoft.Compute` registered on the subscription — until it is, no VM can exist to list |
+| `start_vm`, `deallocate_vm` | the above, plus Virtual Machine Contributor |
+| `create_vm`, `delete_vm` | the above, plus `Microsoft.Network`, plus Contributor on a resource group |
 
-The reachable subscription is not a compute subscription. Its registered
-providers include Storage, KeyVault, CognitiveServices, DocumentDB, Search, Web,
-CostManagement and insights — no Compute, no Network; its entire inventory is one
-AI Services account and its project. A VM-shaped connector would have nothing to talk to.
+Check what your own subscription actually serves before assuming a VM operation
+is missing rather than impossible — `az provider list --query "[?registrationState=='Registered'].namespace"`.
+A subscription provisioned for AI or data services commonly has no Compute or
+Network registered at all, and a VM-shaped connector would have nothing to talk
+to.
 
-**What would unlock them:**
+**Three things worth knowing if you want to add them:**
 
-- An admin runs `az provider register -n Microsoft.Compute` and
-  `-n Microsoft.Network` at subscription scope. That requires subscription
-  Contributor or Owner; there is no narrower built-in role granting only
-  registration. Verified failing 2026-09-17: `AuthorizationFailed … does not
-  have authorization to perform action 'Microsoft.Compute/register/action'`.
-- **Contributor scoped to one resource group** for VM management. Virtual
-  Machine Contributor alone is *not* enough to create a VM — it does not cover
-  the VNet, NIC and public IP a new VM attaches to. Scoping to a single resource
-  group is what makes it least-privilege, not picking a narrower role name.
-- The governance question, which is not ours to assume away: this is a shared
-  shared subscription. A persistent billable VM in it is a decision
-  for whoever owns it, and a sandbox subscription would be the better home.
+- **Registering a provider is an admin action.** `az provider register -n
+  Microsoft.Compute` is scoped to the subscription and needs Contributor or
+  Owner. There is no narrower built-in role that grants only registration, so
+  this is a request to whoever owns the subscription, not something a
+  least-privilege identity can arrange for itself.
+- **Virtual Machine Contributor alone cannot create a VM.** It does not cover
+  the VNet, NIC and public IP a new VM attaches to. Least privilege here comes
+  from scoping Contributor to a single resource group, not from picking a
+  narrower-sounding role.
+- **A persistent billable VM is a governance decision, not a technical one.**
+  If the subscription is shared, whoever owns it should be the one to agree to
+  it, and a dedicated sandbox subscription is usually the better home.
 
-Where one of these is genuinely wanted, the ask goes to the team that owns the
+Where a write operation is genuinely wanted, the ask goes to whoever owns the
 resource. That is a scope decision, not a permissions workaround.
 
 ## Layout
