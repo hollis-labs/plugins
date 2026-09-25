@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"testing"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
 )
 
@@ -66,5 +68,35 @@ func TestScrubberIgnoresDegenerateValues(t *testing.T) {
 	}
 	if got := s.err(errors.New("x")).Error(); got != "x" {
 		t.Fatalf("err = %q", got)
+	}
+}
+
+// A coded failure is scrubbed too: the code is read before scrubbing, which
+// drops the chain, and the message that travels with it carries no token.
+func TestCodedErrorsNeverCarryTheToken(t *testing.T) {
+	unreachable := &fakeBackend{err: &url.Error{
+		Op:  "Get",
+		URL: "https://api.cloudflare.com/client/v4/zones?token=" + url.QueryEscape(sentinelToken),
+		Err: &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connection refused " + sentinelToken)},
+	}}
+	p := &Plugin{newBackend: func(string) Backend { return unreachable }}
+	if _, err := p.Init(context.Background(), subprocess.InitParams{Config: map[string]string{SecretAPIToken: sentinelToken}}); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if _, err := p.Load(context.Background()); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	result, err := callTool(p, "list_zones", nil)
+	if err != nil {
+		t.Fatalf("an unreachable API came back uncoded: %v", err)
+	}
+	code, message, ok := cerbplugin.ParseErrorResult(result.Content)
+	if !ok || code != cerbplugin.ErrorUnavailable {
+		t.Fatalf("result = %s, want connector_unavailable", result.Content)
+	}
+	for _, form := range []string{sentinelToken, url.QueryEscape(sentinelToken), url.PathEscape(sentinelToken)} {
+		if strings.Contains(message, form) || strings.Contains(string(result.Content), form) {
+			t.Fatalf("the coded result leaked the token (%q):\n%s", form, result.Content)
+		}
 	}
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"syscall"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
@@ -116,7 +118,49 @@ var writeOperations = map[string]bool{
 
 func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
 	result, err := p.call(ctx, req)
+	if err == nil {
+		return result, nil
+	}
+	// The code is read before scrubbing, which drops the chain; the message
+	// that carries it is scrubbed like any other.
+	if code := errorCode(err); code != "" {
+		return cerbplugin.ErrorResult(code, p.scrub.text(err.Error())), nil
+	}
 	return result, p.scrub.err(err)
+}
+
+// errorCode is the Cerberus code for a failed call: a missing token is
+// credential_missing, and a Cloudflare API that cannot be reached at all is
+// unavailable. Anything the API answered stays uncoded.
+func errorCode(err error) cerbplugin.ErrorCode {
+	var coded *cerbplugin.CodedError
+	switch {
+	case errors.As(err, &coded):
+		return coded.Code
+	case errors.Is(err, errMissingCredential):
+		return cerbplugin.ErrorCredentialMissing
+	case isUnreachable(err):
+		return cerbplugin.ErrorUnavailable
+	}
+	return ""
+}
+
+// isUnreachable matches a network-level failure: a refused connection, a
+// name that does not resolve, a timeout. An HTTP status is not one of these.
+func isUnreachable(err error) bool {
+	if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
 }
 
 func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
