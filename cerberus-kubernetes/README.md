@@ -2,7 +2,7 @@
 
 Kubernetes cluster inspection and administration for Cerberus.
 
-> **Pre-release — v0.2.0.** Fourteen read operations and five write
+> **Pre-release — v0.3.0.** Fourteen read operations and five write
 > operations, verified end to end against a `kind` cluster running Kubernetes
 > v1.37.0 (matching client-go v0.37.0) through Cerberus's plugin host, under the
 > daemon's minimal `PATH`: the `exec` credential-plugin path with a helper

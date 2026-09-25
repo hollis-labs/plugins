@@ -14,7 +14,7 @@ import (
 const ConnectorID = "kubernetes"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 // Config field and secret names. The manifest declares these and the host hands
 // resolved values back under the same keys, so both halves read from one
