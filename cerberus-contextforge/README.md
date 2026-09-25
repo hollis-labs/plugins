@@ -20,8 +20,11 @@ instance has registered.
 | `list_virtual_servers` | JWT | The composed catalogs. No auth fields; auth lives on the gateway. |
 | `list_tools` | JWT | Tool registrations. Names are gateway-prefixed and change when a virtual server is renamed. |
 
-All four are read-only, so none requires `--ack`. Write operations are not
-implemented yet.
+All four are read-only, so none requires `--ack`. Three declare effect
+`read`. `list_tools` is `read_sensitive`: tool descriptions are written by the
+upstream MCP servers, not by Cerberus or the operator, so they are text of
+unknown origin and a place prompt injection can arrive from. Write operations
+are not implemented yet.
 
 ## Configuration
 
