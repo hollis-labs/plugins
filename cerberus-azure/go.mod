@@ -8,7 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cognitiveservices/armcognitiveservices v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions v1.3.0
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925211052-72dbbc64e260
+	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925222401-e5ff8aed333a
 	github.com/hollis-labs/plugin-sdk v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )
