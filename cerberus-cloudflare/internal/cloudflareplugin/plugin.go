@@ -106,8 +106,8 @@ func (p *Plugin) token() string {
 }
 
 // writeOperations is the one list of operations that change Cloudflare. The
-// manifest marks each Destructive and SupportsDry, and
-// TestWriteOperationsAreExactlyTheDestructiveOnes holds the two in step.
+// contract declares each a non-read effect with a preview, and
+// TestWriteOperationsAreExactlyTheAckGatedOnes holds the two in step.
 var writeOperations = map[string]bool{
 	"create_zone":       true,
 	"create_dns_record": true,
@@ -217,7 +217,7 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 // writeMode reads the dry-run flag for a write and refuses a real write that
 // arrives unacknowledged.
 //
-// The host already refuses a Destructive operation without --ack before the
+// The host already refuses a write without --ack before the
 // call reaches this process, so under the host this check never fires. It is
 // here for the binary driven any other way, so that the plugin's own contract
 // is "no unacknowledged write" rather than "no unacknowledged write provided

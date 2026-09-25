@@ -98,16 +98,24 @@ including error text cloudflare-go composed, in its plain and URL-encoded forms
 
 ## Live check
 
-`scripts/live-check.sh` is the read-only check against the real API:
+`scripts/live-check.sh` is the read-only check against the real API. **It
+requires a read-only token**, scoped to Zone Read and DNS Read and nothing else:
 
 ```bash
 make dist
-CERBERUS_CLOUDFLARE_API_TOKEN=<read-scoped token> scripts/live-check.sh ../dist/cloudflare [zone-id]
+CERBERUS_LIVE_CHECK_READ_ONLY_TOKEN=yes \
+CERBERUS_CLOUDFLARE_API_TOKEN=<Zone Read + DNS Read token> \
+  scripts/live-check.sh ../dist/cloudflare [zone-id]
 ```
 
 It runs `list_zones` and `list_dns_records` for real, and previews all three
-writes with `--dry-run`. It never writes. It uses a scratch `HOME` and the
-one-shot host, so it touches no daemon, config or keychain.
+writes with `--dry-run`. A plugin's dry run is its own claim: Cerberus forwards
+it and cannot verify that the plugin honours it. With a read-only token, a
+dry-run bug that reached Cloudflare would get a harmless 403 instead of changing
+a zone. So the script refuses to start until
+`CERBERUS_LIVE_CHECK_READ_ONLY_TOKEN=yes` confirms the token cannot write. It
+uses a scratch `HOME` and the one-shot host, so it touches no daemon, config or
+keychain.
 
 ## Layout
 
