@@ -48,7 +48,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "Report ContextForge reachability. /health is open, so this works without a token and is the fastest way to tell a down tunnel from a down gateway.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec contextforge get_health"},
+				Examples:    []string{"cerberus connectors exec contextforge get_health"},
 			},
 			{
 				Name:        "list_gateways",
@@ -60,7 +60,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List upstream MCP server registrations. Credentials are never returned: auth_type reports the kind of auth configured, auth_configured whether any is set.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_gateways"},
+				Examples:    []string{"cerberus connectors exec contextforge list_gateways"},
 			},
 			{
 				Name:        "list_virtual_servers",
@@ -72,7 +72,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List the composed catalogs. These have no auth fields; auth lives on the gateway.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_virtual_servers"},
+				Examples:    []string{"cerberus connectors exec contextforge list_virtual_servers"},
 			},
 			{
 				Name:        "list_tools",
@@ -84,7 +84,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List tool registrations. Names are gateway-prefixed and change when a virtual server is renamed, so read them here rather than guessing.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_tools"},
+				Examples:    []string{"cerberus connectors exec contextforge list_tools"},
 			},
 		},
 	})
