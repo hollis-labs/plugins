@@ -18,7 +18,7 @@ import (
 const ConnectorID = "forge"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // SecretAPIToken is the manifest secret name, and the key the host uses in the
 // init config it hands us. It must stay "api_token": that is the name existing
