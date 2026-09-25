@@ -52,7 +52,7 @@ run() {
 run list_droplets | tee "$scratch/droplets.json"
 
 if [[ -z "$droplet" ]]; then
-  droplet=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1]))["data"] or []; print(d[0]["id"] if d else "")' "$scratch/droplets.json")
+  droplet=$(python3 -c 'import json,sys; d=(json.load(open(sys.argv[1]))["data"] or {}).get("droplets") or []; print(d[0]["id"] if d else "")' "$scratch/droplets.json")
 fi
 if [[ -z "$droplet" ]]; then
   echo "no droplet visible to this token; skipping get_droplet and status" >&2
