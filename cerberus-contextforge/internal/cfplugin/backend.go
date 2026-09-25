@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	cf "github.com/leefowlercu/go-contextforge/contextforge"
 )
 
@@ -150,22 +151,48 @@ func (b *sdkBackend) describeError(action string, err error) error {
 		return nil
 	}
 	if isUnauthorized(err) {
-		return fmt.Errorf(
+		return cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf(
 			// Deliberately avoids the word "bearer" followed by a word: the
 			// host redacts /(?i)\bBearer[ \t]+\S+/ on every error path, which
 			// would garble the very instruction this message carries.
 			"%s at %s: unauthorized (401). ContextForge requires a JWT — an API key or a raw token is rejected. "+
 				"Store a token at keychain://%s (go-keyring service %q) and reload the plugin — Cerberus resolves it and hands it over — "+
 				"or set %s when running the plugin directly: %w",
-			action, b.address, keychainKey, keychainService, TokenEnvVar, err)
+			action, b.address, keychainKey, keychainService, TokenEnvVar, err))
 	}
+	// Coded unreachable, so an agent branching on the code tells a down
+	// tunnel from a down gateway from a missing token. The host would
+	// otherwise report any failure of a plugin that loaded without its JWT as
+	// credential_missing, which is exactly wrong here: /health needs no token.
 	if isConnectionRefused(err) && isLoopback(b.address) {
-		return fmt.Errorf(
+		return cerbplugin.WithCode(cerbplugin.ErrorUnavailable, fmt.Errorf(
 			"%s: cannot reach ContextForge at %s — the tunnel is down, not the gateway. "+
 				"Start it with `cerberus resource start tunnel-host-a` (VPN required): %w",
-			action, b.address, err)
+			action, b.address, err))
+	}
+	if isUnreachable(err) {
+		return cerbplugin.WithCode(cerbplugin.ErrorUnavailable, fmt.Errorf("%s: cannot reach ContextForge at %s: %w", action, b.address, err))
 	}
 	return fmt.Errorf("%s at %s: %w", action, b.address, err)
+}
+
+// isUnreachable matches a network-level failure to reach the gateway at all:
+// a refused connection, a name that does not resolve, a timeout. An HTTP
+// status is not one of these; the gateway answered.
+func isUnreachable(err error) bool {
+	if isConnectionRefused(err) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
 }
 
 // isUnauthorized detects a 401 so the operator is told how to supply a token
