@@ -69,6 +69,12 @@ func Definition() contract.Definition {
 				Required:    true,
 			}},
 		},
+		// One literal per operation, so declaring the P1-1 contract is one added
+		// line in each.
+		// TODO(P1-1): once pkg/connector carries `effect`, declare it per
+		// operation: list_zones and list_dns_records `read`; create_zone and
+		// create_dns_record `write`; delete_dns_record `destructive`. Keep
+		// Destructive and SupportsDry on the three writes.
 		Operations: []contract.Operation{
 			{
 				Name:        "list_zones",
