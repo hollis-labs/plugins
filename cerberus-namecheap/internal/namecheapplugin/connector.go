@@ -18,7 +18,7 @@ import (
 const ConnectorID = "namecheap"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.2.0"
+const Version = "0.2.1"
 
 // The manifest secret names, and the keys the host uses in the init config it
 // hands us. They must stay what they are: existing credential references were
@@ -97,11 +97,16 @@ func Definition() contract.Definition {
 				{Name: "domain", Type: "string", Description: "Domain name in sld.tld form."},
 				{Name: ConfigSandbox, Type: "boolean", Description: "Use the Namecheap sandbox API (api.sandbox.namecheap.com) instead of production. The sandbox needs its own account and key."},
 			},
+			// Only api_key is a credential. The user names and the allow-listed
+			// address are kept with it and resolved the same way, but they are
+			// names the plugin's own output shows ("the address sent is the
+			// client_ip secret …"), so they are declared kind: name and the
+			// host does not value-redact them.
 			Secrets: []contract.SecretRequirement{
-				{Name: SecretAPIUser, Description: "Namecheap API user.", Env: envVar(SecretAPIUser), Required: true},
+				{Name: SecretAPIUser, Description: "Namecheap API user.", Env: envVar(SecretAPIUser), Required: true, Kind: contract.SecretKindName},
 				{Name: SecretAPIKey, Description: "Namecheap API key. Namecheap has no read-only scope: a key can change every domain in the account.", Env: envVar(SecretAPIKey), Required: true},
-				{Name: SecretUsername, Description: "Namecheap username.", Env: envVar(SecretUsername), Required: true},
-				{Name: SecretClientIP, Description: "The public address Namecheap's API allow-list contains for this account. Without it the plugin sends " + DefaultClientIP + ".", Env: envVar(SecretClientIP)},
+				{Name: SecretUsername, Description: "Namecheap username.", Env: envVar(SecretUsername), Required: true, Kind: contract.SecretKindName},
+				{Name: SecretClientIP, Description: "The public address Namecheap's API allow-list contains for this account. Without it the plugin sends " + DefaultClientIP + ".", Env: envVar(SecretClientIP), Kind: contract.SecretKindName},
 			},
 		},
 		// The contract matches the compiled-in connector's, except the

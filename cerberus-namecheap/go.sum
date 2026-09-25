@@ -1,6 +1,6 @@
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925222401-e5ff8aed333a h1:kuMDaS3VPdLzN9f6iVWR6Y7c4W2WMW6EiEr53GNz9qc=
-github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925222401-e5ff8aed333a/go.mod h1:z2ecuY/twFcByZTTI5vg93sKjqfXAHWp6tDCKPOBS9c=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925225813-d5c7f2a43a5e h1:3s3lh4jXlJLeKX6S/B9Yb0VDEdakvuZ2P9/os213k6o=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925225813-d5c7f2a43a5e/go.mod h1:z2ecuY/twFcByZTTI5vg93sKjqfXAHWp6tDCKPOBS9c=
 github.com/hollis-labs/plugin-sdk v0.5.0 h1:xcMeVrYqIKz00fO2c2/asD/yDrb+pitU9p4hvqHUye8=
 github.com/hollis-labs/plugin-sdk v0.5.0/go.mod h1:+FcTow9tco3OoINjc5LSCkm8RZzWSLNG1tTCzLSQuHs=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
