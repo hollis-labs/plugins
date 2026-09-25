@@ -4,18 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cognitiveservices/armcognitiveservices"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 )
 
 // Config names this plugin declares in its manifest. The host resolves each one
@@ -455,9 +458,9 @@ func (b *sdkBackend) describeError(action, subscriptionID string, err error) err
 	}
 
 	if isCLISignInRequired(err) {
-		return fmt.Errorf(
+		return cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf(
 			"%s: the Azure CLI is installed but not signed in. Run `az login` as the user the daemon runs as: %w",
-			where, err)
+			where, err))
 	}
 
 	var respErr *azcore.ResponseError
@@ -469,9 +472,9 @@ func (b *sdkBackend) describeError(action, subscriptionID string, err error) err
 					"This is a role assignment, not a sign-in — ask the subscription owner for Reader at the scope you need: %w",
 				where, b.CredentialSource(), respErr.ErrorCode, err)
 		case http.StatusUnauthorized:
-			return fmt.Errorf(
+			return cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf(
 				"%s: the %s credential was rejected (401). Re-authenticate — `az login`, or check the %s secret has not expired: %w",
-				where, b.CredentialSource(), SecretClientSecret, err)
+				where, b.CredentialSource(), SecretClientSecret, err))
 		case http.StatusNotFound:
 			// Point at the listing that can actually be run right now: a bad
 			// subscription makes every subscription-scoped listing fail too.
@@ -479,13 +482,37 @@ func (b *sdkBackend) describeError(action, subscriptionID string, err error) err
 			if strings.HasPrefix(action, "get subscription") {
 				hint = OpListSubscriptions
 			}
-			return fmt.Errorf(
+			return cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs, fmt.Errorf(
 				"%s: not found (404, %s). Check the names — "+
 					"`cerberus connectors plugin managed exec azure %s` shows what is actually there: %w",
-				where, respErr.ErrorCode, hint, err)
+				where, respErr.ErrorCode, hint, err))
 		}
 	}
+	// A 403 stays uncoded: the credential works and is not permitted, which is
+	// neither unreachable nor missing.
+	if isUnreachable(err) {
+		return cerbplugin.WithCode(cerbplugin.ErrorUnavailable, fmt.Errorf("%s: cannot reach Azure Resource Manager: %w", where, err))
+	}
 	return fmt.Errorf("%s: %w", where, err)
+}
+
+// isUnreachable matches a network-level failure to reach ARM at all: a
+// refused connection, a name that does not resolve, a timeout. An HTTP status
+// is not one of these; ARM answered.
+func isUnreachable(err error) bool {
+	if errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
 }
 
 // isCLISignInRequired matches azidentity's "please run az login" family without
