@@ -384,11 +384,10 @@ func TestDescribeErrorNamesTheCauseForEachAPIFailure(t *testing.T) {
 		})
 	}
 
-	// A forbidden read is an RBAC grant to request, not a bug to work around.
-	// The message has to say so, because this connector is read-only and the
-	// obvious next move otherwise is to try a write path.
+	// A forbidden call is an RBAC grant to request, not a bug to work around,
+	// and the message has to say so — for a write as much as a read.
 	forbidden := describeError(apierrors.NewForbidden(gvr, "web-1", nil), server)
-	if !strings.Contains(forbidden, "read-only") {
+	if !strings.Contains(forbidden, "RBAC grant") {
 		t.Errorf("forbidden message does not set the expectation: %q", forbidden)
 	}
 }

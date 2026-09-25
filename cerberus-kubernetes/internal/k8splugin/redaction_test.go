@@ -2,6 +2,7 @@ package k8splugin
 
 import (
 	"errors"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -127,5 +128,95 @@ func TestRedactionHazardsDetectKnownBadStrings(t *testing.T) {
 		if !fired {
 			t.Errorf("hazard %q did not match %q; the guard would pass a string the host rewrites", name, text)
 		}
+	}
+}
+
+// hostSensitiveKey mirrors SensitiveKey in the host's internal/redact: the host
+// replaces the value of any JSON key it matches with [REDACTED], on output as
+// well as on errors. A DTO field whose key matches arrives at the operator as
+// [REDACTED] however harmless its value — which is how an ingress's TLS secret
+// *name* was lost, found against a real cluster rather than by any test.
+func hostSensitiveKey(key string) bool {
+	key = strings.ToUpper(strings.NewReplacer("_", "", "-", "", ".", "").Replace(strings.TrimSpace(key)))
+	for _, marker := range []string{"APIKEY", "APITOKEN", "ACCESSTOKEN", "AUTHTOKEN", "SECRET", "PASSWORD", "PASSWD", "PASSCODE", "PRIVATEKEY", "CREDENTIAL", "AUTHORIZATION", "COOKIE"} {
+		if strings.Contains(key, marker) {
+			return true
+		}
+	}
+	return key == "TOKEN" || strings.HasSuffix(key, "TOKEN")
+}
+
+// dtoKeysTheHostMayRedact are keys allowed to match anyway. It is empty, and
+// should stay so: the host does not stop at the matched key, it hides every
+// string and number beneath it, so a matching key on an object blanks the whole
+// object. That is what happened to check_access's credential_plugin. An entry
+// here needs an argument that nothing beneath the key is worth reading.
+var dtoKeysTheHostMayRedact = map[string]string{}
+
+func TestNoDTOKeyIsOneTheHostRedacts(t *testing.T) {
+	seen := map[reflect.Type]bool{}
+	var walk func(reflect.Type, string)
+	walk = func(typ reflect.Type, path string) {
+		for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice || typ.Kind() == reflect.Map {
+			typ = typ.Elem()
+		}
+		if typ.Kind() != reflect.Struct || seen[typ] {
+			return
+		}
+		seen[typ] = true
+		for i := 0; i < typ.NumField(); i++ {
+			field := typ.Field(i)
+			name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+			if field.Anonymous && name == "" {
+				walk(field.Type, path)
+				continue
+			}
+			if name == "" || name == "-" {
+				continue
+			}
+			if hostSensitiveKey(name) {
+				if _, allowed := dtoKeysTheHostMayRedact[name]; !allowed {
+					t.Errorf("%s.%s: JSON key %q matches the host's SensitiveKey, so its value reaches the operator as [REDACTED]", path, field.Name, name)
+				}
+			}
+			walk(field.Type, path+"."+field.Name)
+		}
+	}
+	for _, dto := range []any{
+		Health{}, Context{}, AccessCheck{}, Namespace{}, Node{}, Pod{}, Workload{}, Event{}, LogSnapshot{},
+		WorkloadDetail{}, Service{}, Ingress{}, APIResourceList{}, Usage{}, Change{},
+		List[Pod]{},
+	} {
+		walk(reflect.TypeOf(dto), reflect.TypeOf(dto).Name())
+	}
+}
+
+func TestHostSensitiveKeyMirrorCatchesTheKeyThatWasLost(t *testing.T) {
+	for _, key := range []string{"secret_name", "credential_plugin"} {
+		if !hostSensitiveKey(key) {
+			t.Fatalf("the mirror does not match %s, a key the host redacts; it would pass the bug it exists for", key)
+		}
+	}
+}
+
+// The exact text client-go produced against a real cluster for an
+// interactiveMode Always helper. Passed through whole, the host redactor read
+// "credentials:" as a key and ate the next word.
+func TestExecFailureFromClientGoSurvivesRedactionAndNamesTheRightFix(t *testing.T) {
+	live := errors.New(`Get "https://127.0.0.1:50639/version?timeout=30s": getting credentials: exec plugin cannot support interactive mode: standard input is not a terminal`)
+	got := describeError(live, "https://127.0.0.1:50639")
+	assertSurvivesRedaction(t, "interactive exec failure", got)
+	if strings.Contains(got, "credentials:") {
+		t.Errorf("message still carries the phrase the host redactor eats: %q", got)
+	}
+	if !strings.Contains(got, "IfAvailable") || strings.Contains(got, "PATH") {
+		t.Errorf("message points at the wrong fix: %q", got)
+	}
+
+	missing := errors.New(`Get "https://api.example.com/version": getting credentials: exec: executable kubelogin not found`)
+	got = describeError(missing, "https://api.example.com")
+	assertSurvivesRedaction(t, "missing exec helper", got)
+	if !strings.Contains(got, "executable kubelogin not found") || !strings.Contains(got, "check_access") {
+		t.Errorf("missing-helper message lost its cause or recovery: %q", got)
 	}
 }

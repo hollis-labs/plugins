@@ -18,6 +18,12 @@ type FakeBackend struct {
 	WorkloadResult  List[Workload]
 	EventResult     List[Event]
 	LogResult       LogSnapshot
+	DetailResult    WorkloadDetail
+	ServiceResult   List[Service]
+	IngressResult   List[Ingress]
+	APIResult       APIResourceList
+	UsageResult     Usage
+	ChangeResult    Change
 	Err             error
 
 	LastOptions   ClusterOptions
@@ -26,6 +32,14 @@ type FakeBackend struct {
 	LastWorkload  WorkloadQuery
 	LastEvent     EventQuery
 	LastLog       LogQuery
+	LastRef       WorkloadRef
+	LastScoped    ScopedQuery
+	LastAPI       APIResourceQuery
+	LastTop       TopQuery
+	LastScale     ScaleRequest
+	LastRestart   RestartRequest
+	LastNode      SchedulableRequest
+	LastDelete    DeletePodRequest
 	Calls         []string
 }
 
@@ -75,4 +89,58 @@ func (f *FakeBackend) Logs(_ context.Context, opts ClusterOptions, query LogQuer
 	f.record("Logs", opts)
 	f.LastLog = query
 	return f.LogResult, f.Err
+}
+
+func (f *FakeBackend) DescribeWorkload(_ context.Context, opts ClusterOptions, ref WorkloadRef) (WorkloadDetail, error) {
+	f.record("DescribeWorkload", opts)
+	f.LastRef = ref
+	return f.DetailResult, f.Err
+}
+
+func (f *FakeBackend) Services(_ context.Context, opts ClusterOptions, query ScopedQuery) (List[Service], error) {
+	f.record("Services", opts)
+	f.LastScoped = query
+	return f.ServiceResult, f.Err
+}
+
+func (f *FakeBackend) Ingresses(_ context.Context, opts ClusterOptions, query ScopedQuery) (List[Ingress], error) {
+	f.record("Ingresses", opts)
+	f.LastScoped = query
+	return f.IngressResult, f.Err
+}
+
+func (f *FakeBackend) APIResources(_ context.Context, opts ClusterOptions, query APIResourceQuery) (APIResourceList, error) {
+	f.record("APIResources", opts)
+	f.LastAPI = query
+	return f.APIResult, f.Err
+}
+
+func (f *FakeBackend) Top(_ context.Context, opts ClusterOptions, query TopQuery) (Usage, error) {
+	f.record("Top", opts)
+	f.LastTop = query
+	return f.UsageResult, f.Err
+}
+
+func (f *FakeBackend) Scale(_ context.Context, opts ClusterOptions, req ScaleRequest) (Change, error) {
+	f.record("Scale", opts)
+	f.LastScale = req
+	return f.ChangeResult, f.Err
+}
+
+func (f *FakeBackend) Restart(_ context.Context, opts ClusterOptions, req RestartRequest) (Change, error) {
+	f.record("Restart", opts)
+	f.LastRestart = req
+	return f.ChangeResult, f.Err
+}
+
+func (f *FakeBackend) SetSchedulable(_ context.Context, opts ClusterOptions, req SchedulableRequest) (Change, error) {
+	f.record("SetSchedulable", opts)
+	f.LastNode = req
+	return f.ChangeResult, f.Err
+}
+
+func (f *FakeBackend) DeletePod(_ context.Context, opts ClusterOptions, req DeletePodRequest) (Change, error) {
+	f.record("DeletePod", opts)
+	f.LastDelete = req
+	return f.ChangeResult, f.Err
 }

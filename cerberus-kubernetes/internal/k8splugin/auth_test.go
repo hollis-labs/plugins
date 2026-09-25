@@ -139,8 +139,50 @@ func TestPreflightNamesAMissingCredentialHelperAndTheInteractiveRequirement(t *t
 	if !strings.Contains(problems, "cerberus-test-missing-helper") {
 		t.Errorf("problems do not name the missing binary: %q", problems)
 	}
-	if !strings.Contains(problems, "interactive terminal") {
-		t.Errorf("problems do not name the TTY requirement: %q", problems)
+	if !strings.Contains(problems, "without a terminal") || !strings.Contains(problems, "IfAvailable") {
+		t.Errorf("problems do not name the TTY requirement and its fix: %q", problems)
+	}
+}
+
+// Against a real cluster, a resolvable helper set to interactiveMode Always
+// passed preflight as ready and then failed every call: client-go refuses to
+// run it without a terminal. Ready has to say so up front.
+func TestPreflightIsNotReadyForAnAlwaysInteractiveHelperEvenWhenItResolves(t *testing.T) {
+	dir := t.TempDir()
+	helper := filepath.Join(dir, "cerberus-test-present-helper")
+	if err := os.WriteFile(helper, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "config")
+	body := `apiVersion: v1
+kind: Config
+current-context: sso
+clusters:
+- name: c
+  cluster: {server: https://api.example.com:6443}
+contexts:
+- name: sso
+  context: {cluster: c, user: sso}
+users:
+- name: sso
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: cerberus-test-present-helper
+      interactiveMode: Always
+`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	check, err := Preflight(ClusterOptions{Kubeconfig: path, CredentialPath: dir})
+	if err != nil {
+		t.Fatalf("Preflight: %v", err)
+	}
+	if check.CredentialPlugin == nil || !check.CredentialPlugin.Resolved {
+		t.Fatalf("helper did not resolve: %+v", check.CredentialPlugin)
+	}
+	if check.Ready {
+		t.Error("Ready = true for a helper client-go will refuse to run")
 	}
 }
 

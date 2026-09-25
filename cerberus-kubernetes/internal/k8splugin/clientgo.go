@@ -18,20 +18,30 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
-// clientGoBackend is the only file in this package that imports client-go. The
-// ADR 0003 boundary is therefore checkable by reading the import block of every
-// other file: if a Kubernetes type appears outside here, the DTO layer has
-// been bypassed.
+// The clientgo*.go files are the only files in this package that import
+// client-go, apart from auth.go's kubeconfig loading. The ADR 0003 boundary is
+// therefore checkable by reading the import block of every other file: if a
+// Kubernetes type appears outside them, the DTO layer has been bypassed.
+// clientgo.go holds the original reads, clientgo_reads.go the later ones,
+// clientgo_writes.go every write and clientgo_metrics.go top.
+//
 // clientsetFactory resolves a connection. It is a field rather than a direct
 // call so tests can inject client-go's own fake clientset and drive every
 // method below against real typed objects — the mapping is most of the risk
 // here and it does not need a cluster to exercise.
 type clientsetFactory func(ClusterOptions) (kubernetes.Interface, *rest.Config, error)
 
+// metricsFactory builds a metrics.k8s.io client from an already-resolved
+// connection. Separate from clientsetFactory because it is a second clientset
+// over the same config, and tests inject client-go's metrics fake through it.
+type metricsFactory func(*rest.Config) (metricsclient.Interface, error)
+
 type clientGoBackend struct {
 	newClientset clientsetFactory
+	newMetrics   metricsFactory
 }
 
 var _ Backend = (*clientGoBackend)(nil)
@@ -40,13 +50,27 @@ var _ Backend = (*clientGoBackend)(nil)
 // credential: every operation resolves its own connection, because boot-time
 // resolution is what let the Docker connector cache a failure for the daemon's
 // lifetime while reporting healthy.
-func NewClientGoBackend() Backend { return &clientGoBackend{newClientset: liveClientset} }
+func NewClientGoBackend() Backend {
+	return &clientGoBackend{newClientset: liveClientset, newMetrics: liveMetrics}
+}
 
 // newFakeClientGoBackend drives the real mapping code from an injected
 // clientset. Test-only, but it lives here rather than in a _test.go file so the
 // factory field has exactly one meaning.
 func newClientGoBackendWith(factory clientsetFactory) Backend {
-	return &clientGoBackend{newClientset: factory}
+	return &clientGoBackend{newClientset: factory, newMetrics: liveMetrics}
+}
+
+func newClientGoBackendWithMetrics(factory clientsetFactory, metrics metricsFactory) Backend {
+	return &clientGoBackend{newClientset: factory, newMetrics: metrics}
+}
+
+func liveMetrics(cfg *rest.Config) (metricsclient.Interface, error) {
+	cs, err := metricsclient.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("build metrics client: %w", err)
+	}
+	return cs, nil
 }
 
 func liveClientset(opts ClusterOptions) (kubernetes.Interface, *rest.Config, error) {
@@ -176,9 +200,15 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 		namespace = ""
 	}
 	scope := namespaceScope(query.Namespace, query.AllNamespaces)
-	// Lower-case before trimming the plural, or an upper-case "DEPLOYMENTS"
-	// keeps its S and reads as an unknown kind.
-	kind := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(query.Kind)), "s")
+	// A kind filter that matched nothing is a typo, not an empty cluster, so
+	// it is rejected before anything is listed.
+	var kind string
+	if strings.TrimSpace(query.Kind) != "" {
+		kind, err = normaliseKind(query.Kind)
+		if err != nil {
+			return List[Workload]{}, err
+		}
+	}
 
 	// One budget across all three kinds, not one each: the caller asked for a
 	// bounded answer, and three kinds silently returning 3x the limit is the
@@ -191,7 +221,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 		return metav1.ListOptions{Limit: int64(remaining)}
 	}
 
-	if remaining > 0 && (kind == "" || kind == "deployment") {
+	if remaining > 0 && (kind == "" || kind == KindDeployment) {
 		list, err := cs.AppsV1().Deployments(namespace).List(ctx, page())
 		if err != nil {
 			return List[Workload]{}, fmt.Errorf("list deployments in %s: %s", scope, describeError(err, cfg.Host))
@@ -202,7 +232,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 		remaining -= len(list.Items)
 		truncated = truncated || list.Continue != ""
 	}
-	if remaining > 0 && (kind == "" || kind == "statefulset") {
+	if remaining > 0 && (kind == "" || kind == KindStatefulSet) {
 		list, err := cs.AppsV1().StatefulSets(namespace).List(ctx, page())
 		if err != nil {
 			return List[Workload]{}, fmt.Errorf("list statefulsets in %s: %s", scope, describeError(err, cfg.Host))
@@ -213,7 +243,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 		remaining -= len(list.Items)
 		truncated = truncated || list.Continue != ""
 	}
-	if remaining > 0 && (kind == "" || kind == "daemonset") {
+	if remaining > 0 && (kind == "" || kind == KindDaemonSet) {
 		list, err := cs.AppsV1().DaemonSets(namespace).List(ctx, page())
 		if err != nil {
 			return List[Workload]{}, fmt.Errorf("list daemonsets in %s: %s", scope, describeError(err, cfg.Host))
@@ -223,11 +253,6 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 		}
 		remaining -= len(list.Items)
 		truncated = truncated || list.Continue != ""
-	}
-
-	// A kind filter that matched nothing is a typo, not an empty cluster.
-	if kind != "" && kind != "deployment" && kind != "statefulset" && kind != "daemonset" {
-		return List[Workload]{}, fmt.Errorf("unknown workload kind %q: expected one of deployment, statefulset, daemonset", query.Kind)
 	}
 
 	result := newList(out, "")
@@ -516,7 +541,7 @@ func describeError(err error, server string) string {
 	case apierrors.IsUnauthorized(err):
 		return fmt.Sprintf("the API server at %s rejected our identity; the credential is missing or expired — run check_access to see which authentication mode this context uses and refresh it", server)
 	case apierrors.IsForbidden(err):
-		return fmt.Sprintf("authenticated but not permitted: %s — this connector is read-only by design, and a missing read permission is an RBAC grant to request from whoever owns the cluster", err.Error())
+		return fmt.Sprintf("authenticated but not permitted: %s — the verb and resource the API server named are the RBAC grant to request from whoever owns the cluster", err.Error())
 	case apierrors.IsNotFound(err):
 		return err.Error()
 	case apierrors.IsTimeout(err), errors.Is(err, context.DeadlineExceeded):
@@ -537,8 +562,23 @@ func describeError(err error, server string) string {
 
 	// An exec credential plugin that failed reports through here. Name it,
 	// because "Unauthorized" would send an operator to the wrong problem.
+	//
+	// client-go's own text is not passed through whole. It reads "Get <url>:
+	// getting credentials: exec: ...", and the host's redactor takes
+	// "credentials:" for a key and replaces the next word — live, it turned
+	// "exec plugin cannot support interactive mode" into "[REDACTED] plugin
+	// cannot support interactive mode". So the cause is cut out from behind
+	// that phrase, and the one case with a different recovery gets its own
+	// message rather than one pointing at the PATH.
 	if text := err.Error(); strings.Contains(text, "exec") && strings.Contains(text, "credential") {
-		return fmt.Sprintf("credential_missing: the exec credential plugin for this context failed: %s — run check_access to see whether it resolves from the daemon PATH", text)
+		cause := text
+		if _, after, found := strings.Cut(text, "getting credentials: "); found {
+			cause = after
+		}
+		if strings.Contains(cause, "interactive mode") {
+			return "credential_missing: " + interactiveAlwaysProblem("the credential plugin for this context")
+		}
+		return fmt.Sprintf("credential_missing: the exec credential plugin for this context failed (%s) — run check_access to see whether it resolves from the daemon PATH", cause)
 	}
 	return err.Error()
 }

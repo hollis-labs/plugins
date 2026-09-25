@@ -111,6 +111,34 @@ func LoadKubeconfig(path string) (*clientcmdapi.Config, error) {
 	return cfg, nil
 }
 
+// ContextNamespace is the namespace the selected kubeconfig context names, or
+// "" when it names none, there is no kubeconfig, or this is host-secret mode.
+//
+// kubectl treats a context's namespace as the default for every namespaced
+// command, and an operator who has set one expects the same here. The first
+// build ignored it and fell back to "default" — found against a real cluster,
+// and dangerous once writes exist: a same-named workload in "default" is the
+// one that would have been scaled.
+func ContextNamespace(opts ClusterOptions) string {
+	if opts.Token != "" && opts.Server != "" {
+		return ""
+	}
+	cfg, err := LoadKubeconfig(opts.Kubeconfig)
+	if err != nil {
+		// The operation itself will fail on the same kubeconfig and say why;
+		// this is only choosing a default.
+		return ""
+	}
+	name := opts.Context
+	if name == "" {
+		name = cfg.CurrentContext
+	}
+	if kctx := cfg.Contexts[name]; kctx != nil {
+		return kctx.Namespace
+	}
+	return ""
+}
+
 // ClassifyAuthMode reports how an auth-info authenticates. The order matters:
 // a kubeconfig may carry several fields and client-go's own precedence puts
 // exec first.
@@ -227,7 +255,11 @@ func Preflight(opts ClusterOptions) (AccessCheck, error) {
 		plugin, problems := inspectCredentialPlugin(info.Exec, opts.CredentialPath)
 		check.CredentialPlugin = &plugin
 		check.Problems = append(check.Problems, problems...)
-		if !plugin.Resolved {
+		// Always is not a warning. client-go refuses to run such a helper at all
+		// without a terminal — it never gets as far as a cached credential — so
+		// no call from a Cerberus-launched process can succeed. Found against a
+		// real cluster: ready used to say true here and every call then failed.
+		if !plugin.Resolved || info.Exec.InteractiveMode == clientcmdapi.AlwaysExecInteractiveMode {
 			check.Ready = false
 		}
 	case AuthModeAnonymous:
@@ -276,10 +308,21 @@ func inspectCredentialPlugin(execCfg *clientcmdapi.ExecConfig, extraPath string)
 	// start: a Cerberus-launched process has no TTY, and retrying an
 	// interactive corporate login on a timer is how an account gets locked out.
 	if execCfg.InteractiveMode == clientcmdapi.AlwaysExecInteractiveMode {
-		problems = append(problems, fmt.Sprintf(
-			"credential plugin %s requires an interactive terminal, which a Cerberus-launched process does not have; refresh the credential in a terminal first, or move this connector to a non-interactive identity", execCfg.Command))
+		problems = append(problems, interactiveAlwaysProblem("credential plugin "+execCfg.Command))
 	}
 	return plugin, problems
+}
+
+// interactiveAlwaysProblem is shared by check_access and by describeError, so
+// the preflight and the failure it predicts give the same recovery.
+//
+// Refreshing the login in a terminal does not help, which the first version of
+// this message said it would: client-go checks the mode before it runs the
+// helper, so the helper's own cached credential is never reached. IfAvailable
+// lets the helper run without a terminal and use that cache.
+func interactiveAlwaysProblem(subject string) string {
+	return fmt.Sprintf("%s is set to interactiveMode Always, and client-go will not run such a helper without a terminal, which a Cerberus-launched process does not have; "+
+		"set interactiveMode to IfAvailable in the kubeconfig so the helper can reuse a login made in a terminal, or move this connector to a non-interactive identity", subject)
 }
 
 // ResolveCredentialCommand finds an exec credential helper, per call, searching
@@ -301,12 +344,8 @@ func ResolveCredentialCommand(command, extraPath string) (string, error) {
 	}
 
 	searched := make([]string, 0, len(credentialSearchDirs)+4)
-	for _, dir := range splitPathList(extraPath) {
-		searched = append(searched, dir)
-	}
-	for _, dir := range splitPathList(os.Getenv(CredentialPathEnvVar)) {
-		searched = append(searched, dir)
-	}
+	searched = append(searched, splitPathList(extraPath)...)
+	searched = append(searched, splitPathList(os.Getenv(CredentialPathEnvVar))...)
 	searched = append(searched, credentialSearchDirs...)
 
 	for _, dir := range searched {

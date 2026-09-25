@@ -25,20 +25,45 @@ func TestConnectorIDIsNotReserved(t *testing.T) {
 	}
 }
 
-// "Work infrastructure is read-only" is a scope decision in AGENTS.md. Every
-// operation here is a read, so none may be marked destructive — and marking a
-// read destructive would make it demand --ack, emptying that gate of meaning
-// for the operations that will one day genuinely need it.
+// The host's --ack gate applies to an operation only if the manifest marks it
+// Destructive, so a write that forgot the flag would run unacknowledged. This
+// holds the manifest and writeOperations in step in both directions: every
+// write is Destructive and SupportsDry, and nothing else is either — marking a
+// read destructive would make it demand --ack and empty that gate of meaning.
 //
-// When WP-K6 unlocks writes, this test is the thing that should fail first and
-// force a deliberate change, rather than a write slipping in unannounced.
-func TestEveryOperationIsReadOnly(t *testing.T) {
+// Adding a write means adding it to writeOperations; this test is what makes
+// that a deliberate act rather than a flag someone may or may not remember.
+func TestWriteOperationsAreExactlyTheDestructiveOnes(t *testing.T) {
+	declared := map[string]bool{}
 	for _, op := range Definition().Operations {
-		if op.Destructive {
-			t.Errorf("operation %q is marked destructive; this connector is read-only (see WP-K6)", op.Name)
+		declared[op.Name] = true
+		write := writeOperations[op.Name]
+		if write && !op.Destructive {
+			t.Errorf("write operation %q is not marked Destructive; the host would run it without --ack", op.Name)
 		}
-		if op.SupportsDry {
+		if write && !op.SupportsDry {
+			t.Errorf("write operation %q does not declare SupportsDry; every write here previews with dryRun=All", op.Name)
+		}
+		if !write && op.Destructive {
+			t.Errorf("operation %q is marked Destructive but is not in writeOperations", op.Name)
+		}
+		if !write && op.SupportsDry {
 			t.Errorf("operation %q declares dry-run support, which only makes sense for a write", op.Name)
+		}
+	}
+	for name := range writeOperations {
+		if !declared[name] {
+			t.Errorf("writeOperations names %q, which the manifest does not declare", name)
+		}
+	}
+}
+
+// The manifest the host installs must carry RequiresAck for every write, since
+// that — not Destructive alone — is the field the host's policy checks.
+func TestManifestRequiresAcknowledgmentForEveryWrite(t *testing.T) {
+	for _, op := range Manifest().Operations {
+		if writeOperations[op.Name] != op.RequiresAck {
+			t.Errorf("operation %q: RequiresAck = %v, want %v", op.Name, op.RequiresAck, writeOperations[op.Name])
 		}
 	}
 }
