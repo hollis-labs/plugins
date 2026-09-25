@@ -40,7 +40,7 @@ func (b *clientGoBackend) DescribeWorkload(ctx context.Context, opts ClusterOpti
 	case KindDeployment:
 		d, err := cs.AppsV1().Deployments(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
-			return WorkloadDetail{}, fmt.Errorf("get deployment %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host))
+			return WorkloadDetail{}, coded(err, fmt.Errorf("get deployment %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host)))
 		}
 		detail.Workload = mapDeployment(d)
 		detail.Strategy = string(d.Spec.Strategy.Type)
@@ -50,7 +50,7 @@ func (b *clientGoBackend) DescribeWorkload(ctx context.Context, opts ClusterOpti
 	case KindStatefulSet:
 		s, err := cs.AppsV1().StatefulSets(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
-			return WorkloadDetail{}, fmt.Errorf("get statefulset %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host))
+			return WorkloadDetail{}, coded(err, fmt.Errorf("get statefulset %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host)))
 		}
 		detail.Workload = mapStatefulSet(s)
 		detail.Strategy = string(s.Spec.UpdateStrategy.Type)
@@ -59,7 +59,7 @@ func (b *clientGoBackend) DescribeWorkload(ctx context.Context, opts ClusterOpti
 	case KindDaemonSet:
 		d, err := cs.AppsV1().DaemonSets(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 		if err != nil {
-			return WorkloadDetail{}, fmt.Errorf("get daemonset %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host))
+			return WorkloadDetail{}, coded(err, fmt.Errorf("get daemonset %s/%s: %s", ref.Namespace, ref.Name, describeError(err, cfg.Host)))
 		}
 		detail.Workload = mapDaemonSet(d)
 		detail.Strategy = string(d.Spec.UpdateStrategy.Type)
@@ -88,7 +88,7 @@ func (b *clientGoBackend) DescribeWorkload(ctx context.Context, opts ClusterOpti
 				Limit:         DescribePodLimit,
 			})
 			if err != nil {
-				return WorkloadDetail{}, fmt.Errorf("list pods for %s %s/%s: %s", kind, ref.Namespace, ref.Name, describeError(err, cfg.Host))
+				return WorkloadDetail{}, coded(err, fmt.Errorf("list pods for %s %s/%s: %s", kind, ref.Namespace, ref.Name, describeError(err, cfg.Host)))
 			}
 			out := make([]Pod, 0, len(pods.Items))
 			for i := range pods.Items {
@@ -102,7 +102,7 @@ func (b *clientGoBackend) DescribeWorkload(ctx context.Context, opts ClusterOpti
 		FieldSelector: "involvedObject.kind=" + kind + ",involvedObject.name=" + ref.Name,
 	})
 	if err != nil {
-		return WorkloadDetail{}, fmt.Errorf("list events for %s %s/%s: %s", kind, ref.Namespace, ref.Name, describeError(err, cfg.Host))
+		return WorkloadDetail{}, coded(err, fmt.Errorf("list events for %s %s/%s: %s", kind, ref.Namespace, ref.Name, describeError(err, cfg.Host)))
 	}
 	for i := range events.Items {
 		// Filtered again here even though the field selector asked for it: the
@@ -127,8 +127,8 @@ func (b *clientGoBackend) Services(ctx context.Context, opts ClusterOptions, que
 	}
 	list, err := cs.CoreV1().Services(listNamespace(query)).List(ctx, scopedListOptions(query))
 	if err != nil {
-		return List[Service]{}, fmt.Errorf("list services in %s: %s",
-			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host))
+		return List[Service]{}, coded(err, fmt.Errorf("list services in %s: %s",
+			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host)))
 	}
 	out := make([]Service, 0, len(list.Items))
 	for i := range list.Items {
@@ -144,8 +144,8 @@ func (b *clientGoBackend) Ingresses(ctx context.Context, opts ClusterOptions, qu
 	}
 	list, err := cs.NetworkingV1().Ingresses(listNamespace(query)).List(ctx, scopedListOptions(query))
 	if err != nil {
-		return List[Ingress]{}, fmt.Errorf("list ingresses in %s: %s",
-			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host))
+		return List[Ingress]{}, coded(err, fmt.Errorf("list ingresses in %s: %s",
+			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host)))
 	}
 	out := make([]Ingress, 0, len(list.Items))
 	for i := range list.Items {
@@ -171,7 +171,7 @@ func (b *clientGoBackend) APIResources(ctx context.Context, opts ClusterOptions,
 		// thing an operator is probably trying to diagnose.
 		var groupErr *discovery.ErrGroupDiscoveryFailed
 		if !errors.As(err, &groupErr) {
-			return APIResourceList{}, fmt.Errorf("discover API resources: %s", describeError(err, cfg.Host))
+			return APIResourceList{}, coded(err, fmt.Errorf("discover API resources: %s", describeError(err, cfg.Host)))
 		}
 		for gv := range groupErr.Groups {
 			failed = append(failed, gv.String())
