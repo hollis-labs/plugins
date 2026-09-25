@@ -119,7 +119,7 @@ var writeOperations = map[string]bool{
 func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
 	result, err := p.call(ctx, req)
 	if err == nil {
-		return result, nil
+		return withOperationTelemetry(req, result), nil
 	}
 	// The code is read before scrubbing, which drops the chain; the message
 	// that carries it is scrubbed like any other.

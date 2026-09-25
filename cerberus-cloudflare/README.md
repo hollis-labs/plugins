@@ -3,7 +3,7 @@
 Cerberus connector for Cloudflare: list zones and DNS records, and create zones
 and DNS records or delete records, each with a dry-run preview.
 
-> **Pre-release — v0.1.0.** This plugin replaces the `cloudflare` connector
+> **Pre-release — v0.2.0.** This plugin replaces the `cloudflare` connector
 > Cerberus used to compile in, with the same operations, input schemas and
 > output shapes. Tested against a fake backend and recorded SDK shapes; live
 > verification is a read-only check (below). No outside users, no compatibility
