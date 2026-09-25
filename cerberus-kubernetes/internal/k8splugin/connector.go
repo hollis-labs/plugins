@@ -14,7 +14,7 @@ import (
 const ConnectorID = "kubernetes"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // Config field and secret names. The manifest declares these and the host hands
 // resolved values back under the same keys, so both halves read from one
@@ -43,12 +43,16 @@ const (
 // commands, API operations and MCP tool names from it, so adding an operation
 // here is the only registration step a plugin needs.
 //
-// Every operation is read-only. "Work infrastructure is read-only" is a scope
-// decision in AGENTS.md, not a permissions workaround: lifecycle and write
-// verbs are documented as locked in docs/plans/k8s-connector-plugin.md (WP-K6)
-// with what would unlock them, rather than built speculatively. Consequently
-// nothing here sets Destructive or SupportsDry — making a read prompt for --ack
-// would empty that gate of meaning.
+// Reads carry neither Destructive nor SupportsDry — making a read prompt for
+// --ack would empty that gate of meaning. Every write carries both: the host
+// refuses a Destructive operation without --ack, and SupportsDry is honoured
+// by sending the change to the API server with dryRun=All. writeOperations in
+// plugin.go is the one list of which operations write, and
+// TestWriteOperationsAreExactlyTheDestructiveOnes holds the two in step.
+//
+// Whether a given cluster should accept these writes at all is a policy
+// question about that cluster, not a property of the connector. See WP-K6 in
+// docs/plans/k8s-connector-plugin.md in the Cerberus repo.
 func Definition() contract.Definition {
 	return contract.Definition{
 		ID:            ConnectorID,
@@ -78,8 +82,7 @@ func Definition() contract.Definition {
 				{
 					Name:        ConfigNamespace,
 					Type:        "string",
-					Description: "Default namespace for namespaced reads.",
-					Default:     "default",
+					Description: "Namespace used when an operation names none. Empty uses the kubeconfig context's namespace, then default.",
 				},
 				{
 					Name:        ConfigCredentialPath,
@@ -138,7 +141,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"selector": stringProp("Label selector, e.g. app=web."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_pods --namespace default"},
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_pods --arg namespace=default"},
 			},
 			{
 				Name:        "list_workloads",
@@ -146,26 +149,139 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"kind": stringProp("Restrict to one of deployment, statefulset, daemonset."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_workloads --namespace default"},
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_workloads --arg namespace=default"},
 			},
 			{
 				Name:        "list_events",
 				Description: "List recent cluster events, newest last. Usually the fastest answer to why something is not starting.",
 				InputSchema: contract.ObjectSchema(pageProps(DefaultEventLimit, namespaceProps())),
-				Examples:    []string{"cerberus connectors plugin managed exec kubernetes list_events --namespace default"},
+				Examples:    []string{"cerberus connectors plugin managed exec kubernetes list_events --arg namespace=default"},
 			},
 			{
 				Name:        "get_logs",
 				Description: "Read a bounded snapshot of a container's logs. Not a stream. Note that applications routinely log their own configuration at startup, so treat the output as sensitive.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"pod":       stringProp("Pod name."),
-					"namespace": stringProp("Namespace. Empty uses the configured default."),
+					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
 					"container": stringProp("Container name. Empty uses the first container."),
 					"tail":      intProp(fmt.Sprintf("Lines from the end of the log. Defaults to %d, capped at %d.", DefaultLogTail, MaxLogTail)),
 					"previous":  boolProp("Read the previous terminated container instead."),
 					"context":   stringProp("Kubeconfig context to use."),
 				}, "pod"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes get_logs --pod web-abc123"},
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes get_logs --arg pod=web-abc123"},
+			},
+			{
+				Name:        "describe_workload",
+				Description: "Describe one deployment, statefulset or daemonset: replica counts, conditions, rollout strategy, container images, ports, resource requests and limits, which probes are set, mounted volume names, the pods it currently owns and the events recorded against it. Environment variable names are reported; values never are.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"kind":      stringProp("One of deployment, statefulset, daemonset."),
+					"name":      stringProp("Workload name."),
+					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
+					"context":   stringProp("Kubeconfig context to use."),
+				}, "kind", "name"),
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes describe_workload --arg kind=deployment --arg name=web"},
+			},
+			{
+				Name:        "list_services",
+				Description: "List services with type, cluster IP, external addresses, ports and selector.",
+				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
+					"selector": stringProp("Label selector, e.g. app=web."),
+				}))),
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_services --arg namespace=default"},
+			},
+			{
+				Name:        "list_ingresses",
+				Description: "List ingresses with class, host and path routes to their backend services, and the name of each TLS secret. Secret contents are never read.",
+				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
+					"selector": stringProp("Label selector, e.g. app=web."),
+				}))),
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_ingresses --arg all_namespaces=true"},
+			},
+			{
+				Name:        "list_api_resources",
+				Description: "List the resource types the API server serves, including custom resources, with their group, version, scope and verbs. Reports any API group that failed discovery by name rather than returning a silently partial list.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"group":   stringProp("Restrict to one API group, e.g. apps or cert-manager.io. Use core for the unnamed core group."),
+					"limit":   intProp(fmt.Sprintf("Maximum items to return. Defaults to %d, capped at %d.", DefaultAPIResourceLimit, MaxListLimit)),
+					"context": stringProp("Kubeconfig context to use."),
+				}),
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_api_resources --arg group=apps"},
+			},
+			{
+				Name:        "top",
+				Description: "Report current CPU and memory for nodes or pods, highest CPU first. Needs metrics-server; when the cluster has none, reports available: false with the reason rather than failing.",
+				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
+					"kind":     stringProp("nodes (default) or pods."),
+					"selector": stringProp("Label selector, e.g. app=web."),
+				}))),
+				Examples: []string{"cerberus connectors plugin managed exec kubernetes top --arg kind=pods --arg namespace=default"},
+			},
+
+			// --- writes: Destructive and SupportsDry, every one ---
+			{
+				Name:        "scale_workload",
+				Description: "Set the replica count of a deployment or statefulset through its scale subresource. Destructive: requires --ack. --dry-run sends the change with dryRun=All, so the API server validates it, including RBAC, without applying it.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"kind":      stringProp("deployment or statefulset."),
+					"name":      stringProp("Workload name."),
+					"replicas":  intProp("Desired replica count, zero or more."),
+					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
+					"context":   stringProp("Kubeconfig context to use."),
+				}, "kind", "name", "replicas"),
+				Examples: []string{
+					"cerberus connectors plugin managed exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --dry-run --ack",
+					"cerberus connectors plugin managed exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --ack",
+				},
+				Destructive: true,
+				SupportsDry: true,
+			},
+			{
+				Name:        "restart_workload",
+				Description: "Rolling-restart a deployment, statefulset or daemonset the way kubectl rollout restart does, by stamping the pod template; the controller replaces pods at the pace its strategy allows. Destructive: requires --ack. Supports --dry-run.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"kind":      stringProp("One of deployment, statefulset, daemonset."),
+					"name":      stringProp("Workload name."),
+					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
+					"context":   stringProp("Kubeconfig context to use."),
+				}, "kind", "name"),
+				Examples:    []string{"cerberus connectors plugin managed exec kubernetes restart_workload --arg kind=deployment --arg name=web --ack"},
+				Destructive: true,
+				SupportsDry: true,
+			},
+			{
+				Name:        "cordon_node",
+				Description: "Mark a node unschedulable so no new pods land on it. Pods already there keep running; this is not a drain. Destructive: requires --ack. Supports --dry-run.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"node":    stringProp("Node name."),
+					"context": stringProp("Kubeconfig context to use."),
+				}, "node"),
+				Examples:    []string{"cerberus connectors plugin managed exec kubernetes cordon_node --arg node=worker-1 --ack"},
+				Destructive: true,
+				SupportsDry: true,
+			},
+			{
+				Name:        "uncordon_node",
+				Description: "Mark a node schedulable again. Destructive: requires --ack. Supports --dry-run.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"node":    stringProp("Node name."),
+					"context": stringProp("Kubeconfig context to use."),
+				}, "node"),
+				Examples:    []string{"cerberus connectors plugin managed exec kubernetes uncordon_node --arg node=worker-1 --ack"},
+				Destructive: true,
+				SupportsDry: true,
+			},
+			{
+				Name:        "delete_pod",
+				Description: "Delete one pod. Reports whether a controller owns it and will replace it, or whether the delete is permanent. Destructive: requires --ack. Supports --dry-run.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"pod":                  stringProp("Pod name."),
+					"namespace":            stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
+					"grace_period_seconds": intProp("Override the pod's termination grace period. Zero skips graceful shutdown."),
+					"context":              stringProp("Kubeconfig context to use."),
+				}, "pod"),
+				Examples:    []string{"cerberus connectors plugin managed exec kubernetes delete_pod --arg pod=web-abc123 --dry-run --ack"},
+				Destructive: true,
+				SupportsDry: true,
 			},
 		},
 	}
@@ -201,7 +317,7 @@ func mergeProps(base, extra map[string]any) map[string]any {
 
 func namespaceProps() map[string]any {
 	return map[string]any{
-		"namespace":      stringProp("Namespace to read. Empty uses the configured default."),
+		"namespace":      stringProp("Namespace to read. Empty uses the configured namespace, then the kubeconfig context's, then default."),
 		"all_namespaces": boolProp("Read across every namespace instead. Deliberate rather than implied by an empty namespace."),
 	}
 }

@@ -75,6 +75,27 @@ func TestNamespaceFallsBackFromArgumentToConfigToDefault(t *testing.T) {
 		t.Errorf("namespace = %q, want the configured default", fake.LastPodQuery.Namespace)
 	}
 
+	// With no argument and no configured namespace, the kubeconfig context's
+	// namespace comes before "default" — as it does for kubectl.
+	kubeconfig := writeKubeconfig(t, t.TempDir()) // current-context prod, namespace apps
+	fromContext := newTestPlugin(t, fake, map[string]string{ConfigKubeconfig: kubeconfig})
+	call(t, fromContext, "list_pods", nil)
+	if fake.LastPodQuery.Namespace != "apps" {
+		t.Errorf("namespace = %q, want the kubeconfig context's", fake.LastPodQuery.Namespace)
+	}
+	// A per-call context switch changes which context's namespace applies; dev
+	// names none, so it falls through to default.
+	call(t, fromContext, "list_pods", map[string]any{"context": "dev"})
+	if fake.LastPodQuery.Namespace != DefaultNamespace {
+		t.Errorf("namespace = %q for a context with none, want %q", fake.LastPodQuery.Namespace, DefaultNamespace)
+	}
+	// The connector's configured namespace outranks the context's.
+	configured := newTestPlugin(t, fake, map[string]string{ConfigKubeconfig: kubeconfig, ConfigNamespace: "configured"})
+	call(t, configured, "list_pods", nil)
+	if fake.LastPodQuery.Namespace != "configured" {
+		t.Errorf("namespace = %q, want the configured namespace over the context's", fake.LastPodQuery.Namespace)
+	}
+
 	bare := newTestPlugin(t, fake, nil)
 	call(t, bare, "list_pods", nil)
 	if fake.LastPodQuery.Namespace != DefaultNamespace {
@@ -164,9 +185,24 @@ func TestEveryDeclaredOperationIsServed(t *testing.T) {
 	p := newTestPlugin(t, fake, map[string]string{ConfigKubeconfig: path})
 
 	for _, op := range Definition().Operations {
+		// Supply every argument the schema marks required, typed as the schema
+		// says, and preview writes rather than applying them.
 		args := map[string]any{}
-		if op.Name == "get_logs" {
-			args["pod"] = "web-1"
+		props, _ := op.InputSchema["properties"].(map[string]any)
+		required, _ := op.InputSchema["required"].([]string)
+		for _, name := range required {
+			prop, _ := props[name].(map[string]any)
+			switch {
+			case prop["type"] == "integer":
+				args[name] = float64(1)
+			case name == "kind":
+				args[name] = "deployment"
+			default:
+				args[name] = "x"
+			}
+		}
+		if writeOperations[op.Name] {
+			args["dry_run"] = true
 		}
 		_, err := p.MCPCallTool(context.Background(), subprocess.MCPCallRequest{
 			ToolName:  cerbplugin.ToolNameForOperation(ConnectorID, op.Name),
