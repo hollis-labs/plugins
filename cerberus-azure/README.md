@@ -3,7 +3,7 @@
 Cerberus connector for Azure Resource Manager — read-only inventory, and the
 model deployments an AI Services account actually serves.
 
-> **Pre-release — v0.1.0.** Six read-only operations. No provisioning, write or
+> **Pre-release — v0.2.0.** Six read-only operations. No provisioning, write or
 > lifecycle operations are implemented; cost reporting, Key Vault and Resource
 > Graph were each probed and are documented as blocked with what would unlock
 > them. No outside users, no compatibility guarantees, no support channel.
