@@ -4,7 +4,7 @@ Cerberus connector for Laravel Forge: list servers and sites, read a site's
 deployment script, and update that script, trigger a deployment or run a
 command on a site, with dry-run previews for all three writes.
 
-> **Pre-release — v0.1.0.** This plugin replaces the `forge` connector Cerberus
+> **Pre-release — v0.2.0.** This plugin replaces the `forge` connector Cerberus
 > used to compile in, with the same operations, input schemas and output
 > shapes. It has been tested against a fake backend and recorded API response
 > shapes. Forge has no read-only API token, so the live check runs only reads
