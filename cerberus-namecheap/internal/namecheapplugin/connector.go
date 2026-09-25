@@ -18,7 +18,7 @@ import (
 const ConnectorID = "namecheap"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // The manifest secret names, and the keys the host uses in the init config it
 // hands us. They must stay what they are: existing credential references were

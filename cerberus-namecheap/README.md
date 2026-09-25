@@ -4,7 +4,7 @@ Cerberus connector for Namecheap domains: list domains, read a domain's status
 and DNS records, and replace a domain's DNS record set or nameservers, with
 dry-run previews for both writes.
 
-> **Pre-release — v0.1.0.** This plugin replaces the `namecheap` connector
+> **Pre-release — v0.2.0.** This plugin replaces the `namecheap` connector
 > Cerberus used to compile in, with the same operations (less two that only
 > ever refused), input schemas and output shapes. It has been tested against a
 > fake backend and recorded API responses. Namecheap has no read-only API key,
