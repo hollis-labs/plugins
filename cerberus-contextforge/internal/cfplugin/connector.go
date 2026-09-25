@@ -10,7 +10,7 @@ import (
 const ConnectorID = "contextforge"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 // Definition declares what this connector does. The host derives the MCP tool
 // names from it, so adding an operation here is the only registration step a
