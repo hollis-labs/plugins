@@ -83,7 +83,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List the subscriptions this credential can see: id, display name, state, tenant.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec azure list_subscriptions"},
+				Examples:    []string{"cerberus connectors exec azure list_subscriptions"},
 			},
 			{
 				Name:        OpGetSubscription,
@@ -97,7 +97,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec azure get_subscription"},
+				Examples: []string{"cerberus connectors exec azure get_subscription"},
 			},
 			{
 				Name:        OpListResourceGroups,
@@ -111,7 +111,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec azure list_resource_groups"},
+				Examples: []string{"cerberus connectors exec azure list_resource_groups"},
 			},
 			{
 				Name:        OpListResources,
@@ -125,7 +125,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec azure list_resources"},
+				Examples: []string{"cerberus connectors exec azure list_resources"},
 			},
 			{
 				Name:        OpListAIAccounts,
@@ -139,7 +139,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec azure list_ai_accounts"},
+				Examples: []string{"cerberus connectors exec azure list_ai_accounts"},
 			},
 			{
 				Name:        OpListModelDeployments,
@@ -156,8 +156,8 @@ func Definition() contract.Definition {
 					ArgResourceGroup:  contract.StringSchema("Resource group holding the account. Looked up from the account name when omitted."),
 				}),
 				Examples: []string{
-					"cerberus connectors plugin managed exec azure list_model_deployments",
-					"cerberus connectors plugin managed exec azure list_model_deployments --arg account=example-ai-account",
+					"cerberus connectors exec azure list_model_deployments",
+					"cerberus connectors exec azure list_model_deployments --arg account=example-ai-account",
 				},
 			},
 		},

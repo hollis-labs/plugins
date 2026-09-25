@@ -484,7 +484,7 @@ func (b *sdkBackend) describeError(action, subscriptionID string, err error) err
 			}
 			return cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs, fmt.Errorf(
 				"%s: not found (404, %s). Check the names — "+
-					"`cerberus connectors plugin managed exec azure %s` shows what is actually there: %w",
+					"`cerberus connectors exec azure %s` shows what is actually there: %w",
 				where, respErr.ErrorCode, hint, err))
 		}
 	}
