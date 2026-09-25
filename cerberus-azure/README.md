@@ -33,8 +33,8 @@ them.
 | `list_model_deployments` | `subscription_id`, `account`, `resource_group` | Deployment name, model, version, sku, capacity. With no `account` it walks every AI account in the subscription. |
 
 ```bash
-cerberus connectors plugin managed exec azure list_model_deployments
-cerberus connectors plugin managed exec azure list_model_deployments --arg account=my-ai-account
+cerberus connectors exec azure list_model_deployments
+cerberus connectors exec azure list_model_deployments --arg account=my-ai-account
 ```
 
 `subscription_id` is accepted by every operation, so reading a second
