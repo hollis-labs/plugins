@@ -16,7 +16,7 @@ const Version = "0.1.0"
 // names from it, so adding an operation here is the only registration step a
 // plugin needs — unlike a built-in, which touches five files.
 func Definition() contract.Definition {
-	return contract.Definition{
+	return contract.Finalize(contract.Definition{
 		ID:            ConnectorID,
 		Version:       Version,
 		ResourceTypes: []string{string(resource.Server)},
@@ -40,30 +40,54 @@ func Definition() contract.Definition {
 		Operations: []contract.Operation{
 			{
 				Name:        "get_health",
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "contextforge.gateway"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "Report ContextForge reachability. /health is open, so this works without a token and is the fastest way to tell a down tunnel from a down gateway.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec contextforge get_health"},
 			},
 			{
 				Name:        "list_gateways",
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "contextforge.gateway"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List upstream MCP server registrations. Credentials are never returned: auth_type reports the kind of auth configured, auth_configured whether any is set.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_gateways"},
 			},
 			{
 				Name:        "list_virtual_servers",
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "contextforge.gateway"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List the composed catalogs. These have no auth fields; auth lives on the gateway.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_virtual_servers"},
 			},
 			{
 				Name:        "list_tools",
+				Effect:      contract.EffectReadSensitive,
+				Target:      contract.TargetDescriptor{Kind: "contextforge.gateway"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputFreeText,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List tool registrations. Names are gateway-prefixed and change when a virtual server is renamed, so read them here rather than guessing.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec contextforge list_tools"},
 			},
 		},
-	}
+	})
 }
 
 // Manifest is what plugin.yaml embeds.
