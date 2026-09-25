@@ -76,6 +76,20 @@ func callTool(p *Plugin, operation string, args map[string]any) (subprocess.MCPC
 	})
 }
 
+// failure is a refused call's code and message, whether it came back coded (a
+// tool error result) or as an uncoded error. A call that succeeded reports ok
+// false.
+func failure(result subprocess.MCPCallResult, err error) (code cerbplugin.ErrorCode, message string, ok bool) {
+	if err != nil {
+		return "", err.Error(), true
+	}
+	if !result.IsError {
+		return "", "", false
+	}
+	code, message, _ = cerbplugin.ParseErrorResult(result.Content)
+	return code, message, true
+}
+
 func mustCall(t *testing.T, p *Plugin, operation string, args map[string]any) subprocess.MCPCallResult {
 	t.Helper()
 	result, err := callTool(p, operation, args)
@@ -213,9 +227,9 @@ func TestCreateDNSRecordRejectsBadNumbers(t *testing.T) {
 	args := validArgs("create_dns_record")
 	args["ttl"] = "soon"
 	args["priority"] = float64(-1)
-	_, err := callTool(loadedPlugin(t, backend), "create_dns_record", args)
-	if err == nil || !strings.Contains(err.Error(), "ttl must be a whole number") || !strings.Contains(err.Error(), "priority must not be negative") {
-		t.Fatalf("err = %v", err)
+	code, message, failed := failure(callTool(loadedPlugin(t, backend), "create_dns_record", args))
+	if !failed || code != cerbplugin.ErrorInvalidArgs || !strings.Contains(message, "ttl must be a whole number") || !strings.Contains(message, "priority must not be negative") {
+		t.Fatalf("code = %q, message = %q", code, message)
 	}
 	if len(backend.calls) != 0 {
 		t.Fatalf("backend called despite invalid arguments: %+v", backend.calls)
@@ -232,13 +246,13 @@ func TestDeleteDNSRecordReportsWhatWasDeleted(t *testing.T) {
 
 func TestMissingArgumentsAreAllReported(t *testing.T) {
 	backend := &fakeBackend{}
-	_, err := callTool(loadedPlugin(t, backend), "create_dns_record", map[string]any{argAcknowledged: true})
-	if err == nil {
-		t.Fatal("want an error")
+	code, message, failed := failure(callTool(loadedPlugin(t, backend), "create_dns_record", map[string]any{argAcknowledged: true}))
+	if !failed || code != cerbplugin.ErrorInvalidArgs {
+		t.Fatalf("want an invalid_args refusal, got code %q: %q", code, message)
 	}
 	for _, key := range []string{"zone_id", "type", "name", "content"} {
-		if !strings.Contains(err.Error(), key+" is required") {
-			t.Errorf("error does not name %s: %v", key, err)
+		if !strings.Contains(message, key+" is required") {
+			t.Errorf("refusal does not name %s: %q", key, message)
 		}
 	}
 	if len(backend.calls) != 0 {
@@ -254,9 +268,9 @@ func TestUnacknowledgedWriteIsRefused(t *testing.T) {
 			backend := &fakeBackend{}
 			args := validArgs(op)
 			delete(args, argAcknowledged)
-			_, err := callTool(loadedPlugin(t, backend), op, args)
-			if err == nil || !strings.Contains(err.Error(), "requires acknowledgment") {
-				t.Fatalf("err = %v, want an acknowledgment refusal", err)
+			_, message, failed := failure(callTool(loadedPlugin(t, backend), op, args))
+			if !failed || !strings.Contains(message, "requires acknowledgment") {
+				t.Fatalf("message = %q, want an acknowledgment refusal", message)
 			}
 			if len(backend.calls) != 0 {
 				t.Fatalf("backend called without acknowledgment: %+v", backend.calls)
@@ -313,9 +327,9 @@ func TestDryRunPreviewsWithoutCallingCloudflare(t *testing.T) {
 
 func TestDryRunOnAReadIsRefused(t *testing.T) {
 	backend := &fakeBackend{}
-	_, err := callTool(loadedPlugin(t, backend), "list_zones", map[string]any{argDryRun: true})
-	if err == nil || !strings.Contains(err.Error(), "no dry-run preview") {
-		t.Fatalf("err = %v", err)
+	code, message, failed := failure(callTool(loadedPlugin(t, backend), "list_zones", map[string]any{argDryRun: true}))
+	if !failed || code != cerbplugin.ErrorInvalidArgs || !strings.Contains(message, "no dry-run preview") {
+		t.Fatalf("code = %q, message = %q", code, message)
 	}
 	if len(backend.calls) != 0 {
 		t.Fatalf("backend called: %+v", backend.calls)

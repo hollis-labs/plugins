@@ -5,6 +5,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 )
 
 // Argument keys the host adds to a call itself, from --dry-run and --ack. They
@@ -37,7 +39,9 @@ func (a *argMap) err() error {
 	if len(a.problems) == 0 {
 		return nil
 	}
-	return fmt.Errorf("invalid arguments: %s", strings.Join(a.problems, "; "))
+	// Coded, so the host reports the caller's mistake as invalid_args, the
+	// same code the digitalocean plugin uses for its argument refusals.
+	return cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs, fmt.Errorf("invalid arguments: %s", strings.Join(a.problems, "; ")))
 }
 
 func (a *argMap) str(key string) string {
