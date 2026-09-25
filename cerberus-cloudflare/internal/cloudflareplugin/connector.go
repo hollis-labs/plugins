@@ -83,7 +83,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List Cloudflare zones.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
-				Examples:    []string{"cerberus connectors plugin managed exec cloudflare list_zones"},
+				Examples:    []string{"cerberus connectors exec cloudflare list_zones"},
 			},
 			{
 				Name:        "create_zone",
@@ -96,8 +96,8 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "Create a Cloudflare zone in an account.",
 				Examples: []string{
-					"cerberus connectors plugin managed exec cloudflare create_zone --arg account_id=<account-id> --arg name=example.com --arg type=full --dry-run",
-					"cerberus connectors plugin managed exec cloudflare create_zone --arg account_id=<account-id> --arg name=example.com --arg type=full --ack",
+					"cerberus connectors exec cloudflare create_zone --arg account_id=<account-id> --arg name=example.com --arg type=full --dry-run",
+					"cerberus connectors exec cloudflare create_zone --arg account_id=<account-id> --arg name=example.com --arg type=full --ack",
 				},
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"account_id": contract.StringSchema("Cloudflare account ID."),
@@ -117,7 +117,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"zone_id": contract.StringSchema("Cloudflare zone ID."),
 				}, "zone_id"),
-				Examples: []string{"cerberus connectors plugin managed exec cloudflare list_dns_records --arg zone_id=<zone-id>"},
+				Examples: []string{"cerberus connectors exec cloudflare list_dns_records --arg zone_id=<zone-id>"},
 			},
 			{
 				Name:        "create_dns_record",
@@ -130,8 +130,8 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "Create a DNS record in a Cloudflare zone.",
 				Examples: []string{
-					"cerberus connectors plugin managed exec cloudflare create_dns_record --arg zone_id=<zone-id> --arg type=A --arg name=app --arg content=203.0.113.10 --arg ttl=300 --dry-run",
-					"cerberus connectors plugin managed exec cloudflare create_dns_record --arg zone_id=<zone-id> --arg type=CNAME --arg name=www --arg content=app.example.com --ack",
+					"cerberus connectors exec cloudflare create_dns_record --arg zone_id=<zone-id> --arg type=A --arg name=app --arg content=203.0.113.10 --arg ttl=300 --dry-run",
+					"cerberus connectors exec cloudflare create_dns_record --arg zone_id=<zone-id> --arg type=CNAME --arg name=www --arg content=app.example.com --ack",
 				},
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"zone_id":  contract.StringSchema("Cloudflare zone ID."),
@@ -153,8 +153,8 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "Delete a DNS record from a Cloudflare zone.",
 				Examples: []string{
-					"cerberus connectors plugin managed exec cloudflare delete_dns_record --arg zone_id=<zone-id> --arg record_id=<record-id> --dry-run",
-					"cerberus connectors plugin managed exec cloudflare delete_dns_record --arg zone_id=<zone-id> --arg record_id=<record-id> --ack",
+					"cerberus connectors exec cloudflare delete_dns_record --arg zone_id=<zone-id> --arg record_id=<record-id> --dry-run",
+					"cerberus connectors exec cloudflare delete_dns_record --arg zone_id=<zone-id> --arg record_id=<record-id> --ack",
 				},
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"zone_id":   contract.StringSchema("Cloudflare zone ID."),
