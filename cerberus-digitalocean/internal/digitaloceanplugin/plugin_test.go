@@ -257,7 +257,9 @@ func TestCreateDropletSendsTheRequestAndReadsItBack(t *testing.T) {
 func TestCreateDropletReportsTheIDWhenTheReadBackFails(t *testing.T) {
 	backend := &fakeBackend{createdID: 77, getErr: errors.New("read failed")}
 	result := mustCall(t, loadedPlugin(t, backend), "create_droplet", validArgs("create_droplet"))
-	if string(result.Content) != `{"droplet_id":77}` {
+	// The host strips telemetry before the result reaches a caller.
+	content, _ := cerbplugin.SplitTelemetry(result.Content)
+	if string(content) != `{"droplet_id":77}` {
 		t.Fatalf("result = %s, want only the droplet id", result.Content)
 	}
 }
