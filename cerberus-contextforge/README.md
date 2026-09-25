@@ -4,7 +4,7 @@ Cerberus connector for the [ContextForge](https://github.com/IBM/mcp-context-for
 MCP gateway: read the gateways, virtual servers and tools a ContextForge
 instance has registered.
 
-> **Pre-release — v0.1.0.** Four read-only operations. No write, registration
+> **Pre-release — v0.2.0.** Four read-only operations. No write, registration
 > or lifecycle operations are implemented. Verified against a live gateway
 > reached over a loopback tunnel; no outside users, no compatibility
 > guarantees, no support channel. `go-contextforge` is itself a v0.x dependency
