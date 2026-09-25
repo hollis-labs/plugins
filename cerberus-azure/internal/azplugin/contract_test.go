@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	contract "github.com/hollis-labs/cerberus/pkg/connector"
+	"github.com/hollis-labs/cerberus/pkg/connector/conformance"
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"gopkg.in/yaml.v3"
 )
@@ -56,5 +57,30 @@ func TestGeneratedPluginYAMLCarriesTheContract(t *testing.T) {
 	}
 	if gaps := spec.Cerberus.Connector.ContractGaps(); len(gaps) != 0 {
 		t.Fatalf("plugin.yaml reports contract gaps: %v", gaps)
+	}
+}
+
+// The host's own conformance suite (pkg/connector/conformance), run against
+// this plugin: the manifest validates, has no contract gaps, and every
+// operation's derived ack, destructive, preview, hints and advertised schema
+// agree with its contract. The same check runs over the plugin.yaml that
+// write-dist generates, since that is what the host installs.
+func TestManifestConforms(t *testing.T) {
+	if problems := conformance.Definition(Definition()); len(problems) > 0 {
+		t.Errorf("Definition does not conform:\n  %s", conformance.Report(problems))
+	}
+	if problems := conformance.Manifest(Manifest()); len(problems) > 0 {
+		t.Errorf("Manifest does not conform:\n  %s", conformance.Report(problems))
+	}
+	data, err := yaml.Marshal(PluginYAML())
+	if err != nil {
+		t.Fatalf("marshal plugin.yaml: %v", err)
+	}
+	var spec cerbplugin.PluginYAML
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		t.Fatalf("parse plugin.yaml: %v", err)
+	}
+	if problems := conformance.Manifest(spec.Cerberus.Connector); len(problems) > 0 {
+		t.Errorf("generated plugin.yaml does not conform:\n  %s", conformance.Report(problems))
 	}
 }
