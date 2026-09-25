@@ -1,10 +1,10 @@
 github.com/cloudflare/cloudflare-go/v4 v4.6.0 h1:ZaWwXjHFR5NoY8UEf4QFY0g3KTi72kqqEXpajV610/o=
 github.com/cloudflare/cloudflare-go/v4 v4.6.0/go.mod h1:XcYpLe7Mf6FN87kXzEWVnJ6z+vskW/k6eUqgqfhFE9k=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/hollis-labs/cerberus v0.4.0-beta.2 h1:hys65w7FPDIfWqtj82YMrbJebMwXwQG1rXdayQtV0vA=
-github.com/hollis-labs/cerberus v0.4.0-beta.2/go.mod h1:z1i4AW352oQHK7KgOtylCcDPd075uCoZRQaWa/e9Gh0=
-github.com/hollis-labs/plugin-sdk v0.4.0 h1:e7LTkwJQL+n9kRf9IUAUCUeydS11XIdjGIfFjP2PyBg=
-github.com/hollis-labs/plugin-sdk v0.4.0/go.mod h1:+FcTow9tco3OoINjc5LSCkm8RZzWSLNG1tTCzLSQuHs=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925202736-a696fb700955 h1:2qpdHA9JBrJtMQp3Qsp4oCl8oSzfI4uo6fHx5p2J8XA=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925202736-a696fb700955/go.mod h1:WR0jem10nqUvyRvlPsBeb+Y/N48aUnQHyyEUinTzqGk=
+github.com/hollis-labs/plugin-sdk v0.5.0 h1:xcMeVrYqIKz00fO2c2/asD/yDrb+pitU9p4hvqHUye8=
+github.com/hollis-labs/plugin-sdk v0.5.0/go.mod h1:+FcTow9tco3OoINjc5LSCkm8RZzWSLNG1tTCzLSQuHs=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=

@@ -37,11 +37,11 @@ const (
 )
 
 // Definition declares what this connector does. The operations, their input
-// schemas and their destructive/dry-run flags match the compiled-in connector
+// schemas and their effects match the compiled-in connector
 // this plugin replaces, so a caller sees the same contract either side of the
 // move.
 func Definition() contract.Definition {
-	return contract.Definition{
+	return contract.Finalize(contract.Definition{
 		ID:            ConnectorID,
 		Version:       Version,
 		ResourceTypes: []string{string(resource.Domain)},
@@ -69,21 +69,31 @@ func Definition() contract.Definition {
 				Required:    true,
 			}},
 		},
-		// One literal per operation, so declaring the P1-1 contract is one added
-		// line in each.
-		// TODO(P1-1): once pkg/connector carries `effect`, declare it per
-		// operation: list_zones and list_dns_records `read`; create_zone and
-		// create_dns_record `write`; delete_dns_record `destructive`. Keep
-		// Destructive and SupportsDry on the three writes.
+		// The contract matches the compiled-in connector's, except the
+		// preview: here it is the plugin's claim, which the host cannot verify.
+		// Finalize derives destructive, requires_ack and supports_dry from it.
 		Operations: []contract.Operation{
 			{
 				Name:        "list_zones",
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "cloudflare.account"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List Cloudflare zones.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec cloudflare list_zones"},
 			},
 			{
 				Name:        "create_zone",
+				Effect:      contract.EffectWrite,
+				Reversible:  true,
+				Target:      contract.TargetDescriptor{Kind: "cloudflare.account", From: []string{"account_id"}},
+				Preview:     contract.PreviewPlugin,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "Create a Cloudflare zone in an account.",
 				Examples: []string{
 					"cerberus connectors plugin managed exec cloudflare create_zone --arg account_id=<account-id> --arg name=example.com --arg type=full --dry-run",
@@ -94,11 +104,15 @@ func Definition() contract.Definition {
 					"name":       contract.StringSchema("Zone name such as example.com."),
 					"type":       contract.StringSchema("Zone type: full or partial."),
 				}, "account_id", "name"),
-				Destructive: true,
-				SupportsDry: true,
 			},
 			{
 				Name:        "list_dns_records",
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "cloudflare.zone", From: []string{"zone_id"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List DNS records for a Cloudflare zone.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"zone_id": contract.StringSchema("Cloudflare zone ID."),
@@ -107,6 +121,13 @@ func Definition() contract.Definition {
 			},
 			{
 				Name:        "create_dns_record",
+				Effect:      contract.EffectWrite,
+				Reversible:  true,
+				Target:      contract.TargetDescriptor{Kind: "cloudflare.zone", From: []string{"zone_id"}},
+				Preview:     contract.PreviewPlugin,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "Create a DNS record in a Cloudflare zone.",
 				Examples: []string{
 					"cerberus connectors plugin managed exec cloudflare create_dns_record --arg zone_id=<zone-id> --arg type=A --arg name=app --arg content=203.0.113.10 --arg ttl=300 --dry-run",
@@ -121,11 +142,15 @@ func Definition() contract.Definition {
 					"proxied":  map[string]any{"type": "boolean", "description": "Whether to proxy the record through Cloudflare."},
 					"priority": contract.IntegerSchema("Priority for MX records."),
 				}, "zone_id", "type", "name", "content"),
-				Destructive: true,
-				SupportsDry: true,
 			},
 			{
 				Name:        "delete_dns_record",
+				Effect:      contract.EffectDestructive,
+				Target:      contract.TargetDescriptor{Kind: "cloudflare.dns_record", From: []string{"zone_id", "record_id"}},
+				Preview:     contract.PreviewPlugin,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "Delete a DNS record from a Cloudflare zone.",
 				Examples: []string{
 					"cerberus connectors plugin managed exec cloudflare delete_dns_record --arg zone_id=<zone-id> --arg record_id=<record-id> --dry-run",
@@ -135,11 +160,9 @@ func Definition() contract.Definition {
 					"zone_id":   contract.StringSchema("Cloudflare zone ID."),
 					"record_id": contract.StringSchema("Cloudflare DNS record ID."),
 				}, "zone_id", "record_id"),
-				Destructive: true,
-				SupportsDry: true,
 			},
 		},
-	}
+	})
 }
 
 // Manifest is what plugin.yaml embeds.

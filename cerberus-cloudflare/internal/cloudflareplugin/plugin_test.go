@@ -136,13 +136,17 @@ func TestOperationSetMatchesTheBuiltIn(t *testing.T) {
 	}
 }
 
-func TestWriteOperationsAreExactlyTheDestructiveOnes(t *testing.T) {
+// A write is ack-gated and previews; a read is neither. Only delete_dns_record
+// is destructive by effect, the creates are writes.
+func TestWriteOperationsAreExactlyTheAckGatedOnes(t *testing.T) {
 	for _, op := range Definition().Operations {
-		if op.Destructive != writeOperations[op.Name] {
-			t.Errorf("%s: Destructive=%v but writeOperations says %v", op.Name, op.Destructive, writeOperations[op.Name])
+		write := writeOperations[op.Name]
+		if op.RequiresAck != write || op.SupportsDry != write || op.Effect.ReadOnly() == write {
+			t.Errorf("%s: effect=%s requires_ack=%v supports_dry=%v, but writeOperations says write=%v",
+				op.Name, op.Effect, op.RequiresAck, op.SupportsDry, write)
 		}
-		if op.SupportsDry != writeOperations[op.Name] {
-			t.Errorf("%s: SupportsDry=%v; every write previews and no read does", op.Name, op.SupportsDry)
+		if op.Destructive != (op.Name == "delete_dns_record") {
+			t.Errorf("%s: Destructive=%v; only delete_dns_record is destructive", op.Name, op.Destructive)
 		}
 	}
 }
