@@ -56,17 +56,17 @@ func TestRefusalsSurviveRedaction(t *testing.T) {
 	for op := range writeOperations {
 		args := validArgs(op)
 		delete(args, argAcknowledged)
-		_, err := callTool(p, op, args)
-		if err == nil {
+		_, message, failed := failure(callTool(p, op, args))
+		if !failed {
 			t.Fatalf("%s: want an acknowledgment refusal", op)
 		}
-		assertSurvivesRedaction(t, op+" acknowledgment refusal", err.Error())
+		assertSurvivesRedaction(t, op+" acknowledgment refusal", message)
 	}
-	_, err := callTool(p, "list_zones", map[string]any{argDryRun: true})
-	if err == nil {
+	_, message, failed := failure(callTool(p, "list_zones", map[string]any{argDryRun: true}))
+	if !failed {
 		t.Fatal("want a dry-run refusal")
 	}
-	assertSurvivesRedaction(t, "dry-run refusal", err.Error())
+	assertSurvivesRedaction(t, "dry-run refusal", message)
 
 	status, _ := (&Plugin{}).Health(context.Background())
 	assertSurvivesRedaction(t, "health", status.Message)

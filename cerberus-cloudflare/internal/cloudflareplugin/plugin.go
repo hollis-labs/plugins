@@ -174,7 +174,8 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 	if writeOperations[op.Name] {
 		dryRun = p.writeMode(args, op.Name)
 	} else if args.boolean(argDryRun) {
-		return subprocess.MCPCallResult{}, fmt.Errorf("%s is read-only and has no dry-run preview; run it without --dry-run", op.Name)
+		return subprocess.MCPCallResult{}, cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs,
+			fmt.Errorf("%s is read-only and has no dry-run preview; run it without --dry-run", op.Name))
 	}
 
 	switch op.Name {
