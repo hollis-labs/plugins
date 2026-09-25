@@ -14,6 +14,14 @@ import (
 // Field names and JSON tags match the compiled-in connector this plugin
 // replaces, so output is unchanged for anyone reading it.
 
+// DropletList is list_droplets' result. The walk over pages is capped (see
+// maxListPages), and Truncated says when the cap cut the list short, so a
+// caller is never handed a partial inventory that looks complete.
+type DropletList struct {
+	Droplets  []DropletStatus `json:"droplets"`
+	Truncated bool            `json:"truncated"`
+}
+
 // DropletStatus is the normalized view of a droplet. The SDK type also carries
 // private and IPv6 networks, tags, volume ids, the VPC, kernel, backup and
 // snapshot ids and feature flags; none of them is returned.

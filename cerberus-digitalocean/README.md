@@ -15,7 +15,7 @@ writes.
 
 | Operation | Effect | Acknowledgment | Dry run | Notes |
 |---|---|---|---|---|
-| `list_droplets` | read | no | no | Every droplet the token can see, across all pages. |
+| `list_droplets` | read | no | no | Every droplet the token can see, across all pages, as `{droplets, truncated}`. The walk stops at 100 pages of 200; `truncated: true` says the cap cut the list short. |
 | `get_droplet` | read | no | no | `droplet_id`. |
 | `status` | read | no | no | `droplet_id`. Returns the normalized state: `running`, `stopped`, `starting`, `destroyed` or `unknown`. |
 | `create_droplet` | write, **billable** | yes | yes | `name`, `region`, `size`, `image`; optional `ssh_keys`, `user_data`. The user_data runs as root. |

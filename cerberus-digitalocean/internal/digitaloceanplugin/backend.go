@@ -6,7 +6,7 @@ import "context"
 // package's DTOs, never godo types, so the SDK is confined to sdk_backend.go
 // and a connector built on Backend structurally cannot return a vendor struct.
 type Backend interface {
-	ListDroplets(ctx context.Context) ([]DropletStatus, error)
+	ListDroplets(ctx context.Context) (DropletList, error)
 	GetDroplet(ctx context.Context, id int) (*DropletStatus, error)
 	// CreateDroplet returns the new droplet's id. The caller reads the droplet
 	// back with GetDroplet, as the compiled-in connector did.

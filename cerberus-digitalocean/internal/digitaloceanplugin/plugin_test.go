@@ -31,9 +31,9 @@ func (f *fakeBackend) record(method string, args ...any) {
 	f.calls = append(f.calls, call{method, args})
 }
 
-func (f *fakeBackend) ListDroplets(context.Context) ([]DropletStatus, error) {
+func (f *fakeBackend) ListDroplets(context.Context) (DropletList, error) {
 	f.record("ListDroplets")
-	return f.droplets, f.err
+	return DropletList{Droplets: f.droplets}, f.err
 }
 
 func (f *fakeBackend) GetDroplet(_ context.Context, id int) (*DropletStatus, error) {
@@ -200,9 +200,9 @@ func TestGatesMatchTheContract(t *testing.T) {
 func TestListDropletsReturnsDTOs(t *testing.T) {
 	created := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	backend := &fakeBackend{droplets: []DropletStatus{{ID: 1, Name: "a", Status: "active", CreatedAt: created}}}
-	got := decode[[]DropletStatus](t, mustCall(t, loadedPlugin(t, backend), "list_droplets", nil))
-	if len(got) != 1 || got[0].ID != 1 || !got[0].CreatedAt.Equal(created) {
-		t.Fatalf("droplets = %+v", got)
+	got := decode[DropletList](t, mustCall(t, loadedPlugin(t, backend), "list_droplets", nil))
+	if len(got.Droplets) != 1 || got.Droplets[0].ID != 1 || !got.Droplets[0].CreatedAt.Equal(created) || got.Truncated {
+		t.Fatalf("list = %+v", got)
 	}
 }
 

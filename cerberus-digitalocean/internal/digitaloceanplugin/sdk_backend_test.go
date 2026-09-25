@@ -37,12 +37,13 @@ func TestSDKBackendListDropletsReadsEveryPage(t *testing.T) {
 
 	client := godo.NewClient(server.Client())
 	client.BaseURL, _ = url.Parse(server.URL + "/")
-	droplets, err := newSDKBackendWithClient(client).ListDroplets(context.Background())
+	list, err := newSDKBackendWithClient(client).ListDroplets(context.Background())
 	if err != nil {
 		t.Fatalf("ListDroplets: %v", err)
 	}
-	if len(droplets) != 3 || droplets[0].ID != 1 || droplets[2].ID != 3 {
-		t.Fatalf("droplets = %+v, want one from each of three pages", droplets)
+	droplets := list.Droplets
+	if len(droplets) != 3 || droplets[0].ID != 1 || droplets[2].ID != 3 || list.Truncated {
+		t.Fatalf("list = %+v, want one from each of three pages, not truncated", list)
 	}
 }
 
@@ -71,7 +72,8 @@ func TestSDKBackendGetDropletMapsTheRecordedShape(t *testing.T) {
 }
 
 // A server whose page links never end must not hold list_droplets open
-// forever: the walk stops at maxListPages and says so.
+// forever: the walk stops at maxListPages, keeps what it read, and marks the
+// result truncated. A capped list is never passed off as complete.
 func TestSDKBackendListDropletsStopsOnEndlessLinks(t *testing.T) {
 	requests := 0
 	var server *httptest.Server
@@ -83,8 +85,11 @@ func TestSDKBackendListDropletsStopsOnEndlessLinks(t *testing.T) {
 	defer server.Close()
 	client := godo.NewClient(server.Client())
 	client.BaseURL, _ = url.Parse(server.URL + "/")
-	_, err := newSDKBackendWithClient(client).ListDroplets(context.Background())
-	if err == nil || requests != maxListPages {
-		t.Fatalf("err = %v after %d requests, want a refusal after %d", err, requests, maxListPages)
+	list, err := newSDKBackendWithClient(client).ListDroplets(context.Background())
+	if err != nil || requests != maxListPages {
+		t.Fatalf("err = %v after %d requests, want the capped list after %d", err, requests, maxListPages)
+	}
+	if !list.Truncated || len(list.Droplets) != maxListPages {
+		t.Fatalf("truncated = %v with %d droplets, want truncated with one per page (%d)", list.Truncated, len(list.Droplets), maxListPages)
 	}
 }

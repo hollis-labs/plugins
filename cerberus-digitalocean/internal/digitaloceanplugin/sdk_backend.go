@@ -36,17 +36,18 @@ func newSDKBackendWithClient(client *godo.Client) Backend {
 }
 
 // ListDroplets reads every page. The compiled-in connector read one page of
-// 100 and silently dropped the rest.
-func (b *sdkBackend) ListDroplets(ctx context.Context) ([]DropletStatus, error) {
-	var out []DropletStatus
+// 100 and silently dropped the rest. At maxListPages it stops and returns
+// what it has, marked Truncated rather than failing or pretending to be done.
+func (b *sdkBackend) ListDroplets(ctx context.Context) (DropletList, error) {
+	out := DropletList{Droplets: []DropletStatus{}}
 	opt := &godo.ListOptions{Page: 1, PerPage: listPageSize}
 	for {
 		droplets, resp, err := b.client.Droplets.List(ctx, opt)
 		if err != nil {
-			return nil, fmt.Errorf("list droplets: %w", err)
+			return DropletList{}, fmt.Errorf("list droplets: %w", err)
 		}
 		for i := range droplets {
-			out = append(out, dropletFromSDK(&droplets[i]))
+			out.Droplets = append(out.Droplets, dropletFromSDK(&droplets[i]))
 		}
 		// Stop on the last page, and on an empty one: a response that claims
 		// more pages but returns nothing must not loop forever. The page
@@ -56,7 +57,8 @@ func (b *sdkBackend) ListDroplets(ctx context.Context) ([]DropletStatus, error) 
 			return out, nil
 		}
 		if opt.Page >= maxListPages {
-			return nil, fmt.Errorf("list droplets: stopped after %d pages of %d; the account has more droplets than this plugin will page through", maxListPages, listPageSize)
+			out.Truncated = true
+			return out, nil
 		}
 		opt.Page++
 	}
