@@ -4,7 +4,7 @@ Cerberus connector for DigitalOcean droplets: list, read and check droplets,
 and create, power on, power off or destroy them, with dry-run previews for the
 writes.
 
-> **Pre-release — v0.1.0.** This plugin replaces the `digitalocean` connector
+> **Pre-release — v0.2.0.** This plugin replaces the `digitalocean` connector
 > Cerberus used to compile in, with the same operations, input schemas and
 > output shapes. It has been tested against a fake backend and recorded API
 > shapes. The live check is read-only (see below). No outside users, no
