@@ -419,10 +419,17 @@ func TestMissingCredentialLoadsAndExplains(t *testing.T) {
 	if err != nil || status.OK || !strings.Contains(status.Message, TokenEnvVar) {
 		t.Fatalf("Health = %+v, %v; want not OK and naming %s", status, err, TokenEnvVar)
 	}
+	// Each call fails coded credential_missing, so the host reports that code
+	// whatever else it knows, with the guidance as the message.
 	for _, op := range Definition().Operations {
-		_, err := callTool(p, op.Name, validArgs(op.Name))
-		if !errors.Is(err, errMissingCredential) && (err == nil || err.Error() != errMissingCredential.Error()) {
-			t.Errorf("%s: err = %v, want the missing-credential guidance", op.Name, err)
+		result, err := callTool(p, op.Name, validArgs(op.Name))
+		if err != nil {
+			t.Errorf("%s: uncoded error %v, want a coded credential_missing result", op.Name, err)
+			continue
+		}
+		code, message, ok := cerbplugin.ParseErrorResult(result.Content)
+		if !result.IsError || !ok || code != cerbplugin.ErrorCredentialMissing || message != errMissingCredential.Error() {
+			t.Errorf("%s: result = %s, want credential_missing with the guidance", op.Name, result.Content)
 		}
 	}
 	if _, err := callTool(p, "delete_dns_record", map[string]any{"zone_id": "z", "record_id": "r", argDryRun: true}); err != nil {
