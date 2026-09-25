@@ -25,30 +25,27 @@ func TestConnectorIDIsNotReserved(t *testing.T) {
 	}
 }
 
-// The host's --ack gate applies to an operation only if the manifest marks it
-// Destructive, so a write that forgot the flag would run unacknowledged. This
-// holds the manifest and writeOperations in step in both directions: every
-// write is Destructive and SupportsDry, and nothing else is either — marking a
-// read destructive would make it demand --ack and empty that gate of meaning.
+// Every write is acknowledgment-gated and previews with dryRun=All, and no
+// read is either: the contract derives both from effect and preview, so this
+// holds the declared effects and writeOperations in step in both directions.
+// Marking a read as a write would make it demand --ack and empty that gate of
+// meaning; a write declared as a read would run unacknowledged.
 //
 // Adding a write means adding it to writeOperations; this test is what makes
-// that a deliberate act rather than a flag someone may or may not remember.
-func TestWriteOperationsAreExactlyTheDestructiveOnes(t *testing.T) {
+// that a deliberate act rather than a field someone may or may not remember.
+func TestWriteOperationsAreExactlyTheAckGatedOnes(t *testing.T) {
 	declared := map[string]bool{}
 	for _, op := range Definition().Operations {
 		declared[op.Name] = true
 		write := writeOperations[op.Name]
-		if write && !op.Destructive {
-			t.Errorf("write operation %q is not marked Destructive; the host would run it without --ack", op.Name)
+		if write != !op.Effect.ReadOnly() {
+			t.Errorf("operation %q: effect %q, but writeOperations says write=%v", op.Name, op.Effect, write)
 		}
-		if write && !op.SupportsDry {
-			t.Errorf("write operation %q does not declare SupportsDry; every write here previews with dryRun=All", op.Name)
+		if write != op.RequiresAck {
+			t.Errorf("operation %q: RequiresAck = %v, want %v", op.Name, op.RequiresAck, write)
 		}
-		if !write && op.Destructive {
-			t.Errorf("operation %q is marked Destructive but is not in writeOperations", op.Name)
-		}
-		if !write && op.SupportsDry {
-			t.Errorf("operation %q declares dry-run support, which only makes sense for a write", op.Name)
+		if write != op.SupportsDry {
+			t.Errorf("operation %q: SupportsDry = %v, want %v; every write here previews with dryRun=All and no read does", op.Name, op.SupportsDry, write)
 		}
 	}
 	for name := range writeOperations {
@@ -58,12 +55,15 @@ func TestWriteOperationsAreExactlyTheDestructiveOnes(t *testing.T) {
 	}
 }
 
-// The manifest the host installs must carry RequiresAck for every write, since
-// that — not Destructive alone — is the field the host's policy checks.
-func TestManifestRequiresAcknowledgmentForEveryWrite(t *testing.T) {
+// The installed manifest carries the pre-contract flags too, derived from the
+// contract, so a host that predates effect still gates every write: it reads
+// destructive, which ManifestFromDefinition sets for every ack-gated op.
+func TestManifestKeepsLegacyGateFlagsForOlderHosts(t *testing.T) {
 	for _, op := range Manifest().Operations {
-		if writeOperations[op.Name] != op.RequiresAck {
-			t.Errorf("operation %q: RequiresAck = %v, want %v", op.Name, op.RequiresAck, writeOperations[op.Name])
+		write := writeOperations[op.Name]
+		if op.RequiresAck != write || op.Destructive != write || op.SupportsDry != write {
+			t.Errorf("operation %q: destructive=%v requires_ack=%v supports_dry=%v, want all %v",
+				op.Name, op.Destructive, op.RequiresAck, op.SupportsDry, write)
 		}
 	}
 }

@@ -260,8 +260,8 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 }
 
 // writeOperations is the one list of operations that change a cluster. The
-// manifest marks each Destructive and SupportsDry, and
-// TestWriteOperationsAreExactlyTheDestructiveOnes holds the two in step, so a
+// contract declares each a non-read effect with a preview, and
+// TestWriteOperationsAreExactlyTheAckGatedOnes holds the two in step, so a
 // write cannot be added without the host's --ack gate applying to it.
 var writeOperations = map[string]bool{
 	"scale_workload":   true,
@@ -282,7 +282,7 @@ const (
 // writeMode reads the dry-run flag for a write and refuses a real write that
 // arrives unacknowledged.
 //
-// The host already refuses a Destructive operation without --ack before the
+// The host already refuses a write without --ack before the
 // call reaches this process, so under the host this check never fires. It is
 // here for the binary driven any other way — directly over the protocol, or by
 // a host whose policy differs — so that the plugin's own contract is "no
