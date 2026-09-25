@@ -121,8 +121,9 @@ func Definition() contract.Definition {
 				Examples:    []string{"cerberus connectors exec namecheap get_dns_record_set --arg domain=example.com"},
 			},
 			{
-				Name:    "set_dns_record_set",
-				Effect:  contract.EffectWrite,
+				Name: "set_dns_record_set",
+				// Destructive, not write: every record the set omits is deleted.
+				Effect:  contract.EffectDestructive,
 				Target:  contract.TargetDescriptor{Kind: "namecheap.domain", From: []string{"domain"}},
 				Preview: contract.PreviewPlugin,
 				Output:  contract.OutputStructured,

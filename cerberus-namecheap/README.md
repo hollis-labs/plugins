@@ -20,7 +20,7 @@ dry-run previews for both writes.
 | `get_domain_status` | read | no | no | `domain`. Registration, expiry, nameservers. |
 | `get_dns_record_set` | read | no | no | `domain`. The host records getHosts returns, and the domain's `email_type`. getHosts can omit records: this is not an authoritative zone backup. |
 | `list_dns_records` | read | no | no | `domain`. The records alone. |
-| `set_dns_record_set` | write | `--ack` | yes, reads the zone | `domain`, `email_type`, `records`. Replaces **every** host record and sets email routing. Records you omit are deleted. |
+| `set_dns_record_set` | destructive | `--ack` | yes, reads the zone | `domain`, `email_type`, `records`. Replaces **every** host record and sets email routing. Records you omit are deleted. |
 | `set_custom_nameservers` | write, reversible | `--ack` | yes | `domain`, and at least two `nameservers`. |
 
 ### `set_dns_record_set` and its preview
@@ -65,7 +65,7 @@ not declare, and this plugin refuses the two tool names itself too, coded
 | Failure | Code |
 |---|---|
 | API user, key or username not supplied | `credential_missing` |
-| Key rejected, API access not enabled, or the request address not on the account's API allow-list | `credential_missing`. The allow-list case names `client_ip`. |
+| Key rejected, API access not enabled, or the request address not on the account's API allow-list (Namecheap error numbers 1010101, 1010102, 1010104, 1011102, 1011104, 1011150) | `credential_missing`. The allow-list case (1011150) names `client_ip`. **These numbers are unverified**: they come from Namecheap's documented list, and the live check confirms them. A fallback on the message wording also catches the allow-list refusal. |
 | API unreachable (refused, DNS, timeout) | `connector_unavailable` |
 | Arguments refused, including the per-record writes and `--dry-run` on a read | `invalid_args` |
 | Anything else Namecheap answered | uncoded, with the API's message |
