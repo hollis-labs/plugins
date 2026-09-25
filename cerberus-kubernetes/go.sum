@@ -49,10 +49,10 @@ github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/hollis-labs/cerberus v0.4.0-beta.2 h1:hys65w7FPDIfWqtj82YMrbJebMwXwQG1rXdayQtV0vA=
-github.com/hollis-labs/cerberus v0.4.0-beta.2/go.mod h1:z1i4AW352oQHK7KgOtylCcDPd075uCoZRQaWa/e9Gh0=
-github.com/hollis-labs/plugin-sdk v0.4.0 h1:e7LTkwJQL+n9kRf9IUAUCUeydS11XIdjGIfFjP2PyBg=
-github.com/hollis-labs/plugin-sdk v0.4.0/go.mod h1:+FcTow9tco3OoINjc5LSCkm8RZzWSLNG1tTCzLSQuHs=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925202736-a696fb700955 h1:2qpdHA9JBrJtMQp3Qsp4oCl8oSzfI4uo6fHx5p2J8XA=
+github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260925202736-a696fb700955/go.mod h1:WR0jem10nqUvyRvlPsBeb+Y/N48aUnQHyyEUinTzqGk=
+github.com/hollis-labs/plugin-sdk v0.5.0 h1:xcMeVrYqIKz00fO2c2/asD/yDrb+pitU9p4hvqHUye8=
+github.com/hollis-labs/plugin-sdk v0.5.0/go.mod h1:+FcTow9tco3OoINjc5LSCkm8RZzWSLNG1tTCzLSQuHs=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=

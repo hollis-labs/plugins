@@ -24,7 +24,7 @@ attempted.
 
 ### Reads
 
-None is `Destructive` and none declares `SupportsDry`, so none asks for `--ack`.
+Each declares effect `read`, except `get_logs` and `list_events`, which are `read_sensitive`: they return text the cluster wrote, which can carry secrets or personal data. No read asks for `--ack`.
 
 | Operation | Needs a cluster? | Notes |
 |---|---|---|
@@ -61,7 +61,7 @@ sensitive before handing it to an agent.
 | `cordon_node` / `uncordon_node` | marks a node unschedulable or schedulable again; not a drain |
 | `delete_pod` | deletes one pod, and says whether anything will recreate it |
 
-Every write is `Destructive` and `SupportsDry`:
+Every write declares effect `lifecycle` (scale, restart, cordon, uncordon) or `destructive` (`delete_pod`), with a `server` preview:
 
 - **The host refuses it without `--ack`.** The plugin refuses an
   unacknowledged write too, so the rule holds for a caller that is not the host.
