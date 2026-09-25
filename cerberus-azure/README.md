@@ -14,7 +14,7 @@ model deployments an AI Services account actually serves.
 This connector assumes you do not own the estate it reads. A subscription is
 usually administered by someone else, and a tool that helps you operate it is a
 different thing from a tool that manages it. So every operation here is
-read-only: none is destructive, none takes `--ack`, and a test asserts that
+read-only: each declares effect `read`, none takes `--ack`, and a test asserts that
 rather than leaving it to review.
 
 Write and lifecycle operations are listed under

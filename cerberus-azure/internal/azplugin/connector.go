@@ -34,13 +34,13 @@ const (
 // names from it, so adding an operation here is the only registration step a
 // plugin needs — unlike a built-in, which touches five files.
 //
-// Every operation is read-only: none is Destructive and none SupportsDry.
+// Every operation is read-only: each declares effect read, with no preview.
 // That is deliberate and is the whole scope of this connector. Cerberus does
 // not own the Azure estate; an infrastructure team does. Lifecycle and write
 // operations are documented as locked in README.md, with what would unlock
 // them, rather than built speculatively.
 func Definition() contract.Definition {
-	return contract.Definition{
+	return contract.Finalize(contract.Definition{
 		ID:            ConnectorID,
 		Version:       Version,
 		ResourceTypes: []string{string(resource.Server)},
@@ -75,12 +75,24 @@ func Definition() contract.Definition {
 		Operations: []contract.Operation{
 			{
 				Name:        OpListSubscriptions,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.tenant"},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List the subscriptions this credential can see: id, display name, state, tenant.",
 				InputSchema: contract.ObjectSchema(map[string]any{}),
 				Examples:    []string{"cerberus connectors plugin managed exec azure list_subscriptions"},
 			},
 			{
 				Name:        OpGetSubscription,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.subscription", From: []string{"subscription_id"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "Report one subscription. With no argument it resolves the one operations act on by default, which is the fastest way to confirm which estate Cerberus is reading.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
@@ -89,6 +101,12 @@ func Definition() contract.Definition {
 			},
 			{
 				Name:        OpListResourceGroups,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.subscription", From: []string{"subscription_id"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List resource groups in a subscription: name, location, provisioning state.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
@@ -97,6 +115,12 @@ func Definition() contract.Definition {
 			},
 			{
 				Name:        OpListResources,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.subscription", From: []string{"subscription_id"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List the whole resource inventory of a subscription: type, name, resource group, location. Provider-specific properties are deliberately not returned — that field is an untyped blob.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
@@ -105,6 +129,12 @@ func Definition() contract.Definition {
 			},
 			{
 				Name:        OpListAIAccounts,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.subscription", From: []string{"subscription_id"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List Cognitive Services / AI Services accounts: name, kind, sku, endpoint. Keys are never returned; local_auth_disabled reports whether key auth is even enabled.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
@@ -113,6 +143,12 @@ func Definition() contract.Definition {
 			},
 			{
 				Name:        OpListModelDeployments,
+				Effect:      contract.EffectRead,
+				Target:      contract.TargetDescriptor{Kind: "azure.ai_account", From: []string{"subscription_id", "resource_group", "account"}},
+				Preview:     contract.PreviewNone,
+				Output:      contract.OutputStructured,
+				Cost:        contract.CostNone,
+				LocalFS:     contract.LocalFSNone,
 				Description: "List model deployments: deployment name, model, version, sku, capacity. Answers \"what models can we actually call, at what version\" without opening the portal. With no account it walks every AI account in the subscription.",
 				InputSchema: contract.ObjectSchema(map[string]any{
 					ArgSubscriptionID: contract.StringSchema("Subscription id. Defaults to the configured subscription, or the only visible one."),
@@ -125,7 +161,7 @@ func Definition() contract.Definition {
 				},
 			},
 		},
-	}
+	})
 }
 
 // Manifest is what plugin.yaml embeds.
