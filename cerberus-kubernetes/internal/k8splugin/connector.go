@@ -111,7 +111,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"kubeconfig": stringProp("Kubeconfig path override."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_contexts"},
+				Examples: []string{"cerberus connectors exec kubernetes list_contexts"},
 			},
 			{
 				Name:        "check_access",
@@ -126,7 +126,7 @@ func Definition() contract.Definition {
 					"context":    stringProp("Kubeconfig context to check."),
 					"kubeconfig": stringProp("Kubeconfig path override."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes check_access"},
+				Examples: []string{"cerberus connectors exec kubernetes check_access"},
 			},
 			{
 				Name:        "get_health",
@@ -140,7 +140,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(map[string]any{
 					"context": stringProp("Kubeconfig context to use."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes get_health"},
+				Examples: []string{"cerberus connectors exec kubernetes get_health"},
 			},
 			{
 				Name:        "list_namespaces",
@@ -152,7 +152,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List namespaces with status and age.",
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, nil)),
-				Examples:    []string{"cerberus connectors plugin managed exec kubernetes list_namespaces"},
+				Examples:    []string{"cerberus connectors exec kubernetes list_namespaces"},
 			},
 			{
 				Name:        "list_nodes",
@@ -164,7 +164,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List nodes with readiness, roles, version and any memory/disk/PID pressure.",
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, nil)),
-				Examples:    []string{"cerberus connectors plugin managed exec kubernetes list_nodes"},
+				Examples:    []string{"cerberus connectors exec kubernetes list_nodes"},
 			},
 			{
 				Name:        "list_pods",
@@ -178,7 +178,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"selector": stringProp("Label selector, e.g. app=web."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_pods --arg namespace=default"},
+				Examples: []string{"cerberus connectors exec kubernetes list_pods --arg namespace=default"},
 			},
 			{
 				Name:        "list_workloads",
@@ -192,7 +192,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"kind": stringProp("Restrict to one of deployment, statefulset, daemonset."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_workloads --arg namespace=default"},
+				Examples: []string{"cerberus connectors exec kubernetes list_workloads --arg namespace=default"},
 			},
 			{
 				Name:        "list_events",
@@ -204,7 +204,7 @@ func Definition() contract.Definition {
 				LocalFS:     contract.LocalFSNone,
 				Description: "List recent cluster events, newest last. Usually the fastest answer to why something is not starting.",
 				InputSchema: contract.ObjectSchema(pageProps(DefaultEventLimit, namespaceProps())),
-				Examples:    []string{"cerberus connectors plugin managed exec kubernetes list_events --arg namespace=default"},
+				Examples:    []string{"cerberus connectors exec kubernetes list_events --arg namespace=default"},
 			},
 			{
 				Name:        "get_logs",
@@ -223,7 +223,7 @@ func Definition() contract.Definition {
 					"previous":  boolProp("Read the previous terminated container instead."),
 					"context":   stringProp("Kubeconfig context to use."),
 				}, "pod"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes get_logs --arg pod=web-abc123"},
+				Examples: []string{"cerberus connectors exec kubernetes get_logs --arg pod=web-abc123"},
 			},
 			{
 				Name:        "describe_workload",
@@ -240,7 +240,7 @@ func Definition() contract.Definition {
 					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
 					"context":   stringProp("Kubeconfig context to use."),
 				}, "kind", "name"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes describe_workload --arg kind=deployment --arg name=web"},
+				Examples: []string{"cerberus connectors exec kubernetes describe_workload --arg kind=deployment --arg name=web"},
 			},
 			{
 				Name:        "list_services",
@@ -254,7 +254,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"selector": stringProp("Label selector, e.g. app=web."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_services --arg namespace=default"},
+				Examples: []string{"cerberus connectors exec kubernetes list_services --arg namespace=default"},
 			},
 			{
 				Name:        "list_ingresses",
@@ -268,7 +268,7 @@ func Definition() contract.Definition {
 				InputSchema: contract.ObjectSchema(pageProps(DefaultListLimit, mergeProps(namespaceProps(), map[string]any{
 					"selector": stringProp("Label selector, e.g. app=web."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_ingresses --arg all_namespaces=true"},
+				Examples: []string{"cerberus connectors exec kubernetes list_ingresses --arg all_namespaces=true"},
 			},
 			{
 				Name:        "list_api_resources",
@@ -284,7 +284,7 @@ func Definition() contract.Definition {
 					"limit":   intProp(fmt.Sprintf("Maximum items to return. Defaults to %d, capped at %d.", DefaultAPIResourceLimit, MaxListLimit)),
 					"context": stringProp("Kubeconfig context to use."),
 				}),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes list_api_resources --arg group=apps"},
+				Examples: []string{"cerberus connectors exec kubernetes list_api_resources --arg group=apps"},
 			},
 			{
 				Name:        "top",
@@ -299,7 +299,7 @@ func Definition() contract.Definition {
 					"kind":     stringProp("nodes (default) or pods."),
 					"selector": stringProp("Label selector, e.g. app=web."),
 				}))),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes top --arg kind=pods --arg namespace=default"},
+				Examples: []string{"cerberus connectors exec kubernetes top --arg kind=pods --arg namespace=default"},
 			},
 
 			// --- writes: acknowledgment-gated, with a server preview, every one ---
@@ -321,8 +321,8 @@ func Definition() contract.Definition {
 					"context":   stringProp("Kubeconfig context to use."),
 				}, "kind", "name", "replicas"),
 				Examples: []string{
-					"cerberus connectors plugin managed exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --dry-run --ack",
-					"cerberus connectors plugin managed exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --ack",
+					"cerberus connectors exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --dry-run --ack",
+					"cerberus connectors exec kubernetes scale_workload --arg kind=deployment --arg name=web --arg replicas=3 --ack",
 				},
 			},
 			{
@@ -341,7 +341,7 @@ func Definition() contract.Definition {
 					"namespace": stringProp("Namespace. Empty uses the configured namespace, then the kubeconfig context's, then default."),
 					"context":   stringProp("Kubeconfig context to use."),
 				}, "kind", "name"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes restart_workload --arg kind=deployment --arg name=web --ack"},
+				Examples: []string{"cerberus connectors exec kubernetes restart_workload --arg kind=deployment --arg name=web --ack"},
 			},
 			{
 				Name:        "cordon_node",
@@ -357,7 +357,7 @@ func Definition() contract.Definition {
 					"node":    stringProp("Node name."),
 					"context": stringProp("Kubeconfig context to use."),
 				}, "node"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes cordon_node --arg node=worker-1 --ack"},
+				Examples: []string{"cerberus connectors exec kubernetes cordon_node --arg node=worker-1 --ack"},
 			},
 			{
 				Name:        "uncordon_node",
@@ -373,7 +373,7 @@ func Definition() contract.Definition {
 					"node":    stringProp("Node name."),
 					"context": stringProp("Kubeconfig context to use."),
 				}, "node"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes uncordon_node --arg node=worker-1 --ack"},
+				Examples: []string{"cerberus connectors exec kubernetes uncordon_node --arg node=worker-1 --ack"},
 			},
 			{
 				Name:        "delete_pod",
@@ -390,7 +390,7 @@ func Definition() contract.Definition {
 					"grace_period_seconds": intProp("Override the pod's termination grace period. Zero skips graceful shutdown."),
 					"context":              stringProp("Kubeconfig context to use."),
 				}, "pod"),
-				Examples: []string{"cerberus connectors plugin managed exec kubernetes delete_pod --arg pod=web-abc123 --dry-run --ack"},
+				Examples: []string{"cerberus connectors exec kubernetes delete_pod --arg pod=web-abc123 --dry-run --ack"},
 			},
 		},
 	})

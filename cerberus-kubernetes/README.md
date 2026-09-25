@@ -87,9 +87,9 @@ identity whose RBAC says what it may do. The dry run will tell you before
 anything changes.
 
 ```bash
-cerberus connectors plugin managed exec kubernetes scale_workload \
+cerberus connectors exec kubernetes scale_workload \
   --arg kind=deployment --arg name=web --arg replicas=3 --dry-run --ack
-cerberus connectors plugin managed exec kubernetes scale_workload \
+cerberus connectors exec kubernetes scale_workload \
   --arg kind=deployment --arg name=web --arg replicas=3 --ack
 ```
 
@@ -196,7 +196,7 @@ make test
 make dist                     # from the repo root, or `make dist` here
 cerberus connectors plugin managed install "$PWD/../dist/kubernetes"
 cerberus connectors plugin managed load kubernetes
-cerberus connectors plugin managed exec kubernetes list_contexts
+cerberus connectors exec kubernetes list_contexts
 ```
 
 Reinstalling after a rebuild needs the unload/install/load cycle, because the
