@@ -68,7 +68,7 @@ func (b *clientGoBackend) Scale(ctx context.Context, opts ClusterOptions, req Sc
 	get, update := scaleClient(cs, kind, req.Namespace)
 	current, err := get(ctx, req.Name, metav1.GetOptions{})
 	if err != nil {
-		return Change{}, fmt.Errorf("read scale of %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("read scale of %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 	before := current.Spec.Replicas
 	if before == req.Replicas {
@@ -82,7 +82,7 @@ func (b *clientGoBackend) Scale(ctx context.Context, opts ClusterOptions, req Sc
 	current.Spec.Replicas = req.Replicas
 	result, err := update(ctx, req.Name, current, metav1.UpdateOptions{DryRun: dryRunOption(req.DryRun), FieldManager: FieldManager})
 	if err != nil {
-		return Change{}, fmt.Errorf("scale %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("scale %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 	change.Applied = !req.DryRun
 	change.Changes = []FieldChange{{
@@ -125,7 +125,7 @@ func (b *clientGoBackend) Restart(ctx context.Context, opts ClusterOptions, req 
 	case KindDeployment:
 		d, err := cs.AppsV1().Deployments(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
 		if err != nil {
-			return Change{}, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host))
+			return Change{}, coded(err, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host)))
 		}
 		previous = d.Spec.Template.Annotations[RestartAnnotation]
 		if d.Spec.Paused {
@@ -134,7 +134,7 @@ func (b *clientGoBackend) Restart(ctx context.Context, opts ClusterOptions, req 
 	case KindStatefulSet:
 		s, err := cs.AppsV1().StatefulSets(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
 		if err != nil {
-			return Change{}, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host))
+			return Change{}, coded(err, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host)))
 		}
 		previous = s.Spec.Template.Annotations[RestartAnnotation]
 		if s.Spec.UpdateStrategy.Type == "OnDelete" {
@@ -143,7 +143,7 @@ func (b *clientGoBackend) Restart(ctx context.Context, opts ClusterOptions, req 
 	case KindDaemonSet:
 		d, err := cs.AppsV1().DaemonSets(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
 		if err != nil {
-			return Change{}, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host))
+			return Change{}, coded(err, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host)))
 		}
 		previous = d.Spec.Template.Annotations[RestartAnnotation]
 		if d.Spec.UpdateStrategy.Type == "OnDelete" {
@@ -170,7 +170,7 @@ func (b *clientGoBackend) Restart(ctx context.Context, opts ClusterOptions, req 
 		_, err = cs.AppsV1().DaemonSets(req.Namespace).Patch(ctx, req.Name, types.StrategicMergePatchType, patch, patchOpts)
 	}
 	if err != nil {
-		return Change{}, fmt.Errorf("restart %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("restart %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 	change.Applied = !req.DryRun
 	change.Changes = []FieldChange{{
@@ -195,7 +195,7 @@ func (b *clientGoBackend) SetSchedulable(ctx context.Context, opts ClusterOption
 
 	node, err := cs.CoreV1().Nodes().Get(ctx, req.Node, metav1.GetOptions{})
 	if err != nil {
-		return Change{}, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 	wantUnschedulable := !req.Schedulable
 	if node.Spec.Unschedulable == wantUnschedulable {
@@ -214,7 +214,7 @@ func (b *clientGoBackend) SetSchedulable(ctx context.Context, opts ClusterOption
 	result, err := cs.CoreV1().Nodes().Patch(ctx, req.Node, types.MergePatchType, patch,
 		metav1.PatchOptions{DryRun: dryRunOption(req.DryRun), FieldManager: FieldManager})
 	if err != nil {
-		return Change{}, fmt.Errorf("%s %s: %s", operation, change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("%s %s: %s", operation, change.Target, describeError(err, cfg.Host)))
 	}
 	change.Applied = !req.DryRun
 	change.Changes = []FieldChange{{
@@ -242,7 +242,7 @@ func (b *clientGoBackend) DeletePod(ctx context.Context, opts ClusterOptions, re
 
 	pod, err := cs.CoreV1().Pods(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
 	if err != nil {
-		return Change{}, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("read %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 
 	// Whether the pod comes back is the thing an operator deleting one is
@@ -268,7 +268,7 @@ func (b *clientGoBackend) DeletePod(ctx context.Context, opts ClusterOptions, re
 		GracePeriodSeconds: req.GracePeriod,
 	})
 	if err != nil {
-		return Change{}, fmt.Errorf("delete %s: %s", change.Target, describeError(err, cfg.Host))
+		return Change{}, coded(err, fmt.Errorf("delete %s: %s", change.Target, describeError(err, cfg.Host)))
 	}
 	change.Applied = !req.DryRun
 	change.Changes = []FieldChange{{Field: "pod", Before: string(pod.Status.Phase), After: "deleted"}}

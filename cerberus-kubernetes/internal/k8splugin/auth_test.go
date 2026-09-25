@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
@@ -278,8 +279,8 @@ func TestResolveCredentialCommandReportsWhereItLooked(t *testing.T) {
 		t.Fatal("want an error for a helper that is not installed")
 	}
 	msg := err.Error()
-	if !strings.HasPrefix(msg, "credential_missing:") {
-		t.Errorf("error does not carry the credential_missing code: %q", msg)
+	if code := codeOf(err); code != cerbplugin.ErrorCredentialMissing {
+		t.Errorf("code = %q, want credential_missing: %q", code, msg)
 	}
 	if !strings.Contains(msg, CredentialPathEnvVar) {
 		t.Errorf("error does not name the escape hatch: %q", msg)

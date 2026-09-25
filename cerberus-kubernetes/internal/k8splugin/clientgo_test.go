@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -612,7 +613,7 @@ users:
 	if mode != AuthModeExec {
 		t.Errorf("mode = %q, want the classification even on failure", mode)
 	}
-	if !strings.HasPrefix(err.Error(), "credential_missing:") {
-		t.Errorf("error = %q, want the credential_missing code", err.Error())
+	if code := codeOf(err); code != cerbplugin.ErrorCredentialMissing {
+		t.Errorf("code = %q for %q, want the credential_missing code", code, err.Error())
 	}
 }

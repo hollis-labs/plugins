@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 )
 
 // AGENTS.md: "if an error message carries a recovery instruction, add a test
@@ -66,11 +68,11 @@ func TestCredentialMissingRecoverySurvivesRedaction(t *testing.T) {
 	}
 	assertSurvivesRedaction(t, "ResolveCredentialCommand", err.Error())
 
-	// The error code prefix must survive as a code. The host exempts its own
-	// error codes from the assignment rule, but only when they are recognised,
-	// so keep the colon form the rest of Cerberus uses.
-	if !strings.HasPrefix(err.Error(), "credential_missing:") {
-		t.Errorf("error code prefix missing: %q", err.Error())
+	// The code travels as a code (pkg/plugin ErrorResult), not as a prefix in
+	// the text, and the host renders "<connector> <operation>:
+	// credential_missing: <message>" from it.
+	if code := codeOf(err); code != cerbplugin.ErrorCredentialMissing {
+		t.Errorf("code = %q, want credential_missing: %q", code, err.Error())
 	}
 }
 

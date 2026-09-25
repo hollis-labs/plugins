@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -129,7 +130,7 @@ func (b *clientGoBackend) Namespaces(ctx context.Context, opts ClusterOptions, q
 		Continue: query.Continue,
 	})
 	if err != nil {
-		return List[Namespace]{}, fmt.Errorf("list namespaces: %s", describeError(err, cfg.Host))
+		return List[Namespace]{}, coded(err, fmt.Errorf("list namespaces: %s", describeError(err, cfg.Host)))
 	}
 	out := make([]Namespace, 0, len(list.Items))
 	for i := range list.Items {
@@ -154,7 +155,7 @@ func (b *clientGoBackend) Nodes(ctx context.Context, opts ClusterOptions, query 
 		Continue: query.Continue,
 	})
 	if err != nil {
-		return List[Node]{}, fmt.Errorf("list nodes: %s", describeError(err, cfg.Host))
+		return List[Node]{}, coded(err, fmt.Errorf("list nodes: %s", describeError(err, cfg.Host)))
 	}
 	out := make([]Node, 0, len(list.Items))
 	for i := range list.Items {
@@ -180,8 +181,8 @@ func (b *clientGoBackend) Pods(ctx context.Context, opts ClusterOptions, query P
 		Continue:      query.Continue,
 	})
 	if err != nil {
-		return List[Pod]{}, fmt.Errorf("list pods in %s: %s",
-			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host))
+		return List[Pod]{}, coded(err, fmt.Errorf("list pods in %s: %s",
+			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host)))
 	}
 	out := make([]Pod, 0, len(list.Items))
 	for i := range list.Items {
@@ -224,7 +225,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 	if remaining > 0 && (kind == "" || kind == KindDeployment) {
 		list, err := cs.AppsV1().Deployments(namespace).List(ctx, page())
 		if err != nil {
-			return List[Workload]{}, fmt.Errorf("list deployments in %s: %s", scope, describeError(err, cfg.Host))
+			return List[Workload]{}, coded(err, fmt.Errorf("list deployments in %s: %s", scope, describeError(err, cfg.Host)))
 		}
 		for i := range list.Items {
 			out = append(out, mapDeployment(&list.Items[i]))
@@ -235,7 +236,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 	if remaining > 0 && (kind == "" || kind == KindStatefulSet) {
 		list, err := cs.AppsV1().StatefulSets(namespace).List(ctx, page())
 		if err != nil {
-			return List[Workload]{}, fmt.Errorf("list statefulsets in %s: %s", scope, describeError(err, cfg.Host))
+			return List[Workload]{}, coded(err, fmt.Errorf("list statefulsets in %s: %s", scope, describeError(err, cfg.Host)))
 		}
 		for i := range list.Items {
 			out = append(out, mapStatefulSet(&list.Items[i]))
@@ -246,7 +247,7 @@ func (b *clientGoBackend) Workloads(ctx context.Context, opts ClusterOptions, qu
 	if remaining > 0 && (kind == "" || kind == KindDaemonSet) {
 		list, err := cs.AppsV1().DaemonSets(namespace).List(ctx, page())
 		if err != nil {
-			return List[Workload]{}, fmt.Errorf("list daemonsets in %s: %s", scope, describeError(err, cfg.Host))
+			return List[Workload]{}, coded(err, fmt.Errorf("list daemonsets in %s: %s", scope, describeError(err, cfg.Host)))
 		}
 		for i := range list.Items {
 			out = append(out, mapDaemonSet(&list.Items[i]))
@@ -276,8 +277,8 @@ func (b *clientGoBackend) Events(ctx context.Context, opts ClusterOptions, query
 		Continue: query.Continue,
 	})
 	if err != nil {
-		return List[Event]{}, fmt.Errorf("list events in %s: %s",
-			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host))
+		return List[Event]{}, coded(err, fmt.Errorf("list events in %s: %s",
+			namespaceScope(query.Namespace, query.AllNamespaces), describeError(err, cfg.Host)))
 	}
 	out := make([]Event, 0, len(list.Items))
 	for i := range list.Items {
@@ -303,7 +304,7 @@ func (b *clientGoBackend) Logs(ctx context.Context, opts ClusterOptions, query L
 	})
 	stream, err := req.Stream(ctx)
 	if err != nil {
-		return LogSnapshot{}, fmt.Errorf("read logs for %s/%s: %s", query.Namespace, query.Pod, describeError(err, cfg.Host))
+		return LogSnapshot{}, coded(err, fmt.Errorf("read logs for %s/%s: %s", query.Namespace, query.Pod, describeError(err, cfg.Host)))
 	}
 	defer func() { _ = stream.Close() }()
 
@@ -527,6 +528,51 @@ func age(t metav1.Time) string {
 	return duration.HumanDuration(time.Since(t.Time))
 }
 
+// coded attaches the code errorCode assigns to cause, so the host reports the
+// failure by what actually failed. An uncoded cause leaves wrapped as it is.
+func coded(cause, wrapped error) error {
+	if code := errorCode(cause); code != "" {
+		return cerbplugin.WithCode(code, wrapped)
+	}
+	return wrapped
+}
+
+// errorCode is describeError's diagnosis as the code an agent branches on. A
+// refused dial or an unresolvable host on a VPN-only API server is
+// unreachable, not a credential problem, and must not be reported as one. A
+// 403 stays uncoded: the identity works and is not permitted.
+func errorCode(err error) cerbplugin.ErrorCode {
+	if err == nil {
+		return ""
+	}
+	switch {
+	case apierrors.IsUnauthorized(err):
+		return cerbplugin.ErrorCredentialMissing
+	case apierrors.IsForbidden(err):
+		return ""
+	case apierrors.IsNotFound(err):
+		return cerbplugin.ErrorInvalidArgs
+	case apierrors.IsTimeout(err), errors.Is(err, context.DeadlineExceeded):
+		return cerbplugin.ErrorUnavailable
+	}
+	var coded *cerbplugin.CodedError
+	if errors.As(err, &coded) {
+		return coded.Code
+	}
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		var dnsErr *net.DNSError
+		var opErr *net.OpError
+		if errors.As(err, &dnsErr) || errors.As(err, &opErr) {
+			return cerbplugin.ErrorUnavailable
+		}
+	}
+	if text := err.Error(); strings.Contains(text, "exec") && strings.Contains(text, "credential") {
+		return cerbplugin.ErrorCredentialMissing
+	}
+	return ""
+}
+
 // describeError names the thing that actually failed. A refused connection on a
 // VPN-only API server means the VPN is down, not that the cluster is unhealthy,
 // and telling an operator the wrong one sends them to the wrong system. The
@@ -576,9 +622,9 @@ func describeError(err error, server string) string {
 			cause = after
 		}
 		if strings.Contains(cause, "interactive mode") {
-			return "credential_missing: " + interactiveAlwaysProblem("the credential plugin for this context")
+			return interactiveAlwaysProblem("the credential plugin for this context")
 		}
-		return fmt.Sprintf("credential_missing: the exec credential plugin for this context failed (%s) — run check_access to see whether it resolves from the daemon PATH", cause)
+		return fmt.Sprintf("the exec credential plugin for this context failed (%s) — run check_access to see whether it resolves from the daemon PATH", cause)
 	}
 	return err.Error()
 }

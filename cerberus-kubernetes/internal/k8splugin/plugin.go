@@ -504,6 +504,11 @@ func (a *argMap) boolean(key string) bool {
 
 func marshalResult[T any](data T, err error) (subprocess.MCPCallResult, error) {
 	if err != nil {
+		// A coded failure travels as a tool error result, so the host
+		// reports the plugin's code rather than guessing one.
+		if result, ok := cerbplugin.ResultForError(err); ok {
+			return result, nil
+		}
 		return subprocess.MCPCallResult{}, err
 	}
 	content, err := json.Marshal(data)

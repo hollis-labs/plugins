@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -331,13 +332,13 @@ func interactiveAlwaysProblem(subject string) string {
 // missing.
 func ResolveCredentialCommand(command, extraPath string) (string, error) {
 	if command == "" {
-		return "", fmt.Errorf("credential_missing: the kubeconfig declares an exec credential plugin with no command")
+		return "", cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf("the kubeconfig declares an exec credential plugin with no command"))
 	}
 	if strings.ContainsRune(command, os.PathSeparator) {
 		if info, err := os.Stat(command); err == nil && !info.IsDir() {
 			return command, nil
 		}
-		return "", fmt.Errorf("credential_missing: credential plugin %s is not present at that path", command)
+		return "", cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf("credential plugin %s is not present at that path", command))
 	}
 	if path, err := exec.LookPath(command); err == nil {
 		return path, nil
@@ -354,9 +355,9 @@ func ResolveCredentialCommand(command, extraPath string) (string, error) {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf(
-		"credential_missing: credential plugin %s was not found on PATH or in %d fallback locations; the daemon runs under a minimal PATH, so install it somewhere standard or add its directory to %s",
-		command, len(searched), CredentialPathEnvVar)
+	return "", cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf(
+		"credential plugin %s was not found on PATH or in %d fallback locations; the daemon runs under a minimal PATH, so install it somewhere standard or add its directory to %s",
+		command, len(searched), CredentialPathEnvVar))
 }
 
 // RestConfig builds a connection, choosing between the named modes in a fixed
@@ -367,8 +368,8 @@ func RestConfig(opts ClusterOptions) (*rest.Config, AuthMode, error) {
 		return &rest.Config{Host: opts.Server, BearerToken: opts.Token}, AuthModeHostSecret, nil
 	}
 	if opts.Token != "" && opts.Server == "" {
-		return nil, AuthModeUnknown, fmt.Errorf(
-			"credential_missing: a token is configured but no server URL is; set the %q config field to the API server address", ConfigServer)
+		return nil, AuthModeUnknown, cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, fmt.Errorf(
+			"a token is configured but no server URL is; set the %q config field to the API server address", ConfigServer))
 	}
 	if inClusterAvailable() {
 		cfg, err := rest.InClusterConfig()
