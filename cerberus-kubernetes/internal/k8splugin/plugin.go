@@ -77,7 +77,17 @@ func (p *Plugin) Health(ctx context.Context) (subprocess.HealthStatus, error) {
 	}, nil
 }
 
+// MCPCallTool serves one operation. A successful write also reports its
+// Change as telemetry for the host's audit record.
 func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
+	result, err := p.callTool(ctx, req)
+	if err != nil {
+		return result, err
+	}
+	return withChangeTelemetry(req, result), nil
+}
+
+func (p *Plugin) callTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
 	if p.backend == nil {
 		return subprocess.MCPCallResult{}, fmt.Errorf("kubernetes plugin is not loaded")
 	}
