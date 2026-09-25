@@ -194,7 +194,7 @@ var writeOperations = map[string]bool{
 func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
 	result, err := p.call(ctx, req)
 	if err == nil {
-		return result, nil
+		return withOperationTelemetry(req, result), nil
 	}
 	if isAddressRefused(err) {
 		err = fmt.Errorf("%w. Namecheap checks the request address against the account's API allow-list; "+

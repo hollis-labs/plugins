@@ -16,9 +16,9 @@ const BinaryName = "cerberus-namecheap-plugin"
 // manifest the host installs cannot drift from the operations we actually
 // serve.
 func PluginYAML() cerbplugin.PluginYAML {
-	return cerbplugin.PluginYAMLFromManifest(Manifest(), cerbplugin.Entrypoint{
+	return declare(cerbplugin.PluginYAMLFromManifest(Manifest(), cerbplugin.Entrypoint{
 		Command: filepath.ToSlash(filepath.Join("bin", BinaryName)),
-	})
+	}))
 }
 
 // WriteDist lays out an installable plugin directory: plugin.yaml beside a
