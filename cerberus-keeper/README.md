@@ -9,10 +9,12 @@ service's environment can name a Keeper record rather than carry the value.
 > compatibility guarantees and no support channel. Built in the open: the
 > interfaces and behaviour can change without notice.
 >
-> **The host side is not built yet.** Until Cerberus routes `keeper://`
-> references to a plugin that claims the scheme, this installs and loads as an
-> ordinary connector serving `status` and resolves nothing on the host's behalf.
-> Its plugin.yaml gains the `secret_backend` claim in the same change.
+> **Host requirement.** This plugin's `plugin.yaml` claims the `keeper://`
+> scheme (`cerberus.secret_backend`). A Cerberus host with secret-backend
+> routing resolves `keeper://` references through it; an older host loads it as
+> an ordinary connector serving `status` and routes nothing to it. Managed
+> services (`cerberus run-secrets`) resolve through it too, by loading it in the
+> service's own process.
 
 ## What it does
 
@@ -50,7 +52,7 @@ configuration, base64 or JSON, as Keeper's tooling prints it.
    produces the configuration; this plugin refuses an unbound one instead of
    binding it.
 3. Store the configuration in the OS credential store as `keeper/ksm_config`.
-   The Cerberus console's provider form writes it. For a binary run directly,
+   Run `cerberus secrets set keeper/ksm_config` in your terminal and paste it. For a binary run directly,
    `CERBERUS_KEEPER_KSM_CONFIG` works too.
 
 The configuration comes from the OS credential store (macOS Keychain, Windows

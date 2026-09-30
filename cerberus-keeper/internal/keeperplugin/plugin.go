@@ -22,7 +22,7 @@ var errMissingCredential = errors.New("the keeper ksm_config was not supplied to
 // by a resolve that cannot run. It is worded to survive the host's
 // redact.Text: no "name: value" or "name=value" shapes (see redaction_test.go).
 var credentialGuidance = errMissingCredential.Error() + ". Bind a Keeper Secrets Manager one-time access token with Keeper's own tooling, outside Cerberus, " +
-	"then store the configuration it prints in the OS credential store as keeper/ksm_config (the console's provider form writes it), or supply it through " +
+	"then store the configuration it prints in the OS credential store with `cerberus secrets set keeper/ksm_config`, or supply it through " +
 	envVar(SecretKSMConfig) + ", and reload the plugin with `cerberus connectors plugin managed load keeper`"
 
 // referenceMarker replaces the reference in error text. A reference is not a
