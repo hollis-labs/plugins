@@ -1,6 +1,6 @@
 module github.com/hollis-labs/cerberus-plugins/cloudflare
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/cloudflare/cloudflare-go/v4 v4.6.0
