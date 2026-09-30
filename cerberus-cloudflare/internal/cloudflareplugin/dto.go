@@ -26,7 +26,7 @@ type DNSRecord struct {
 	ID       string `json:"id"`
 	Type     string `json:"type"`
 	Name     string `json:"name"`
-	Content  string `json:"content"`
+	Content  string `json:"content" cerb:"untrusted"`
 	TTL      int    `json:"ttl"`
 	Proxied  bool   `json:"proxied"`
 	Priority *int   `json:"priority,omitempty"`
