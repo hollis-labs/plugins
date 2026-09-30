@@ -1,6 +1,6 @@
 module github.com/hollis-labs/cerberus-plugins/kubernetes
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260929235857-1bf397533487
