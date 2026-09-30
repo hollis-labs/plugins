@@ -352,3 +352,25 @@ func (b *blockingVault) GetNotationResults(string) ([]string, error) {
 	<-b.release
 	return []string{resolvedSentinel}, nil
 }
+
+// plugin.yaml claims the keeper:// scheme, and the host accepts the claim.
+func TestPluginYAMLClaimsTheScheme(t *testing.T) {
+	spec := PluginYAML()
+	b := spec.Cerberus.SecretBackend
+	if b == nil || b.Scheme != "keeper" {
+		t.Fatalf("secret_backend = %+v", b)
+	}
+	if problems := b.Validate(); len(problems) != 0 {
+		t.Fatalf("the host refuses the claim: %v", problems)
+	}
+	if ResolveCommand != cerbplugin.ResolveCommand {
+		t.Fatalf("the resolve command drifted from the host's: %q", ResolveCommand)
+	}
+	data, err := yaml.Marshal(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "secret_backend:") || !strings.Contains(string(data), "scheme: keeper") {
+		t.Fatalf("plugin.yaml does not carry the claim:\n%s", data)
+	}
+}
