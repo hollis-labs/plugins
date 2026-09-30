@@ -28,8 +28,8 @@ type Site struct {
 	ServerID         int    `json:"server_id"`
 	Name             string `json:"name"`
 	Directory        string `json:"directory"`
-	Repository       string `json:"repository"`
-	Branch           string `json:"deployment_branch"`
+	Repository       string `json:"repository" cerb:"untrusted"`
+	Branch           string `json:"deployment_branch" cerb:"untrusted"`
 	Status           string `json:"status"`
 	DeploymentStatus string `json:"deployment_status"`
 }
@@ -79,7 +79,7 @@ type ScriptDiff struct {
 	Removed int  `json:"removed"`
 	// Unified is the changed lines in unified-diff form, with a few lines of
 	// context around each change. Empty when nothing changed.
-	Unified string `json:"unified,omitempty"`
+	Unified string `json:"unified,omitempty" cerb:"untrusted"`
 	// Truncated says the scripts were too large to diff line by line; the
 	// counts are then a whole-script replacement and Unified is empty.
 	Truncated bool `json:"truncated,omitempty"`
