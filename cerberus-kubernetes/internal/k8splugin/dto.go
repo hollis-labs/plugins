@@ -50,7 +50,7 @@ type Context struct {
 	Namespace string `json:"namespace,omitempty"`
 
 	// User is the kubeconfig auth-info *name*, never its contents.
-	User string `json:"user,omitempty"`
+	User string `json:"user,omitempty" cerb:"personal"`
 
 	// AuthMode is how this context authenticates, classified by auth.go. It is
 	// the answer to WP-K0 for one context, readable without asking anyone.
@@ -168,7 +168,7 @@ type Container struct {
 	// Reason and Message carry CrashLoopBackOff, ImagePullBackOff and friends,
 	// which is the whole reason to look at a container at all.
 	Reason  string `json:"reason,omitempty"`
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" cerb:"untrusted"`
 
 	// EnvNames is the allow-list rendering of Spec.Containers[].Env: the names
 	// only. An operator can see that DATABASE_PASSWORD is set without the
@@ -211,7 +211,7 @@ type Event struct {
 	// here that Cerberus does not compose, so it is also the one that could
 	// carry something a component logged carelessly. It is kept because without
 	// it the operation has no value.
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" cerb:"untrusted"`
 
 	Count     int32  `json:"count,omitempty"`
 	FirstSeen string `json:"first_seen,omitempty"`
@@ -226,7 +226,7 @@ type LogSnapshot struct {
 	Pod       string   `json:"pod"`
 	Container string   `json:"container,omitempty"`
 	Previous  bool     `json:"previous,omitempty"`
-	Lines     []string `json:"lines"`
+	Lines     []string `json:"lines" cerb:"untrusted"`
 	Truncated bool     `json:"truncated,omitempty"`
 }
 
@@ -264,7 +264,7 @@ type Condition struct {
 	Type           string `json:"type"`
 	Status         string `json:"status"`
 	Reason         string `json:"reason,omitempty"`
-	Message        string `json:"message,omitempty"`
+	Message        string `json:"message,omitempty" cerb:"untrusted"`
 	LastTransition string `json:"last_transition,omitempty"`
 }
 
