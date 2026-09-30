@@ -3,7 +3,7 @@ module github.com/hollis-labs/cerberus-plugins/contextforge
 go 1.26.6
 
 require (
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260929235857-1bf397533487
+	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930163828-3f344a532321
 	github.com/hollis-labs/plugin-sdk v0.5.0
 	github.com/leefowlercu/go-contextforge v0.9.0
 	gopkg.in/yaml.v3 v3.0.1
