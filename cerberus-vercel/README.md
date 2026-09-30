@@ -5,7 +5,7 @@ define, on the machine Cerberus runs on: the profile's preflight and build
 commands, `vercel link` when the repo is not linked yet, then its deploy
 command. The dry run shows every step before anything runs.
 
-> **Pre-release — v0.1.0.** This plugin replaces the deployment-profile runner
+> **Pre-release — v0.1.1.** This plugin replaces the deployment-profile runner
 > Cerberus used to compile in (`internal/infra`), with the same planning and
 > the same secret names. It has been tested against a fake Vercel CLI and a
 > throwaway host. No outside users, no compatibility guarantees, no support
@@ -16,7 +16,7 @@ command. The dry run shows every step before anything runs.
 
 | Operation | Effect | Acknowledgment | Dry run | Notes |
 |---|---|---|---|---|
-| `status` | read | no | no | Whether the Vercel CLI resolves, whether a token and a default scope are configured, and whether the profiles file parses. No network call. |
+| `status` | read | no | no | Whether the Vercel CLI resolves, whether a default scope is configured, and whether the profiles file parses. No network call. `credential_missing` without a token. |
 | `list_profiles` | read | no | no | The profiles: id, name, repo path, project, scope, domain, and whether the repo is linked. Not their commands. |
 | `deploy` | exec, writes locally | `--ack` | yes | `profile`. Runs the profile's steps in its `repo_path`. |
 
@@ -34,16 +34,30 @@ profiles file, which only the operator edits.** An agent with access to
 
 1. `preflight_command`, if set, in `/bin/sh -lc`.
 2. `build_command`, if set, the same way.
-3. `vercel link --yes --project <vercel_project> [--scope <scope>]`, when the
-   repo has no `.vercel/project.json`. A repo that is not linked needs
-   `vercel_project`.
+3. `vercel link --yes --project <vercel_project> [--scope <scope>]
+   --global-config <isolated>`, when the repo has no `.vercel/project.json`. A
+   repo that is not linked needs `vercel_project`.
 4. `deploy_command`, default `vercel --prod --yes`, with `--scope <scope>`
-   added unless it already names one.
+   added unless it already names one, and `--global-config <isolated>` added
+   when the command runs the CLI directly.
 
-The scope is the profile's `vercel_scope`, or else the `scope` secret. The
-token reaches the link and deploy steps only as `VERCEL_TOKEN` in their
-environment, never on a command line, where every local user could read it
-through `ps`. Plans and results show it as `VERCEL_TOKEN=<vercel token>`.
+The scope is the profile's `vercel_scope`, or else the `scope` secret.
+
+**The token is required, and the CLI never uses a login session.** Without a
+token, `status` and `deploy` (its dry run too) fail as `credential_missing`
+with the command that stores one, and nothing runs. With one, it reaches the
+link and deploy steps only as `VERCEL_TOKEN` in their environment, never on a
+command line, where every local user could read it through `ps`. Plans and
+results show it as `VERCEL_TOKEN=<vercel token>`.
+
+The CLI is also pointed at an isolated global config
+(`<user cache dir>/cerberus-vercel-plugin/cli-config`) in place of its own
+(`~/.local/share/com.vercel.cli`), where `vercel login` keeps its session. So
+a deploy never authenticates as whatever account happens to be logged in on
+the machine. This matches how every other plugin here authenticates: only
+through the secret the manifest declares. A `deploy_command` that is a script
+of your own gets `VERCEL_TOKEN`, which the CLI prefers over a login session,
+and should pass it on to the CLI.
 
 The first step that fails stops the run. The result lists each step's command
 and output (its last 64 KiB), the checkout's branch, commit and dirty state,
@@ -131,7 +145,7 @@ the profiles file are ignored, since that file is not where Cerberus looks.
 
 | Secret | Kind | Notes |
 |---|---|---|
-| `token` | credential | Optional. Without it, the Vercel CLI uses its own login session (`vercel login`). |
+| `token` | credential | Required. There is no fallback to `vercel login`. Store it with `cerberus secrets set vercel/token`. |
 | `scope` | name | Optional default team scope. |
 
 Supply them the usual ways: `CERBERUS_VERCEL_TOKEN`, a `vercel:` entry in
@@ -150,8 +164,9 @@ shell, so it sees your shell profile's `PATH`.
 
 ## Errors
 
-Every refusal is coded `invalid_args` and says what to fix: no profiles file
-configured, an unknown profile, a profile for another provider, a missing
-`repo_path` or `vercel_project`, the CLI not found, or an unacknowledged
-deploy. A deploy that ran and failed is not an error. It returns its result
+No token is `credential_missing`, naming `cerberus secrets set vercel/token`.
+Every other refusal is coded `invalid_args` and says what to fix: no profiles
+file configured, an unknown profile, a profile for another provider, a
+missing `repo_path` or `vercel_project`, the CLI not found, or an
+unacknowledged deploy. A deploy that ran and failed is not an error. It returns its result
 with `success: false`, the failing step's output, and `error`.

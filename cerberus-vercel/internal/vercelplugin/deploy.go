@@ -62,11 +62,16 @@ func envNames(env []string) []string {
 }
 
 // planDeploy computes the steps a deploy of profile runs, without running any
-// of them. token and defaultScope are the resolved secrets; their presence
-// decides flags and environment, and the token's value stays out of every
-// displayed command.
-func planDeploy(profile Profile, token, defaultScope, vercelCLI string) (plan, error) {
+// of them. token and defaultScope are the resolved secrets. The token is
+// required and reaches every CLI step as VERCEL_TOKEN; its value stays out of
+// every displayed command. globalConfig is the isolated directory the CLI is
+// pointed at with --global-config, so it never reads the operator's own
+// `vercel login` session.
+func planDeploy(profile Profile, token, defaultScope, vercelCLI, globalConfig string) (plan, error) {
 	out := plan{profile: profile}
+	if token == "" {
+		return out, errNoToken
+	}
 	if provider := strings.TrimSpace(profile.Provider); provider != "" && provider != ConnectorID {
 		return out, fmt.Errorf("profile %q is for provider %q, and this plugin deploys only to vercel", profile.ID, provider)
 	}
@@ -76,10 +81,7 @@ func planDeploy(profile Profile, token, defaultScope, vercelCLI string) (plan, e
 	if info, err := os.Stat(profile.RepoPath); err != nil || !info.IsDir() {
 		return out, fmt.Errorf("repo path %q of profile %q is not a directory on this machine", profile.RepoPath, profile.ID)
 	}
-	var tokenEnv []string
-	if token != "" {
-		tokenEnv = []string{"VERCEL_TOKEN=" + token}
-	}
+	tokenEnv := []string{"VERCEL_TOKEN=" + token}
 	scope := strings.TrimSpace(profile.VercelScope)
 	if scope == "" {
 		scope = defaultScope
@@ -101,10 +103,8 @@ func planDeploy(profile Profile, token, defaultScope, vercelCLI string) (plan, e
 		if scope != "" {
 			args = append(args, "--scope", scope)
 		}
-		display := "vercel " + strings.Join(args, " ")
-		if token != "" {
-			display = tokenDisplay + display
-		}
+		args = append(args, "--global-config", globalConfig)
+		display := tokenDisplay + "vercel " + strings.Join(args, " ")
 		out.steps = append(out.steps, step{name: "link", display: display, argv: append([]string{vercelCLI}, args...), env: tokenEnv})
 	}
 	command := strings.TrimSpace(profile.DeployCommand)
@@ -116,9 +116,14 @@ func planDeploy(profile Profile, token, defaultScope, vercelCLI string) (plan, e
 		display += " --scope " + shellQuote(scope)
 		shell += " --scope " + shellQuote(scope)
 	}
-	if token != "" {
-		display = tokenDisplay + display
+	// A command that runs the CLI directly is pointed at the isolated
+	// config too. A script the operator wrote gets VERCEL_TOKEN, which the
+	// CLI prefers over a login session, and should pass it on.
+	if isCLICommand(command) && !strings.Contains(command, "--global-config") {
+		display += " --global-config " + shellQuote(globalConfig)
+		shell += " --global-config " + shellQuote(globalConfig)
 	}
+	display = tokenDisplay + display
 	out.steps = append(out.steps, step{name: "deploy", display: display, shell: shell, env: tokenEnv, deploy: true})
 	return out, nil
 }
@@ -172,6 +177,27 @@ func killGroupOnCancel(cmd *exec.Cmd) {
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 	cmd.WaitDelay = 5 * time.Second
+}
+
+// isCLICommand reports a deploy command that invokes the Vercel CLI itself.
+func isCLICommand(command string) bool {
+	return command == "vercel" || strings.HasPrefix(command, "vercel ")
+}
+
+// isolatedGlobalConfig is the directory the Vercel CLI is pointed at in place
+// of its global config (~/.local/share/com.vercel.cli, where `vercel login`
+// keeps its session). It is stable, so a plan and the run it approves show
+// the same command, and it is ours: nothing logs in there.
+func isolatedGlobalConfig() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("find a cache directory for the Vercel CLI's isolated config (%w)", err)
+	}
+	dir := filepath.Join(base, "cerberus-vercel-plugin", "cli-config")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("create the Vercel CLI's isolated config %s (%w)", dir, err)
+	}
+	return dir, nil
 }
 
 func tail(s string, max int) (string, bool) {

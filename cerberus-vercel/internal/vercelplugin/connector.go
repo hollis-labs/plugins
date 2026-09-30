@@ -15,7 +15,7 @@ import (
 const ConnectorID = "vercel"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 // Secret and field names. They are the names existing references were
 // written against, so they must not change.
@@ -64,8 +64,9 @@ func Definition() contract.Definition {
 			Secrets: []contract.SecretRequirement{
 				{
 					Name:        SecretToken,
-					Description: "Vercel access token, handed to the Vercel CLI as VERCEL_TOKEN. Optional: without one the CLI uses its own login session.",
+					Description: "Vercel access token, handed to the Vercel CLI as VERCEL_TOKEN. Required: the plugin never falls back to the CLI's own login session.",
 					Env:         TokenEnvVar,
+					Required:    true,
 				},
 				{
 					Name:        SecretScope,
@@ -85,7 +86,7 @@ func Definition() contract.Definition {
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSReads,
-				Description:  "Report whether the Vercel CLI resolves, whether a token and a default scope are configured, and whether the profiles file parses. Makes no network call.",
+				Description:  "Report whether the Vercel CLI resolves, whether a default scope is configured, and whether the profiles file parses. Fails as credential_missing without a token. Makes no network call.",
 				InputSchema:  contract.ObjectSchema(map[string]any{}),
 				Examples:     []string{"cerberus connectors exec vercel status"},
 			},
@@ -112,7 +113,8 @@ func Definition() contract.Definition {
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSWrites,
 				Description: "Run a deployment profile: its preflight and build commands, `vercel link` when the repo is not linked, then its deploy command, in the profile's repo_path. " +
-					"The dry run returns the steps it would run, the profile's digest and the checkout's branch, commit and dirty state, and runs nothing.",
+					"The Vercel CLI always runs with the plugin's token and an isolated global config, never a login session. " +
+					"The dry run returns the steps it would run, the profile's digest and the checkout's branch, commit and dirty state, and runs nothing. Both fail as credential_missing without a token.",
 				Examples: []string{
 					"cerberus connectors exec vercel deploy --arg profile=site --dry-run --ack",
 					"cerberus connectors exec vercel deploy --arg profile=site --ack",
