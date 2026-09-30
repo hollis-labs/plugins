@@ -17,7 +17,8 @@ into the binary and left out of the catalog by design.
 - `scripts/build-catalog.go` — the builder. Release discovery and archive
   hashing are TODO stubs, and no-ops while the seed list is empty.
 - `scripts/sign-catalog.sh` — detached Ed25519 signing; pipes the private key
-  from 1Password to openssl on stdin so it never reaches disk.
+  from the maintainers' secret store to openssl on stdin so it never reaches
+  disk. Only maintainers hold the key.
 - `.github/workflows/build-catalog.yml` — CI builds and uploads the artifact.
   Sign and publish are `workflow_dispatch`-only and today only echo.
 
@@ -37,8 +38,7 @@ signed in against the catalog root key; `make publish` deploys.
 installed Nanite client fetches that URL, and there is no staging step between
 this repo and them.
 
-The catalog is signed with the Ed25519 root key at
-`op://Nanite/nanite-plugin-catalog-signing-key`. Nanite embeds the matching
+The catalog is signed with an Ed25519 root key held by the maintainers. Nanite embeds the matching
 public key in its own repo at `internal/plugin/catalog/trustedkeys.go` and
 trusts only catalogs whose signature validates against it, so publishing a
 catalog with no `.sig`, or one signed by a different key, takes plugin
