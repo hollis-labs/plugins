@@ -3,7 +3,7 @@ module github.com/hollis-labs/cerberus-plugins/keeper
 go 1.26.6
 
 require (
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930022029-6f1c3db314b8
+	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930163828-3f344a532321
 	github.com/hollis-labs/plugin-sdk v0.5.0
 	github.com/keeper-security/secrets-manager-go/core v1.7.0
 	gopkg.in/yaml.v3 v3.0.1
