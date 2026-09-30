@@ -34,7 +34,7 @@ import (
 // Subscription is the Cerberus view of an Azure subscription.
 type Subscription struct {
 	SubscriptionID string `json:"subscription_id"`
-	DisplayName    string `json:"display_name,omitempty"`
+	DisplayName    string `json:"display_name,omitempty" cerb:"personal"`
 	State          string `json:"state,omitempty"`
 	TenantID       string `json:"tenant_id,omitempty"`
 }
