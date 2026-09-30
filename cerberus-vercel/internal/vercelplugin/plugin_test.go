@@ -78,6 +78,20 @@ func cleanGitEnv(env []string) []string {
 	return out
 }
 
+// scratchCache points the user cache directory at a scratch one, so the
+// CLI's isolated config is created there, and returns that config's path.
+func scratchCache(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	dir, err := isolatedGlobalConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
 func writeProfiles(t *testing.T, profiles string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "profiles.yaml")
@@ -140,6 +154,7 @@ func failureText(t *testing.T, result subprocess.MCPCallResult, err error) strin
 // The dry run is the plan the operator confirms against: every command, in
 // order, with the token named and never shown, and the checkout it runs from.
 func TestDeployDryRunShowsThePlanWithoutTheToken(t *testing.T) {
+	cfg := scratchCache(t)
 	fakeCLI(t)
 	repo := gitRepo(t, true)
 	profiles := writeProfiles(t, `profiles:
@@ -159,7 +174,7 @@ func TestDeployDryRunShowsThePlanWithoutTheToken(t *testing.T) {
 	want := []PlannedStep{
 		{Name: "preflight", Command: "pnpm check"},
 		{Name: "build", Command: "pnpm build"},
-		{Name: "deploy", Command: tokenDisplay + "vercel --prod --yes", Env: []string{"VERCEL_TOKEN"}},
+		{Name: "deploy", Command: tokenDisplay + "vercel --prod --yes --global-config " + shellQuote(cfg), Env: []string{"VERCEL_TOKEN"}},
 	}
 	if !reflect.DeepEqual(got.Steps, want) {
 		t.Fatalf("steps = %+v, want %+v", got.Steps, want)
@@ -187,7 +202,7 @@ func TestProfileDigestChangesWithTheProfile(t *testing.T) {
 // are readable by every local user through ps while the step runs.
 func TestPlanKeepsTheTokenOffCommandLines(t *testing.T) {
 	profile := Profile{ID: "site", Provider: "vercel", RepoPath: t.TempDir(), VercelProject: "site", VercelScope: "team", DeployCommand: "vercel --prod --yes"}
-	planned, err := planDeploy(profile, sentinelToken, "", "/usr/local/bin/vercel")
+	planned, err := planDeploy(profile, sentinelToken, "", "/usr/local/bin/vercel", "/cfg")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,32 +217,56 @@ func TestPlanKeepsTheTokenOffCommandLines(t *testing.T) {
 			t.Errorf("%s: env = %q, want the token as VERCEL_TOKEN", s.name, s.env)
 		}
 	}
-	if got := planned.steps[0].display; got != tokenDisplay+"vercel link --yes --project site --scope team" {
+	if got := planned.steps[0].display; got != tokenDisplay+"vercel link --yes --project site --scope team --global-config /cfg" {
 		t.Errorf("link display = %q", got)
 	}
-	if got := planned.steps[1].display; got != tokenDisplay+"vercel --prod --yes --scope 'team'" {
+	if got := planned.steps[1].display; got != tokenDisplay+"vercel --prod --yes --scope 'team' --global-config '/cfg'" {
 		t.Errorf("deploy display = %q", got)
 	}
 }
 
-// Without a token nothing is added to the child's environment or the display.
-func TestPlanWithoutTokenAddsNoEnv(t *testing.T) {
-	profile := Profile{ID: "site", RepoPath: gitRepo(t, true)}
-	planned, err := planDeploy(profile, "", "", "")
-	if err != nil {
-		t.Fatal(err)
+// The token is required. Without one, status and deploy (its dry run too)
+// fail as credential_missing with the command that stores one, and the CLI
+// never runs: it would otherwise use whatever `vercel login` session the
+// account holds, outside the declared-secret channel.
+func TestNoTokenIsCredentialMissing(t *testing.T) {
+	_, log := fakeCLI(t)
+	scratchCache(t)
+	profiles := writeProfiles(t, "profiles:\n  - id: site\n    repo_path: "+gitRepo(t, true)+"\n")
+	p := loaded(t, map[string]string{FieldProfilesFile: profiles})
+	for name, args := range map[string]map[string]any{
+		"status":  nil,
+		"dry run": {"profile": "site", argDryRun: true, argAcknowledged: true},
+		"run":     {"profile": "site", argAcknowledged: true},
+	} {
+		op := OpDeploy
+		if name == "status" {
+			op = OpStatus
+		}
+		result, err := callTool(p, op, args)
+		message := failureText(t, result, err)
+		if !strings.Contains(message, string(cerbplugin.ErrorCredentialMissing)) || !strings.Contains(message, "cerberus secrets set vercel/token") {
+			t.Errorf("%s: %s, want credential_missing naming cerberus secrets set vercel/token", name, message)
+		}
+		assertSurvivesRedaction(t, name, message)
 	}
-	if len(planned.steps) != 1 || planned.steps[0].env != nil || planned.planned()[0].Command != "vercel --prod --yes" {
-		t.Fatalf("steps = %+v", planned.steps)
+	if _, err := planDeploy(Profile{ID: "site", RepoPath: t.TempDir()}, "", "", "/bin/vercel", "/cfg"); err == nil {
+		t.Error("a plan was made without a token")
+	}
+	if calls, _ := os.ReadFile(log); len(calls) != 0 { //nolint:gosec // the test's own file
+		t.Errorf("the CLI ran without a token: %s", calls)
+	}
+	if health, _ := p.Health(context.Background()); health.OK {
+		t.Errorf("health = %+v, want not OK without a token", health)
 	}
 }
 
 // A profile's own scope wins; the scope secret is the default.
 func TestScopeDefaultsToTheSecret(t *testing.T) {
 	repo := gitRepo(t, true)
-	own, _ := planDeploy(Profile{ID: "a", RepoPath: repo, VercelScope: "mine"}, "", "team", "")
-	fallback, _ := planDeploy(Profile{ID: "b", RepoPath: repo}, "", "team", "")
-	if !strings.HasSuffix(own.steps[0].shell, "--scope 'mine'") || !strings.HasSuffix(fallback.steps[0].shell, "--scope 'team'") {
+	own, _ := planDeploy(Profile{ID: "a", RepoPath: repo, VercelScope: "mine"}, sentinelToken, "team", "", "/cfg")
+	fallback, _ := planDeploy(Profile{ID: "b", RepoPath: repo}, sentinelToken, "team", "", "/cfg")
+	if !strings.Contains(own.steps[0].shell, "--scope 'mine'") || !strings.Contains(fallback.steps[0].shell, "--scope 'team'") {
 		t.Fatalf("own %q fallback %q", own.steps[0].shell, fallback.steps[0].shell)
 	}
 }
@@ -235,6 +274,7 @@ func TestScopeDefaultsToTheSecret(t *testing.T) {
 // A run links an unlinked repo, deploys with the real token in the child's
 // environment, records the displayed commands and finds the production URL.
 func TestDeployRunsTheProfile(t *testing.T) {
+	cfg := scratchCache(t)
 	_, log := fakeCLI(t)
 	repo := gitRepo(t, false)
 	profiles := writeProfiles(t, `profiles:
@@ -256,14 +296,14 @@ func TestDeployRunsTheProfile(t *testing.T) {
 	if got.Steps[0].Output != "built" {
 		t.Errorf("build output = %q", got.Steps[0].Output)
 	}
-	if got.Steps[2].Command != tokenDisplay+"vercel --prod --yes" {
+	if got.Steps[2].Command != tokenDisplay+"vercel --prod --yes --global-config "+shellQuote(cfg) {
 		t.Errorf("recorded deploy command %q", got.Steps[2].Command)
 	}
 	if got.DeploymentURL != "https://site-7h2w.vercel.app" {
 		t.Errorf("deployment url = %q", got.DeploymentURL)
 	}
 	calls, _ := os.ReadFile(log) //nolint:gosec // the test's own file
-	want := "link --yes --project site token=set\n--prod --yes token=set\n"
+	want := "link --yes --project site --global-config " + cfg + " token=set\n--prod --yes --global-config " + cfg + " token=set\n"
 	if string(calls) != want {
 		t.Errorf("the CLI saw %q, want %q", calls, want)
 	}
@@ -272,6 +312,7 @@ func TestDeployRunsTheProfile(t *testing.T) {
 // A step that echoes the token does not carry it into the result: the plugin
 // removes the value it holds, whoever printed it.
 func TestRunOutputNeverShowsTheToken(t *testing.T) {
+	scratchCache(t)
 	repo := gitRepo(t, true)
 	profiles := writeProfiles(t, `profiles:
   - id: site
@@ -291,6 +332,7 @@ func TestRunOutputNeverShowsTheToken(t *testing.T) {
 
 // The first failing step stops the run.
 func TestRunStopsAtTheFirstFailure(t *testing.T) {
+	scratchCache(t)
 	repo := gitRepo(t, true)
 	profiles := writeProfiles(t, `profiles:
   - id: site
@@ -298,7 +340,7 @@ func TestRunStopsAtTheFirstFailure(t *testing.T) {
     preflight_command: exit 3
     deploy_command: touch deployed
 `)
-	p := loaded(t, map[string]string{FieldProfilesFile: profiles})
+	p := loaded(t, map[string]string{SecretToken: sentinelToken, FieldProfilesFile: profiles})
 	got := callAs[RunResult](t, p, OpDeploy, map[string]any{"profile": "site", argAcknowledged: true})
 	if got.Success || len(got.Steps) != 1 || got.Steps[0].Name != "preflight" {
 		t.Fatalf("run = %+v", got)
@@ -319,9 +361,10 @@ func TestLongOutputKeepsItsTail(t *testing.T) {
 // Every refusal is coded invalid_args, names what to fix, and reaches the
 // operator intact through the host's redaction.
 func TestRefusals(t *testing.T) {
+	scratchCache(t)
 	repo := gitRepo(t, false)
 	profiles := writeProfiles(t, "profiles:\n  - id: site\n    repo_path: "+repo+"\n  - id: other\n    provider: netlify\n    repo_path: "+repo+"\n")
-	p := loaded(t, map[string]string{FieldProfilesFile: profiles})
+	p := loaded(t, map[string]string{SecretToken: sentinelToken, FieldProfilesFile: profiles})
 	p.findCLI = func() string { return "" }
 	unconfigured := loaded(t, nil)
 	cases := []struct {
@@ -357,7 +400,7 @@ func TestRefusals(t *testing.T) {
 
 // The link step needs the CLI resolved up front, so it can run it by path.
 func TestMissingCLIRefusesALink(t *testing.T) {
-	_, err := planDeploy(Profile{ID: "site", RepoPath: t.TempDir(), VercelProject: "site"}, "", "", "")
+	_, err := planDeploy(Profile{ID: "site", RepoPath: t.TempDir(), VercelProject: "site"}, sentinelToken, "", "", "/cfg")
 	if err == nil || err.Error() != errNoVercelCLI.Error() {
 		t.Fatalf("err = %v", err)
 	}
@@ -464,7 +507,7 @@ func assertSurvivesRedaction(t *testing.T, label, text string) {
 // has to survive the host's rules too: "--token [vercel token]" did not.
 func TestTokenPlaceholderSurvivesRedaction(t *testing.T) {
 	profile := Profile{ID: "site", RepoPath: t.TempDir(), VercelProject: "site"}
-	planned, err := planDeploy(profile, sentinelToken, "", "/bin/vercel")
+	planned, err := planDeploy(profile, sentinelToken, "", "/bin/vercel", "/Users/me/Library/Caches/cerberus-vercel-plugin/cli-config")
 	if err != nil {
 		t.Fatal(err)
 	}

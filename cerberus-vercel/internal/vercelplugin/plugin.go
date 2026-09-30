@@ -51,9 +51,9 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 	}, nil
 }
 
-// Load never fails: a missing token is not an error (the Vercel CLI can use
-// its own login session), and a missing profiles file is reported by status
-// and refused by the operation that needed it.
+// Load never fails. A missing token fails status and deploy as
+// credential_missing, and a missing profiles file is reported by status and
+// refused by the operation that needed it.
 func (p *Plugin) Load(context.Context) (subprocess.LoadResult, error) {
 	p.scrub = newScrubber(p.token())
 	return subprocess.LoadResult{}, nil
@@ -104,6 +104,9 @@ func (p *Plugin) status() Status {
 		ProfilesFile:    p.profilesPath(),
 		Problems:        []string{},
 	}
+	if !status.TokenConfigured {
+		status.Problems = append(status.Problems, errNoToken.Error())
+	}
 	if status.VercelCLI == "" {
 		status.Problems = append(status.Problems, errNoVercelCLI.Error())
 	}
@@ -143,6 +146,9 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 		if dryRun {
 			return subprocess.MCPCallResult{}, readOnlyRefusal(op.Name)
 		}
+		if p.token() == "" {
+			return subprocess.MCPCallResult{}, errNoToken
+		}
 		return marshalResult(p.status())
 
 	case OpListProfiles:
@@ -167,6 +173,12 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 			return subprocess.MCPCallResult{}, invalid(errors.New("deploy runs the profile's commands and deploys it, and requires acknowledgment. " +
 				"Re-run it acknowledged (--ack), or preview it first with --dry-run"))
 		}
+		// No token, no run and no plan: the CLI would otherwise fall back to
+		// whatever `vercel login` session the operator's account holds,
+		// outside the declared-secret channel.
+		if p.token() == "" {
+			return subprocess.MCPCallResult{}, errNoToken
+		}
 		id, _ := args["profile"].(string)
 		id = strings.TrimSpace(id)
 		if id == "" {
@@ -180,7 +192,11 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 		if !ok {
 			return subprocess.MCPCallResult{}, invalid(fmt.Errorf("no profile %q in %s; list them with `cerberus connectors exec vercel list_profiles`", id, p.profilesPath()))
 		}
-		planned, err := planDeploy(profile, p.token(), p.scope(), p.cli())
+		globalConfig, err := isolatedGlobalConfig()
+		if err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		planned, err := planDeploy(profile, p.token(), p.scope(), p.cli(), globalConfig)
 		if err != nil {
 			return subprocess.MCPCallResult{}, invalid(err)
 		}
@@ -213,6 +229,15 @@ func preview(ctx context.Context, planned plan) DryRunPreview {
 		Git:           inspectGit(ctx, profile),
 	}
 }
+
+// errNoToken is the refusal without a token. It names the command that
+// stores one; the host appends its own guidance for a required secret a
+// plugin loaded without (the other sources, and the reload), so this does
+// not repeat it. Worded to survive the host's redact.Text: no "name: value"
+// or "name=value" shapes, no flag followed by a word.
+var errNoToken = cerbplugin.WithCode(cerbplugin.ErrorCredentialMissing, errors.New(
+	"no Vercel token was supplied to this plugin, and it never uses a `vercel login` session instead; "+
+		"store one with `cerberus secrets set vercel/token`"))
 
 func readOnlyRefusal(op string) error {
 	return invalid(fmt.Errorf("%s is read-only and has no dry-run preview; run it without --dry-run", op))
