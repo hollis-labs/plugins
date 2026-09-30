@@ -3,7 +3,7 @@ module github.com/hollis-labs/cerberus-plugins/kubernetes
 go 1.26.6
 
 require (
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260929235857-1bf397533487
+	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930163828-3f344a532321
 	github.com/hollis-labs/plugin-sdk v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.37.0
@@ -44,7 +44,7 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
-	golang.org/x/term v0.45.0 // indirect
+	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
