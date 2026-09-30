@@ -169,10 +169,10 @@ func Definition() contract.Definition {
 				Effect:       contract.EffectExec,
 				Target:       contract.TargetDescriptor{Kind: "forge.site", From: []string{"server_id", "site_id"}},
 				Preview:      contract.PreviewPlugin,
-				Output:       contract.OutputFreeText,
+				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Execute a command on a Forge site.",
+				Description:  "Run a command on a Forge site. Returns the command record (id, command, status, times), not its output.",
 				Examples: []string{
 					"cerberus connectors exec forge exec_site_command --arg server_id=12 --arg site_id=34 --arg command='php artisan migrate --force' --dry-run --ack",
 					"cerberus connectors exec forge exec_site_command --arg server_id=12 --arg site_id=34 --arg command='php artisan migrate --force' --ack",
