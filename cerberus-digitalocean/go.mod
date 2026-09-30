@@ -1,6 +1,6 @@
 module github.com/hollis-labs/cerberus-plugins/digitalocean
 
-go 1.26.3
+go 1.26.6
 
 require (
 	github.com/digitalocean/godo v1.206.0
