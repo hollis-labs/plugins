@@ -2,6 +2,7 @@ package opplugin
 
 import (
 	contract "github.com/hollis-labs/cerberus/pkg/connector"
+	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"github.com/hollis-labs/cerberus/pkg/resource"
 )
 
@@ -30,7 +31,7 @@ const SecretServiceAccountToken = "service_account_token"
 // resolve one reference. It is not a connector operation, so it is never a
 // CLI command, an API operation or an MCP tool: the host reaches it only from
 // its own secret resolution.
-const ResolveCommand = "cerberus.secret/resolve"
+const ResolveCommand = cerbplugin.ResolveCommand
 
 // envVar is the variable the host resolves for a secret (CERBERUS_<ID>_<NAME>)
 // and the one this binary reads when run directly, outside the host.

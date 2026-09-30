@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/1password/onepassword-sdk-go v0.4.1
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260929235857-1bf397533487
+	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930022029-6f1c3db314b8
 	github.com/hollis-labs/plugin-sdk v0.5.0
 	gopkg.in/yaml.v3 v3.0.1
 )

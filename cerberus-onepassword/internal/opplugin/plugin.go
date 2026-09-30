@@ -21,7 +21,7 @@ var errMissingCredential = errors.New("the onepassword service_account_token was
 // by a resolve that cannot run. It is worded to survive the host's
 // redact.Text: no "name: value" or "name=value" shapes (see plugin_test.go).
 var credentialGuidance = errMissingCredential.Error() + ". Create a 1Password service account with read access to only the vaults Cerberus may read, " +
-	"then store its token in the OS credential store as onepassword/service_account_token (the console's provider form writes it), or supply it through " +
+	"then store its token in the OS credential store with `cerberus secrets set onepassword/service_account_token`, or supply it through " +
 	envVar(SecretServiceAccountToken) + ", and reload the plugin with `cerberus connectors plugin managed load onepassword`"
 
 // referenceMarker replaces the reference in error text. A reference is not a
