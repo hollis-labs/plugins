@@ -363,7 +363,7 @@ func TestHealthReportsAResolutionFailureRatherThanErroring(t *testing.T) {
 }
 
 func TestDescribeErrorNamesTheCauseForEachAPIFailure(t *testing.T) {
-	server := "https://k8s.corp.example.com:6443"
+	server := "https://k8s.internal.example.com:6443"
 	gvr := schema.GroupResource{Resource: "pods"}
 
 	cases := []struct {
@@ -493,12 +493,12 @@ func TestLogsReturnsABoundedSnapshot(t *testing.T) {
 }
 
 func TestDescribeErrorNamesTheNetworkCauseAndPointsAtTheVPN(t *testing.T) {
-	server := "https://k8s.corp.example.com:6443"
+	server := "https://k8s.internal.example.com:6443"
 
 	dnsFailure := &url.Error{
 		Op:  "Get",
 		URL: server,
-		Err: &net.DNSError{Err: "no such host", Name: "k8s.corp.example.com", IsNotFound: true},
+		Err: &net.DNSError{Err: "no such host", Name: "k8s.internal.example.com", IsNotFound: true},
 	}
 	got := describeError(dnsFailure, server)
 	if !strings.Contains(got, "cannot resolve") || !strings.Contains(got, "VPN") {
