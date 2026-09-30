@@ -9,10 +9,12 @@ environment can name a 1Password item rather than carry the value.
 > compatibility guarantees and no support channel. Built in the open: the
 > interfaces and behaviour can change without notice.
 >
-> **The host side is not built yet.** Until Cerberus routes `op://`
-> references to a plugin that claims the scheme, this installs and loads as an
-> ordinary connector serving `status` and resolves nothing on the host's behalf.
-> Its plugin.yaml gains the `secret_backend` claim in the same change.
+> **Host requirement.** This plugin's `plugin.yaml` claims the `op://`
+> scheme (`cerberus.secret_backend`). A Cerberus host with secret-backend
+> routing resolves `op://` references through it; an older host loads it as
+> an ordinary connector serving `status` and routes nothing to it. Managed
+> services (`cerberus run-secrets`) resolve through it too, by loading it in the
+> service's own process.
 
 ## What it does
 
@@ -41,8 +43,7 @@ account token (`ops_…`).
 1. In 1Password, create a service account with **read** access to only the
    vaults Cerberus may read.
 2. Store its token in the OS credential store as
-   `onepassword/service_account_token`. The Cerberus console's provider form
-   writes it. For a binary run directly,
+   `onepassword/service_account_token`. Run `cerberus secrets set onepassword/service_account_token` in your terminal and paste it. For a binary run directly,
    `CERBERUS_ONEPASSWORD_SERVICE_ACCOUNT_TOKEN` works too.
 
 The token comes from the OS credential store (macOS Keychain, Windows
