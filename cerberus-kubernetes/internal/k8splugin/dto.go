@@ -19,7 +19,7 @@ package k8splugin
 //
 // So these DTOs are an allow-list. A field upstream adds in a minor release is
 // not emitted unless someone adds it here on purpose. The rule throughout is
-// the `probe-*` convention from ~/admin-tools: **names, never values**, so
+// a common convention for probe scripts: **names, never values**, so
 // output is safe to paste into a document or hand to an agent.
 //
 // The read DTOs are here; the write operations' result type is in
