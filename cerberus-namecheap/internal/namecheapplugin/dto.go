@@ -27,7 +27,7 @@ type DNSRecord struct {
 	ID     int    `json:"id"`
 	Type   string `json:"type"` // A, AAAA, CNAME, MX, TXT, NS
 	Host   string `json:"host"`
-	Value  string `json:"value"`
+	Value  string `json:"value" cerb:"untrusted"`
 	TTL    int    `json:"ttl"`
 	MXPref int    `json:"mx_pref,omitempty"`
 }
