@@ -25,7 +25,7 @@ type Gateway struct {
 	ID          string `json:"id,omitempty"`
 	Name        string `json:"name"`
 	URL         string `json:"url"`
-	Description string `json:"description,omitempty"`
+	Description string `json:"description,omitempty" cerb:"untrusted"`
 	Transport   string `json:"transport,omitempty"`
 	Enabled     bool   `json:"enabled"`
 	Reachable   bool   `json:"reachable"`
@@ -45,7 +45,7 @@ type Gateway struct {
 type VirtualServer struct {
 	ID                  string   `json:"id"`
 	Name                string   `json:"name"`
-	Description         string   `json:"description,omitempty"`
+	Description         string   `json:"description,omitempty" cerb:"untrusted"`
 	Enabled             bool     `json:"enabled"`
 	IsActive            bool     `json:"is_active"`
 	AssociatedTools     []string `json:"associated_tools,omitempty"`
@@ -62,8 +62,8 @@ type VirtualServer struct {
 // Tool is the Cerberus view of a gateway-prefixed tool registration.
 type Tool struct {
 	ID          string `json:"id,omitempty"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	Name        string `json:"name" cerb:"untrusted"`
+	Description string `json:"description,omitempty" cerb:"untrusted"`
 	Enabled     bool   `json:"enabled"`
 	Visibility  string `json:"visibility,omitempty"`
 }
