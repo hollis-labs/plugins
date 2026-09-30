@@ -163,7 +163,7 @@ func Definition() contract.Definition {
 				}),
 				Examples: []string{
 					"cerberus connectors exec azure list_model_deployments",
-					"cerberus connectors exec azure list_model_deployments --arg account=example-ai-account",
+					"cerberus connectors exec azure list_model_deployments --arg account=Example-AI-Account",
 				},
 			},
 		},

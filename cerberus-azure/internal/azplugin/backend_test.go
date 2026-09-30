@@ -49,7 +49,7 @@ func TestCredentialSourceNamesServicePrincipal(t *testing.T) {
 
 func TestResourceGroupFromID(t *testing.T) {
 	cases := map[string]string{
-		"/subscriptions/sub-1/resourceGroups/Azure-rg-example-ai/providers/Microsoft.CognitiveServices/accounts/x": "Azure-rg-example-ai",
+		"/subscriptions/sub-1/resourceGroups/rg-example-ai/providers/Microsoft.CognitiveServices/accounts/x": "rg-example-ai",
 		// ARM is inconsistent about the segment's case across providers.
 		"/subscriptions/sub-1/resourcegroups/lower-case-rg/providers/Microsoft.Storage/storageAccounts/y": "lower-case-rg",
 		"/subscriptions/sub-1": "",
@@ -66,7 +66,7 @@ func TestResourceGroupFromID(t *testing.T) {
 
 func TestSelectDeploymentTargets(t *testing.T) {
 	accounts := []AIAccount{
-		{Name: "example-ai-account", ResourceGroup: "Azure-rg-example-ai"},
+		{Name: "Example-AI-Account", ResourceGroup: "rg-example-ai"},
 		{Name: "other-account", ResourceGroup: "rg-example-dev-eastus-01"},
 	}
 
@@ -82,7 +82,7 @@ func TestSelectDeploymentTargets(t *testing.T) {
 		if err != nil {
 			t.Fatalf("err %v", err)
 		}
-		if len(got) != 1 || got[0].ResourceGroup != "Azure-rg-example-ai" {
+		if len(got) != 1 || got[0].ResourceGroup != "rg-example-ai" {
 			t.Fatalf("got %v", got)
 		}
 	})
@@ -103,7 +103,7 @@ func TestSelectDeploymentTargets(t *testing.T) {
 		if err == nil {
 			t.Fatal("unknown account was accepted")
 		}
-		if !strings.Contains(err.Error(), "example-ai-account") {
+		if !strings.Contains(err.Error(), "Example-AI-Account") {
 			t.Fatalf("error does not name the accounts present: %v", err)
 		}
 	})

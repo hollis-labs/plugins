@@ -138,8 +138,8 @@ func TestListModelDeploymentsReturnsDTOs(t *testing.T) {
 	backend := &fakeBackend{
 		resolved: defaultSubscription(),
 		deployments: []ModelDeployment{{
-			Name: "claude-sonnet-5", Account: "example-ai-account",
-			ResourceGroup: "Azure-rg-example-ai", Model: "claude-sonnet-5",
+			Name: "claude-sonnet-5", Account: "Example-AI-Account",
+			ResourceGroup: "rg-example-ai", Model: "claude-sonnet-5",
 			ModelVersion: "2", SKU: "GlobalStandard", Capacity: 5000,
 		}},
 	}
@@ -164,15 +164,15 @@ func TestOperationArgumentsReachTheBackend(t *testing.T) {
 	p := loadedPlugin(t, backend)
 
 	callTool(t, p, OpListModelDeployments, map[string]any{
-		ArgAccount:        "example-ai-account",
-		ArgResourceGroup:  "Azure-rg-example-ai",
+		ArgAccount:        "Example-AI-Account",
+		ArgResourceGroup:  "rg-example-ai",
 		ArgSubscriptionID: "sub-override",
 	})
 
-	if backend.calls.account != "example-ai-account" {
+	if backend.calls.account != "Example-AI-Account" {
 		t.Fatalf("account = %q", backend.calls.account)
 	}
-	if backend.calls.resourceGroup != "Azure-rg-example-ai" {
+	if backend.calls.resourceGroup != "rg-example-ai" {
 		t.Fatalf("resource group = %q", backend.calls.resourceGroup)
 	}
 	if backend.calls.subscriptionID != "sub-override" {

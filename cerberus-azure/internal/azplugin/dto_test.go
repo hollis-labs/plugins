@@ -42,8 +42,8 @@ func fullyPopulatedAccount() *armcognitiveservices.Account {
 	keySource := armcognitiveservices.KeySourceMicrosoftKeyVault
 
 	return &armcognitiveservices.Account{
-		ID:       strptr("/subscriptions/sub-1/resourceGroups/Azure-rg-example-ai/providers/Microsoft.CognitiveServices/accounts/example-ai-account"),
-		Name:     strptr("example-ai-account"),
+		ID:       strptr("/subscriptions/sub-1/resourceGroups/rg-example-ai/providers/Microsoft.CognitiveServices/accounts/Example-AI-Account"),
+		Name:     strptr("Example-AI-Account"),
 		Kind:     &kind,
 		Location: &location,
 		SKU:      &armcognitiveservices.SKU{Name: &skuName},
@@ -51,7 +51,7 @@ func fullyPopulatedAccount() *armcognitiveservices.Account {
 			Endpoint:           &endpoint,
 			ProvisioningState:  &provisioning,
 			DisableLocalAuth:   &disableLocalAuth,
-			AssociatedProjects: []*string{strptr("example-ai-account")},
+			AssociatedProjects: []*string{strptr("Example-AI-Account")},
 			MigrationToken:     strptr(sentinelMigration),
 			InternalID:         strptr(sentinelInternalIDVal),
 			APIProperties: &armcognitiveservices.APIProperties{
@@ -119,13 +119,13 @@ func TestAIAccountDTOReportsCredentialShape(t *testing.T) {
 	if dto.Endpoint == "" {
 		t.Fatal("Endpoint is empty; an operator needs somewhere to call")
 	}
-	if dto.ResourceGroup != "Azure-rg-example-ai" {
+	if dto.ResourceGroup != "rg-example-ai" {
 		t.Fatalf("ResourceGroup = %q, want it derived from the ARM id", dto.ResourceGroup)
 	}
 	if dto.SKU != "S0" || dto.Kind != "AIServices" {
 		t.Fatalf("SKU/Kind = %q/%q, want S0/AIServices", dto.SKU, dto.Kind)
 	}
-	if len(dto.AssociatedProjects) != 1 || dto.AssociatedProjects[0] != "example-ai-account" {
+	if len(dto.AssociatedProjects) != 1 || dto.AssociatedProjects[0] != "Example-AI-Account" {
 		t.Fatalf("AssociatedProjects = %v", dto.AssociatedProjects)
 	}
 }
@@ -137,8 +137,8 @@ func TestResourceDTODropsUntypedProviderProperties(t *testing.T) {
 	kind := "AIServices"
 	location := "eastus2"
 	vendor := &armresources.GenericResourceExpanded{
-		ID:       strptr("/subscriptions/sub-1/resourceGroups/Azure-rg-example-ai/providers/Microsoft.CognitiveServices/accounts/example-ai-account"),
-		Name:     strptr("example-ai-account"),
+		ID:       strptr("/subscriptions/sub-1/resourceGroups/rg-example-ai/providers/Microsoft.CognitiveServices/accounts/Example-AI-Account"),
+		Name:     strptr("Example-AI-Account"),
 		Type:     strptr("Microsoft.CognitiveServices/accounts"),
 		Kind:     &kind,
 		Location: &location,
@@ -157,7 +157,7 @@ func TestResourceDTODropsUntypedProviderProperties(t *testing.T) {
 	}
 
 	dto := ResourceFromSDK(vendor)
-	if dto.ResourceGroup != "Azure-rg-example-ai" {
+	if dto.ResourceGroup != "rg-example-ai" {
 		t.Fatalf("ResourceGroup = %q, want it derived from the ARM id", dto.ResourceGroup)
 	}
 	if dto.Type != "Microsoft.CognitiveServices/accounts" {
@@ -180,11 +180,11 @@ func TestSubscriptionFromSDK(t *testing.T) {
 
 func TestResourceGroupFromSDKCarriesProvisioningState(t *testing.T) {
 	dto := ResourceGroupFromSDK(&armresources.ResourceGroup{
-		Name:       strptr("Azure-rg-example-ai"),
+		Name:       strptr("rg-example-ai"),
 		Location:   strptr("eastus2"),
 		Properties: &armresources.ResourceGroupProperties{ProvisioningState: strptr("Succeeded")},
 	})
-	if dto.Name != "Azure-rg-example-ai" || dto.Location != "eastus2" || dto.ProvisioningState != "Succeeded" {
+	if dto.Name != "rg-example-ai" || dto.Location != "eastus2" || dto.ProvisioningState != "Succeeded" {
 		t.Fatalf("ResourceGroupFromSDK = %+v", dto)
 	}
 }
@@ -209,12 +209,12 @@ func TestModelDeploymentFromSDK(t *testing.T) {
 			ProvisioningState:    &provisioning,
 			VersionUpgradeOption: &upgrade,
 		},
-	}, "example-ai-account", "Azure-rg-example-ai")
+	}, "Example-AI-Account", "rg-example-ai")
 
 	want := ModelDeployment{
 		Name:              "claude-sonnet-5",
-		Account:           "example-ai-account",
-		ResourceGroup:     "Azure-rg-example-ai",
+		Account:           "Example-AI-Account",
+		ResourceGroup:     "rg-example-ai",
 		Model:             "claude-sonnet-5",
 		ModelVersion:      "2",
 		ModelFormat:       "Anthropic",
