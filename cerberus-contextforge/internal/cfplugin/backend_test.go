@@ -27,7 +27,7 @@ func closedLoopbackAddress(t *testing.T) string {
 
 // The failure this guards against is an operator being sent to the wrong host.
 // A refused connection on the local tunnel port means the tunnel is down; the
-// gateway on host-a may be perfectly healthy.
+// gateway on its host may be perfectly healthy.
 func TestRefusedLoopbackConnectionBlamesTheTunnel(t *testing.T) {
 	backend, err := NewSDKBackend(closedLoopbackAddress(t), "token")
 	if err != nil {
@@ -42,7 +42,7 @@ func TestRefusedLoopbackConnectionBlamesTheTunnel(t *testing.T) {
 	if !strings.Contains(message, "tunnel is down") {
 		t.Fatalf("error should name the tunnel, got: %v", message)
 	}
-	if !strings.Contains(message, "tunnel-host-a") {
+	if !strings.Contains(message, "cerberus resource start") {
 		t.Fatalf("error should name the resource that fixes it, got: %v", message)
 	}
 	if strings.Contains(strings.ToLower(message), "gateway is down") {

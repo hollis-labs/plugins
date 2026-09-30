@@ -25,7 +25,7 @@ func fullyPopulatedGateway() *cf.Gateway {
 		ID:                  cf.String("gw-1"),
 		Name:                "mcp-svc-a",
 		URL:                 "http://svc-a-mcp:8000/mcp",
-		Description:         cf.String("svc-a MCP server"),
+		Description:         cf.String("Svc A MCP server"),
 		Transport:           "streamablehttp",
 		Enabled:             true,
 		Reachable:           true,
