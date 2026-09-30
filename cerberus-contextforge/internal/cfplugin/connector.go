@@ -27,7 +27,7 @@ func Definition() contract.Definition {
 			Fields: []contract.ConfigField{{
 				Name:        "address",
 				Type:        "string",
-				Description: "ContextForge base URL. Defaults to the tunnel-host-a local endpoint.",
+				Description: "ContextForge base URL. Defaults to a local SSH tunnel's endpoint, http://127.0.0.1:14444.",
 				Default:     DefaultAddress,
 			}},
 			Secrets: []contract.SecretRequirement{{

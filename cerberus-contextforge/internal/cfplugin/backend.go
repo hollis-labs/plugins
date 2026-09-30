@@ -17,8 +17,8 @@ import (
 	cf "github.com/leefowlercu/go-contextforge/contextforge"
 )
 
-// DefaultAddress is ContextForge through the tunnel-host-a resource.
-// 14444 is the local end of the tunnel; 4444 is the gateway on the box.
+// DefaultAddress is ContextForge through a local SSH tunnel: 14444 is the
+// tunnel's local end, forwarding to the gateway's own port on its host.
 const DefaultAddress = "http://127.0.0.1:14444"
 
 // SecretToken is the credential this plugin declares in its manifest, and the
@@ -167,7 +167,7 @@ func (b *sdkBackend) describeError(action string, err error) error {
 	if isConnectionRefused(err) && isLoopback(b.address) {
 		return cerbplugin.WithCode(cerbplugin.ErrorUnavailable, fmt.Errorf(
 			"%s: cannot reach ContextForge at %s — the tunnel is down, not the gateway. "+
-				"Start it with `cerberus resource start tunnel-host-a` (VPN required): %w",
+				"Start the tunnel resource that forwards it (`cerberus resource start <tunnel>`; it may need a VPN): %w",
 			action, b.address, err))
 	}
 	if isUnreachable(err) {
