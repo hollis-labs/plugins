@@ -30,8 +30,13 @@ Checksums detect changed bytes; they do not authenticate a publisher.
 
 ## Publication
 
-CI uploads the generated catalog and schema as an artifact. Publication is a
-separate operator step: coordinate the new directory feed and host consumers
-before replacing any existing catalog URL. An old host that expects a signed
-catalog or schema v1 cannot consume this hard break. Deployment credentials and
-the final feed URL belong to the website's deployment configuration.
+CI uploads the generated catalog and schema as an artifact. The release
+workflow builds and validates the source at a `vX.Y.Z` tag, then publishes
+`catalog.yaml` and `catalog.schema.v2.json` as GitHub release assets. Hosts and
+the plugins directory can read the stable feed at
+[the latest catalog release](https://github.com/hollis-labs/plugins-catalog/releases/latest/download/catalog.yaml).
+
+Keep feed selection in consumer deployment configuration. Old hosts expecting a
+signed catalog or schema v1 cannot consume this hard break; coordinate consumer
+adoption before replacing their configured URL. A new portfolio release does
+not replace the old host-specific signed feed.

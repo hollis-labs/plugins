@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	catalog "github.com/hollis-labs/nanite-plugins-catalog"
+	catalog "github.com/hollis-labs/plugins-catalog"
 	"github.com/hollis-labs/plugin-sdk/manifest"
 )
 
