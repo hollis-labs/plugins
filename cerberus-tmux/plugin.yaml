@@ -1,0 +1,152 @@
+schema_version: "1"
+id: tmux
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-tmux-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: tmux
+        version: 0.1.0
+        resource_types:
+            - tmux.session
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: list
+              description: List all tmux sessions.
+              examples:
+                - cerberus connectors exec tmux list
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: read
+              target:
+                kind: tmux.session
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: new
+              description: Create a new detached tmux session running a command.
+              examples:
+                - cerberus connectors exec tmux new --arg session_name=build --arg command="make build"
+              input_schema:
+                additionalProperties: false
+                properties:
+                    command:
+                        description: Command to run inside the session (optional).
+                        type: string
+                    session_name:
+                        description: Name of the tmux session.
+                        type: string
+                required:
+                    - session_name
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: tmux.session
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+            - name: capture
+              description: Capture the output of a tmux pane.
+              examples:
+                - cerberus connectors exec tmux capture --arg session_name=build
+              input_schema:
+                additionalProperties: false
+                properties:
+                    session_name:
+                        description: Name of the tmux session.
+                        type: string
+                required:
+                    - session_name
+                type: object
+              effect: read
+              target:
+                kind: tmux.session
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: kill
+              description: Kill a tmux session.
+              examples:
+                - cerberus connectors exec tmux kill --arg session_name=build --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    session_name:
+                        description: Name of the tmux session.
+                        type: string
+                required:
+                    - session_name
+                type: object
+              effect: destructive
+              target:
+                kind: tmux.session
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+            - name: send_keys
+              description: Send keys to a tmux session.
+              examples:
+                - cerberus connectors exec tmux send_keys --arg session_name=build --arg keys="C-c"
+              input_schema:
+                additionalProperties: false
+                properties:
+                    keys:
+                        description: Keys to send (e.g., C-c, Enter, text).
+                        type: string
+                    session_name:
+                        description: Name of the tmux session.
+                        type: string
+                required:
+                    - session_name
+                    - keys
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: tmux.session
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - list
+            - new
+            - capture
+            - kill
+            - send_keys
