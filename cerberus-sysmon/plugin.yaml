@@ -1,0 +1,102 @@
+schema_version: "1"
+id: sysmon
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-sysmon-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: sysmon
+        version: 0.1.0
+        resource_types:
+            - sysmon.host
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: cpu
+              description: Get CPU usage metrics.
+              examples:
+                - cerberus connectors exec sysmon cpu
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: read
+              target:
+                kind: sysmon.host
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: memory
+              description: Get memory usage metrics.
+              examples:
+                - cerberus connectors exec sysmon memory
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: read
+              target:
+                kind: sysmon.host
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: disk
+              description: Get disk usage metrics.
+              examples:
+                - cerberus connectors exec sysmon disk --arg path=/
+              input_schema:
+                additionalProperties: false
+                properties:
+                    path:
+                        description: 'Path to get disk usage for (default: /).'
+                        type: string
+                type: object
+              effect: read
+              target:
+                kind: sysmon.host
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: host
+              description: Get host OS information.
+              examples:
+                - cerberus connectors exec sysmon host
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: read
+              target:
+                kind: sysmon.host
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - cpu
+            - memory
+            - disk
+            - host
