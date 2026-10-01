@@ -1,0 +1,4 @@
+github.com/hollis-labs/nanite/pkg/pluginapi v0.0.0-20261001184753-9107ca9f28a9 h1:g34rKji5XKwDwnuKyesXq9R4jXz+5b0ipNuPGExqIqs=
+github.com/hollis-labs/nanite/pkg/pluginapi v0.0.0-20261001184753-9107ca9f28a9/go.mod h1:1WgszYYMe+90Zf4WUUibiVwZuZ30XcvY1FFkVEN89xg=
+github.com/hollis-labs/plugin-sdk v0.6.0 h1:4ZzVEgi57S/ju1hVG+z9Cb66rrx7uOT97capmv9GYPs=
+github.com/hollis-labs/plugin-sdk v0.6.0/go.mod h1:GW8/S59GT15wKNQu62XvGArq7yLsceNDEa5TA3wFud0=
