@@ -1,0 +1,21 @@
+name: Release catalog
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: 'off'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: make all
+      - name: Publish validated feed and schema
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/catalog.yaml dist/catalog.schema.v2.json --verify-tag --title "Portfolio catalog $GITHUB_REF_NAME" --notes-file CHANGELOG.md

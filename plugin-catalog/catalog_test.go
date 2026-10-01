@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	catalog "github.com/hollis-labs/nanite-plugins-catalog"
+	catalog "github.com/hollis-labs/plugins-catalog"
 	"github.com/hollis-labs/plugin-sdk/manifest"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
 	"github.com/santhosh-tekuri/jsonschema/v6"

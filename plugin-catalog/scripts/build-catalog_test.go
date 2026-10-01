@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	catalog "github.com/hollis-labs/nanite-plugins-catalog"
+	catalog "github.com/hollis-labs/plugins-catalog"
 )
 
 func TestBuilderValidatesBeforeReplacingOutput(t *testing.T) {
