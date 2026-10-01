@@ -1,82 +1,30 @@
-// Command build-catalog reads plugins.yaml and produces dist/catalog.yaml
-// conforming to catalog.schema.v1.json.
-//
-// Per Track F.3 §builder logic:
-//
-//  1. Read plugins.yaml (seed list + tiers).
-//  2. For each plugin with source.type=git, fetch its latest release tag.
-//  3. Download/compute per-platform archive SHA-256 and (optional) sig URLs.
-//  4. Assemble the catalog document.
-//  5. Write dist/catalog.yaml. Signing is a separate step (scripts/sign-catalog.sh)
-//     so the signing key never has to be handled by this builder.
-//
-// For the Phase 2 bootstrap the seed list is empty, so steps 2-3 are no-ops.
-// They are wired up here as TODO stubs — flipping on GH release discovery
-// is a single edit away once the first plugin (giphy, Track E) ships.
+// Command build-catalog derives the portfolio catalog from generated manifests
+// and explicit release metadata. It performs no network calls or signing.
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	catalog "github.com/hollis-labs/nanite-plugins-catalog"
+	"github.com/hollis-labs/plugin-sdk/manifest"
 )
 
 type seedFile struct {
-	CatalogVersion string       `yaml:"catalog_version"`
-	Plugins        []seedPlugin `yaml:"plugins"`
+	CatalogVersion string       `json:"catalog_version"`
+	Plugins        []seedPlugin `json:"plugins"`
 }
 
 type seedPlugin struct {
-	ID           string       `yaml:"id"`
-	Name         string       `yaml:"name"`
-	Description  string       `yaml:"description,omitempty"`
-	Tier         string       `yaml:"tier"`
-	Author       string       `yaml:"author,omitempty"`
-	License      string       `yaml:"license,omitempty"`
-	Homepage     string       `yaml:"homepage,omitempty"`
-	NaniteCompat string       `yaml:"nanite_compat,omitempty"`
-	Source       seedSource   `yaml:"source"`
-	Archives     []seedArchive `yaml:"archives,omitempty"`
-	// Optional override: pin a specific version instead of fetching latest tag.
-	PinVersion string `yaml:"pin_version,omitempty"`
-}
-
-type seedSource struct {
-	Type string `yaml:"type"`
-	Repo string `yaml:"repo,omitempty"`
-	Tag  string `yaml:"tag,omitempty"`
-}
-
-type seedArchive struct {
-	Platform string `yaml:"platform"`
-	URL      string `yaml:"url"`
-	SHA256   string `yaml:"sha256"`
-	SigURL   string `yaml:"sig_url,omitempty"`
-	Size     int64  `yaml:"size,omitempty"`
-}
-
-type catalogDoc struct {
-	SchemaVersion  int             `yaml:"schema_version"`
-	CatalogVersion string          `yaml:"catalog_version"`
-	GeneratedAt    string          `yaml:"generated_at"`
-	Plugins        []catalogPlugin `yaml:"plugins"`
-}
-
-type catalogPlugin struct {
-	ID           string           `yaml:"id"`
-	Name         string           `yaml:"name"`
-	Description  string           `yaml:"description,omitempty"`
-	Version      string           `yaml:"version"`
-	Tier         string           `yaml:"tier"`
-	Author       string           `yaml:"author,omitempty"`
-	License      string           `yaml:"license,omitempty"`
-	Homepage     string           `yaml:"homepage,omitempty"`
-	Source       seedSource       `yaml:"source"`
-	NaniteCompat string           `yaml:"nanite_compat,omitempty"`
-	Archives     []seedArchive    `yaml:"archives,omitempty"`
+	Manifest    string            `json:"manifest"`
+	ManifestURL string            `json:"manifest_url,omitempty"`
+	Source      catalog.Source    `json:"source"`
+	Archives    []catalog.Archive `json:"archives"`
+	Directory   catalog.Directory `json:"directory"`
 }
 
 func main() {
@@ -87,84 +35,61 @@ func main() {
 }
 
 func run() error {
-	rawSeed, err := os.ReadFile("plugins.yaml")
+	raw, err := os.ReadFile("plugins.json")
 	if err != nil {
-		return fmt.Errorf("read plugins.yaml: %w", err)
+		return err
 	}
 	var seed seedFile
-	if err := yaml.Unmarshal(rawSeed, &seed); err != nil {
-		return fmt.Errorf("parse plugins.yaml: %w", err)
+	if err := manifest.DecodeExtension(raw, &seed); err != nil {
+		return fmt.Errorf("plugins.json: %w", err)
 	}
-	if seed.CatalogVersion == "" {
-		return fmt.Errorf("plugins.yaml missing catalog_version")
+	if seed.Plugins == nil {
+		return fmt.Errorf("plugins.json: plugins must be an array")
 	}
-
-	doc := catalogDoc{
-		SchemaVersion:  1,
-		CatalogVersion: seed.CatalogVersion,
-		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
-		Plugins:        make([]catalogPlugin, 0, len(seed.Plugins)),
+	doc := catalog.Document{SchemaVersion: catalog.SchemaVersion, CatalogVersion: seed.CatalogVersion, GeneratedAt: time.Now().UTC().Format(time.RFC3339), Plugins: []catalog.Plugin{}}
+	for _, s := range seed.Plugins {
+		if s.Manifest == "" || !filepath.IsLocal(s.Manifest) {
+			return fmt.Errorf("manifest must name a local generated file")
+		}
+		raw, err := os.ReadFile(s.Manifest)
+		if err != nil {
+			return err
+		}
+		p, err := catalog.FromManifest(raw, s.Source, s.Archives, s.ManifestURL, s.Directory)
+		if err != nil {
+			return err
+		}
+		doc.Plugins = append(doc.Plugins, p)
 	}
-
-	for _, p := range seed.Plugins {
-		version := p.PinVersion
-		if p.Source.Type == "git" && version == "" {
-			// TODO(track-F.3 follow-up): fetch latest release tag via
-			// `gh release view --repo <repo> --json tagName -q .tagName`.
-			// For now require pin_version until the first plugin ships.
-			return fmt.Errorf("plugin %q: source.type=git but no pin_version set and release-tag discovery is not implemented yet", p.ID)
-		}
-		if p.Source.Type == "builtin" && version == "" {
-			version = "0.0.0"
-		}
-
-		archives := p.Archives
-		if p.Source.Type == "git" && len(archives) == 0 {
-			// TODO(track-F.3 follow-up): download each release asset, compute
-			// sha256, pull the .sig sibling, and emit archive entries. Stubbed
-			// to keep the builder deterministic for the bootstrap catalog.
-			return fmt.Errorf("plugin %q: git source without archive list; archive auto-discovery not implemented yet", p.ID)
-		}
-
-		src := p.Source
-		if src.Type == "git" && src.Tag == "" {
-			src.Tag = "v" + version
-		}
-
-		doc.Plugins = append(doc.Plugins, catalogPlugin{
-			ID:           p.ID,
-			Name:         p.Name,
-			Description:  p.Description,
-			Version:      version,
-			Tier:         p.Tier,
-			Author:       p.Author,
-			License:      p.License,
-			Homepage:     p.Homepage,
-			Source:       src,
-			NaniteCompat: p.NaniteCompat,
-			Archives:     archives,
-		})
+	if err := doc.Validate(); err != nil {
+		return err
 	}
-
 	if err := os.MkdirAll("dist", 0o755); err != nil {
-		return fmt.Errorf("mkdir dist: %w", err)
+		return err
 	}
-	out, err := yaml.Marshal(doc)
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		return err
+	}
+	// JSON is valid YAML. Validate the entire output against the JSON Schema in
+	// tests/CI; build output remains a single schema-v2 document.
+	tmp, err := os.CreateTemp("dist", ".catalog-*")
 	if err != nil {
-		return fmt.Errorf("marshal catalog: %w", err)
+		return err
 	}
-	// Prepend a human-readable header — consumers parse YAML so comments are safe.
-	header := []byte("# Generated by scripts/build-catalog.go — do not edit by hand.\n" +
-		"# Source: github.com/hollis-labs/nanite-plugins-catalog\n" +
-		"# Schema: https://plugins.nanite.hollislabs.dev/catalog.schema.v1.json\n")
-	body := append(header, out...)
-
-	target := filepath.Join("dist", "catalog.yaml")
-	if err := os.WriteFile(target, body, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", target, err)
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(out.Bytes()); err != nil {
+		tmp.Close()
+		return err
 	}
-
-	fmt.Printf("wrote %s (%d plugins, catalog_version=%s)\n",
-		target, len(doc.Plugins), doc.CatalogVersion)
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), "dist/catalog.yaml"); err != nil {
+		return err
+	}
+	fmt.Printf("wrote dist/catalog.yaml (%d plugins)\n", len(doc.Plugins))
 	return nil
 }

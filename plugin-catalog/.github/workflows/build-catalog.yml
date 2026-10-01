@@ -1,42 +1,25 @@
 name: build-catalog
-
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GOWORK: 'off'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version: stable
-      - name: Build catalog
-        run: make build
-      - name: Validate schema
-        run: |
-          # Lightweight sanity check; full JSON-Schema validation TBD.
-          test -s dist/catalog.yaml
-          head -5 dist/catalog.yaml
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+          go-version-file: go.mod
+      - name: Validate and build
+        run: make all
+      - uses: actions/upload-artifact@v4
         with:
-          name: catalog
-          path: dist/catalog.yaml
+          name: portfolio-catalog-v2
+          path: dist/
           if-no-files-found: error
-          retention-days: 30
-
-  # Signing + publishing run on workflow_dispatch only for now. Signing requires
-  # access to the 1Password item op://Nanite/nanite-plugin-catalog-signing-key
-  # which is not wired into CI yet (decision: start with manual local publish;
-  # revisit after Track F exit gate — see Track F.3 Engine artifact).
-  publish:
-    if: github.event_name == 'workflow_dispatch'
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "CI signing + publish not enabled yet — run 'make sign publish' locally."
