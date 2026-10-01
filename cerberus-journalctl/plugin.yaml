@@ -1,0 +1,83 @@
+schema_version: "1"
+id: journalctl
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-journalctl-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: journalctl
+        version: 0.1.0
+        resource_types:
+            - journalctl.logs
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: logs
+              description: Read logs for a specific systemd unit/service.
+              examples:
+                - cerberus connectors exec journalctl logs --arg unit=sshd --arg lines=50
+              input_schema:
+                additionalProperties: false
+                properties:
+                    lines:
+                        description: Number of recent lines to fetch (default 100).
+                        type: integer
+                    since:
+                        description: Time threshold (e.g. '1 hour ago', 'today').
+                        type: string
+                    unit:
+                        description: The systemd unit name (e.g. sshd).
+                        type: string
+                required:
+                    - unit
+                type: object
+              effect: read
+              target:
+                kind: journalctl.logs
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: system_logs
+              description: Read global system logs.
+              examples:
+                - cerberus connectors exec journalctl system_logs --arg lines=50
+              input_schema:
+                additionalProperties: false
+                properties:
+                    grep:
+                        description: Filter output by a specific string or regex.
+                        type: string
+                    lines:
+                        description: Number of recent lines to fetch (default 100).
+                        type: integer
+                    since:
+                        description: Time threshold (e.g. '1 hour ago', 'today').
+                        type: string
+                type: object
+              effect: read
+              target:
+                kind: journalctl.logs
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - logs
+            - system_logs
