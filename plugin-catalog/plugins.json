@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.3",
+  "catalog_version": "2.0.4",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -119,6 +119,46 @@
         "status": "experimental",
         "short_desc": "Preview matching chat URLs by sending them to their known or configured oEmbed provider",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/oembed/v0.2.0/oembed"
+      }
+    },
+    {
+      "manifest": "manifests/loom-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "loom/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "e623ef02fd56badf502b6e19e65889427e4020d7587bb377eb4ab9d24397c3d9",
+          "size": 2603719
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "3b1e69c3e8dc787398ae72c4e92ff7bdeb3e56df9b3269d577d3e2d0fba12d0c",
+          "size": 2827209
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-linux-arm64.tar.gz",
+          "sha256": "1b44585a960c05e110db464566a558a1c49a6e36a18a425ce9be9ff73ad7c56a",
+          "size": 2521440
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-linux-amd64.tar.gz",
+          "sha256": "0f3cd9163505204f73a8fa0ae4f3fa1371fe486fadf922aebacf283465d6c135",
+          "size": 2796335
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Translate Fragments Engine callbacks into scoped curator wakes and contribute Loom reminder defaults",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/loom/v0.1.0/loom"
       }
     }
   ]
