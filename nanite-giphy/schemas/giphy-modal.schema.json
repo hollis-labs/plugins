@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plugins.nanite.hollislabs.dev/giphy/envelopes/giphy-modal.schema.json",
+  "title": "GiphyModal",
+  "description": "Data payload for the giphy-modal envelope type emitted by the giphy plugin.",
+  "type": "object",
+  "required": ["title", "gif_url", "source", "query"],
+  "additionalProperties": false,
+  "properties": {
+    "title":   { "type": "string" },
+    "gif_url": { "type": "string", "format": "uri" },
+    "source":  { "type": "string" },
+    "query":   { "type": "string" }
+  }
+}
