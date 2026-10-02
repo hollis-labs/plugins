@@ -1,0 +1,83 @@
+{
+  "schema_version": 2,
+  "id": "giphy",
+  "name": "Giphy",
+  "description": "Search Giphy for inline GIFs; demo results when no API key is configured",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/giphy"
+  },
+  "config": {
+    "fields": {
+      "giphy_rating": {
+        "type": "select",
+        "label": "Maximum rating",
+        "default": "g",
+        "options": [
+          "g",
+          "pg",
+          "pg-13",
+          "r"
+        ]
+      }
+    },
+    "secrets": {
+      "giphy_api_key": {
+        "label": "Giphy API key",
+        "description": "Optional; built-in demo GIFs when unset",
+        "env": "GIPHY_API_KEY"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "giphy_search",
+      "description": "Search for a GIF and attach an inline card",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "read"
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.6"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "envelopes": [
+        {
+          "type": "giphy-modal",
+          "component": "GiphyModalCard",
+          "version": 1,
+          "schema": "schemas/giphy-modal.schema.json"
+        }
+      ],
+      "commands": [
+        {
+          "name": "giphy",
+          "description": "Search GIFs: /giphy \u003cquery\u003e"
+        }
+      ]
+    }
+  }
+}

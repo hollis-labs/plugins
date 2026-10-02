@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.1",
+  "catalog_version": "2.0.3",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -39,6 +39,86 @@
         "status": "experimental",
         "short_desc": "Bookmark session messages and preserve imported notes and tags",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/bookmarks/v0.1.0/bookmarks"
+      }
+    },
+    {
+      "manifest": "manifests/giphy-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "giphy/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "d9acea3cd22bcabcd1585047063b24a2439f60ba302ef0efa769848f82aee4c8",
+          "size": 2561684
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "b91846b8fa1c81186a90f6a23098acc07bc98272e8a8ed7c3fcb820be1b378f4",
+          "size": 2780370
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-linux-arm64.tar.gz",
+          "sha256": "89711cfd348a5eff7f0fb8bc3776acc4117720780162ca223f831c163b643ac3",
+          "size": 2479606
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-linux-amd64.tar.gz",
+          "sha256": "3297b6b87e4d01a7d7de557e1da342d50e86c15ff316994bca61e280516c5e51",
+          "size": 2752246
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Search Giphy for inline GIFs; demo results when no API key is configured",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/giphy/v0.2.0/giphy"
+      }
+    },
+    {
+      "manifest": "manifests/oembed-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "oembed/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "f5d18d6cb00ec3804806c48910d556a1db9e7b5d7f0e51aff7e6ca795dd032ee",
+          "size": 2565750
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "e4f2977b7bd5377957052a9a216eb3d3ab2e85dc6281c227369297f44e2598a9",
+          "size": 2784682
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-linux-arm64.tar.gz",
+          "sha256": "1088253497864fa03e7e3adc59037910a751663d27c94a681c661829a05445e3",
+          "size": 2483333
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-linux-amd64.tar.gz",
+          "sha256": "40b092879fc087c5df62b4ab4b3ab3c2cfe73386f7414249436f9dd66af6d023",
+          "size": 2756288
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Preview matching chat URLs by sending them to their known or configured oEmbed provider",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/oembed/v0.2.0/oembed"
       }
     }
   ]
