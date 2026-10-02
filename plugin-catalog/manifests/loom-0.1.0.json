@@ -1,0 +1,122 @@
+{
+  "schema_version": 2,
+  "id": "nanite.loom",
+  "name": "Loom integration",
+  "description": "Translate Fragments Engine callbacks into scoped curator wakes and contribute Loom reminder defaults",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/loom"
+  },
+  "capabilities": [
+    {
+      "name": "durable_agent.wake",
+      "reason": "Wake the existing Loom Curator with callback fragment identity",
+      "metadata": {
+        "agent_slugs": [
+          "loom-curator"
+        ]
+      }
+    },
+    {
+      "name": "reflex.seed",
+      "reason": "Contribute opt-out-able reminder defaults for Curator and Weaver",
+      "metadata": {
+        "seed_ids": [
+          "check-before-answer",
+          "weaver-capture-on-discovery",
+          "curator-capture-on-discovery"
+        ],
+        "agent_slugs": [
+          "loom-curator",
+          "loom-weaver"
+        ]
+      }
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.7"
+    }
+  },
+  "nanite": {
+    "registers": {
+      "http_routes": [
+        {
+          "method": "POST",
+          "path": "curator-wake"
+        }
+      ],
+      "reflex_seeds": [
+        {
+          "id": "check-before-answer",
+          "agent_slug": "loom-weaver",
+          "trigger": {
+            "kind": "AND",
+            "clauses": [
+              {
+                "kind": "text_regex_window",
+                "window": 2,
+                "pattern": "(?i)\\b(envelope|boot[- ]?profile|mcp trust|durable[- ]?agent|plugin (architecture|system|sdk)|slot system|context broker|tool[- ]result cache|agent_profiles|reflex(es)?|wiki|loom curator|loom weaver)\\b",
+                "scope": "user"
+              },
+              {
+                "kind": "tool_name_window",
+                "window": 2,
+                "pattern": "^(wiki_|loom_)",
+                "mode": "none"
+              }
+            ]
+          },
+          "reminder": "Reflex check_before_answer: the recent question touches Nanite wiki-bundle topics and wiki_*/loom_* tools haven't been called yet this window. Search the nanite bundle via loom_page_search (then loom_page_get / loom_fetch_result / loom_search_result as needed) before answering from memory — per your own answer_with_sources procedure.",
+          "priority": 60
+        },
+        {
+          "id": "weaver-capture-on-discovery",
+          "agent_slug": "loom-weaver",
+          "trigger": {
+            "kind": "AND",
+            "clauses": [
+              {
+                "kind": "regex_match_window",
+                "window": 2,
+                "pattern": "(?i)\\b(discovered|found that|turns out|worth documenting|worth capturing|worth keeping|noteworthy|TIL)\\b"
+              },
+              {
+                "kind": "tool_calls_window",
+                "window": 2,
+                "op": "\u003e"
+              }
+            ]
+          },
+          "reminder": "Reflex capture_on_discovery: recent output reads like a fresh finding backed by real tool activity. If this surfaced a gap, staleness, or contradiction worth keeping in the nanite wiki bundle, drop a concise note into Fragments Engine's inbox now via relay_*/message_* (affected page, source refs, observed gap, confidence) so Loom Curator's next pass can act on it — per your own propose_kb_update procedure.",
+          "priority": 55
+        },
+        {
+          "id": "curator-capture-on-discovery",
+          "agent_slug": "loom-curator",
+          "trigger": {
+            "kind": "AND",
+            "clauses": [
+              {
+                "kind": "regex_match_window",
+                "window": 2,
+                "pattern": "(?i)\\b(discovered|found that|turns out|worth documenting|worth capturing|worth keeping|noteworthy|TIL)\\b"
+              },
+              {
+                "kind": "tool_calls_window",
+                "window": 2,
+                "op": "\u003e"
+              }
+            ]
+          },
+          "reminder": "Reflex capture_on_discovery: recent output reads like a fresh finding backed by real tool activity, outside the normal classify/compile flow. If it's a wiki-worthy observation not already covered by write_or_stage_page's staging step or scheduled_lint_and_export's inbox routing, drop a concise note into Fragments Engine's inbox now via relay_*/message_* so it isn't lost.",
+          "priority": 55
+        }
+      ]
+    }
+  }
+}
