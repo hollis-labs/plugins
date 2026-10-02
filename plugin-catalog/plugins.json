@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.4",
+  "catalog_version": "2.0.5",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -159,6 +159,46 @@
         "status": "experimental",
         "short_desc": "Translate Fragments Engine callbacks into scoped curator wakes and contribute Loom reminder defaults",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/loom/v0.1.0/loom"
+      }
+    },
+    {
+      "manifest": "manifests/reminders-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "reminders/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "dc2eda505d1af18593ae8ff5e1050f28022bb5bbc5c4da3a2ea642212e8ffb20",
+          "size": 2661142
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "33c0a3410a0f40f8665f9a77fc91cf092d2755d7375aefc33d64c77008dfd0b3",
+          "size": 2890620
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-linux-arm64.tar.gz",
+          "sha256": "63b0c1be2b2cdd97405af9e2efb3d73e236b734ab71e0945502ba5977aca63f0",
+          "size": 2576043
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-linux-amd64.tar.gz",
+          "sha256": "a3546926e71406dfea71a1cffa98f9c25f6f7869737ff183f40ef54422385d57",
+          "size": 2858277
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Time and turn-count reminders with durable state and explicit acknowledgment",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/reminders/v0.1.0/reminders"
       }
     }
   ]
