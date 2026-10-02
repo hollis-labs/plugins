@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "id": "nanite.documents",
+  "name": "Documents",
+  "description": "Session text documents with bounded full-content or pointer context",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/documents"
+  },
+  "capabilities": [
+    {
+      "name": "readonly.query",
+      "reason": "Import committed documents and resolve session metadata; no message content",
+      "metadata": {
+        "resources": [
+          "sessions",
+          "data_exports"
+        ],
+        "all_sessions": true
+      }
+    },
+    {
+      "name": "context.source",
+      "reason": "Include selected documents within the session context budget",
+      "metadata": {
+        "source_ids": [
+          "documents"
+        ],
+        "all_sessions": true
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "documents_create",
+      "description": "Create a text document in the calling session; excluded from context and agent reads until the user includes it",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "mime_type": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 524288
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "documents_list",
+      "description": "List only user-included documents in the calling session, 100 per page, without content",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "additionalProperties": false
+      },
+      "effect": "read"
+    },
+    {
+      "name": "documents_get",
+      "description": "Read only a user-included document in the calling session, including pointer-mode documents; UTF-8 chunks up to 65536 bytes, next_offset continues",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65536
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "read"
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.7"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "slots": [
+        {
+          "id": "documents",
+          "slot": "drawer.primary.tabs",
+          "component": "DocumentsTab",
+          "title": "Documents",
+          "icon": "file-text",
+          "priority": 40
+        }
+      ],
+      "http_routes": [
+        {
+          "method": "GET",
+          "path": "documents"
+        },
+        {
+          "method": "POST",
+          "path": "documents"
+        },
+        {
+          "method": "GET",
+          "path": "documents/"
+        },
+        {
+          "method": "PATCH",
+          "path": "documents/"
+        },
+        {
+          "method": "DELETE",
+          "path": "documents/"
+        }
+      ],
+      "context_sources": [
+        {
+          "id": "documents"
+        }
+      ]
+    }
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.6",
+  "catalog_version": "2.0.7",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -239,6 +239,46 @@
         "status": "experimental",
         "short_desc": "Durable pinned context with session/project scope",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/pins/v0.1.0/pins"
+      }
+    },
+    {
+      "manifest": "manifests/documents-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "documents/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "53839b9c728757e215332440473fa34169f1e04e8a27f0832fe93b995844dbef",
+          "size": 2672728
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "d661c11c351a36248f8b7b8a91b20f75bbcefa7e10103aac5224b1caaf067b01",
+          "size": 2904826
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-linux-arm64.tar.gz",
+          "sha256": "d41adde6337d963abfe43552f0533e8676288208d77bfa47f983f909b704dddb",
+          "size": 2586973
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-linux-amd64.tar.gz",
+          "sha256": "d3bbfdff7991b8268672baa5bab8600c820cd1e17d780f1aef918a436424a857",
+          "size": 2871665
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Session text documents with bounded full-content or pointer context",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/documents/v0.1.0/documents"
       }
     }
   ]
