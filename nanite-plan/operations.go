@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
 	"slices"
@@ -129,12 +130,24 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		growing := false
 		for _, key := range keys {
 			v, ok := args[key]
-			if !ok {
+			if !ok || v == nil {
+				continue
+			}
+			if actor == "agent" && op != "todo_update" && v == "" {
 				continue
 			}
 			var raw string
 			if key == "labels" || key == "metadata" || key == "steps" {
-				raw, err = jsonValue(v)
+				// Current todo_update stores the supplied string, including empty
+				// and malformed legacy JSON, just as core's pointer patch does.
+				if op == "todo_update" && actor == "agent" {
+					raw, ok = v.(string)
+					if !ok {
+						return false, false, updateError("invalid", "invalid todo update fields", "")
+					}
+				} else {
+					raw, err = jsonValue(v)
+				}
 			} else {
 				if err = text(v); err == nil {
 					raw = v.(string)
@@ -143,12 +156,16 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 			if err != nil {
 				return false, false, err
 			}
-			// Core self-tools ignore empty strings; HTTP permits clearing description.
-			if actor == "agent" && raw == "" {
-				continue
+			if op == "todo_update" {
+				if key == "status" && !slices.Contains([]string{"pending", "in_progress", "done", "blocked"}, raw) {
+					return false, false, updateError("invalid", fmt.Sprintf("invalid status %q", raw), key)
+				}
+				if key == "priority" && !slices.Contains([]string{"low", "medium", "high", "critical"}, raw) {
+					return false, false, updateError("invalid", fmt.Sprintf("invalid priority %q", raw), key)
+				}
 			}
-			if key == "title" && raw == "" {
-				return false, false, fmt.Errorf("%w: title required", errInvalid)
+			if err = boundedField(raw, getCell(row, idx, key)); err != nil {
+				return false, false, err
 			}
 			growing = growing || len(raw) > len(getCell(row, idx, key))
 			setCell(row, idx, key, raw)
@@ -158,6 +175,9 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		}
 		stamp(row, idx)
 		*result = project(row, idx)
+		if op == "todo_update" && actor == "agent" {
+			*result = todoToolView(row, idx)
+		}
 		return finish(true, growing, nil)
 	case "todo_scope":
 		i, idx, err := find(snapshot, str(args, "id", ""))
@@ -233,7 +253,7 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 				return false, false, err
 			}
 			var incoming []record
-			if err = json.Unmarshal([]byte(raw), &incoming); err != nil || len(incoming) == 0 {
+			if err = decodeNumbers(raw, &incoming); err != nil || len(incoming) == 0 {
 				return false, false, fmt.Errorf("%w: steps must be a nonempty array", errInvalid)
 			}
 			seen := map[string]bool{}
@@ -279,14 +299,11 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		if getCell(row, idx, "status") != "proposed" {
 			return false, false, fmt.Errorf("%w: plan must be proposed to approve", errInvalid)
 		}
-		steps, err := stepsFrom(row, idx)
-		if err != nil {
-			return false, false, err
-		}
 		createTodos, _ := args["create_todos"].(bool)
 		if createTodos {
-			if getCell(row, idx, "scope") == "workspace" {
-				return false, false, fmt.Errorf("%w: workspace todos are retired; approve without creating todos", errInvalid)
+			steps, err := stepsFrom(row, idx)
+			if err != nil {
+				return false, false, err
 			}
 			for _, step := range steps {
 				if str(step, "title", "") == "" {
@@ -321,6 +338,11 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 				return false, false, errInvalid
 			}
 			order, ok := values["sort_order"].(float64)
+			if n, isNumber := values["sort_order"].(json.Number); isNumber {
+				var parseErr error
+				order, parseErr = n.Float64()
+				ok = parseErr == nil
+			}
 			if !ok || order < 0 || order > 10000 || order != float64(int(order)) {
 				return false, false, errInvalid
 			}
@@ -330,14 +352,17 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 			}
 			row := snapshot.Rows[i]
 			var metadata map[string]any
-			if err = json.Unmarshal([]byte(getCell(row, idx, "metadata")), &metadata); err != nil {
-				return false, false, fmt.Errorf("%w: invalid metadata", errInvalid)
+			if err = decodeNumbers(getCell(row, idx, "metadata"), &metadata); err != nil {
+				metadata = nil
 			}
 			if metadata == nil {
 				metadata = map[string]any{}
 			}
 			metadata["sort_order"] = order
 			raw, _ := json.Marshal(metadata)
+			if err := boundedField(string(raw), getCell(row, idx, "metadata")); err != nil {
+				return false, false, err
+			}
 			setCell(row, idx, "metadata", string(raw))
 			stamp(row, idx)
 		}
@@ -345,6 +370,7 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		return finish(true, true, nil)
 
 	case "work_sync":
+		skipped := []map[string]any{}
 		for _, key := range []string{"todos_checked", "todos_unchecked", "plan_steps_checked", "plan_steps_unchecked"} {
 			entries, ok := args[key].([]any)
 			if !ok && args[key] != nil {
@@ -374,13 +400,20 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 					}
 					req["id"] = item["id"]
 				}
+				if str(req, "id", "") == "" || (operation == "plan_step_update" && str(req, "step_id", "") == "") {
+					return false, false, errInvalid
+				}
 				var ignored any
 				if _, _, err := apply(state, operation, req, session, pid, actor, &ignored); err != nil {
+					if errors.Is(err, errNotFound) {
+						skipped = append(skipped, req)
+						continue
+					}
 					return false, false, err
 				}
 			}
 		}
-		*result = map[string]bool{"ok": true}
+		*result = map[string]any{"ok": true, "skipped": skipped}
 		return true, false, nil
 	}
 	return false, false, fmt.Errorf("%w: unknown operation", errInvalid)

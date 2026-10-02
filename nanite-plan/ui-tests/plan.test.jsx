@@ -62,3 +62,29 @@ describe('Plan panel',()=>{
   expect(requests.filter(r=>r.url.searchParams.get('session_id')==='b').length).toBeGreaterThan(0);
  });
 });
+
+describe('review regressions',()=>{
+ it('retains drafts and an open edit form across an unrelated mutation, with oldest rows first',async()=>{
+  todos.push({...todos[0],id:'t2',title:'Second todo',created_at:'2026-02-01'});
+  await mount();const rows=screen.getAllByRole('listitem');expect(rows[0].textContent).toContain('First todo');
+  fireEvent.change(screen.getByLabelText('Title'),{target:{value:'Draft work'}});
+  fireEvent.click(screen.getByRole('button',{name:'Edit todo First todo'}));fireEvent.change(screen.getByLabelText('Todo title'),{target:{value:'Unsubmitted edit'}});
+  fireEvent.click(screen.getByLabelText('Second todo'));await waitFor(()=>expect(requests.some(r=>r.method==='PUT'&&r.url.pathname.endsWith('/t2'))).toBe(true));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Edit todo First todo'}).disabled).toBe(false));
+  expect(screen.getByLabelText('Title').value).toBe('Draft work');expect(screen.getByLabelText('Todo title').value).toBe('Unsubmitted edit');
+ });
+ it('renders malformed step shapes without crashing',async()=>{
+  plans[0].steps=[null,{id:'s2',title:'Malformed dependencies',depends_on:'s1'},{}];await mount();expect(screen.getByText('Malformed dependencies')).toBeTruthy();expect(screen.queryByText('Depends on: s1')).toBeNull();
+ });
+ it('displays load and mutation errors',async()=>{
+  const normal=fetch;vi.stubGlobal('fetch',vi.fn(async(path,options)=>options?.method ? {ok:false,text:async()=> 'Mutation refused'} : normal(path,options)));
+  await mount();fireEvent.click(screen.getByLabelText('First todo'));await screen.findByRole('alert');expect(screen.getByRole('alert').textContent).toBe('Mutation refused');
+  cleanup();vi.stubGlobal('fetch',vi.fn(async()=>({ok:false,text:async()=> 'Read failed'})));render(<PlanPanel session_id="a"/>);await screen.findByRole('alert');expect(screen.getByRole('alert').textContent).toBe('Read failed');
+ });
+ it('ignores an in-flight mutation completion after switching sessions',async()=>{
+  const normal=fetch;let finish;vi.stubGlobal('fetch',vi.fn(async(path,options)=>options?.method ? new Promise(resolve=>{finish=resolve;}) : normal(path,options)));
+  const view=await mount();fireEvent.click(screen.getByLabelText('First todo'));await waitFor(()=>expect(finish).toBeTypeOf('function'));
+  view.rerender(<PlanPanel session_id="b"/>);await screen.findByText('No todos.');fireEvent.change(screen.getByLabelText('Title'),{target:{value:'B draft'}});
+  finish(response({ok:true}));await waitFor(()=>expect(screen.getByLabelText('Title').value).toBe('B draft'));expect(screen.queryByText('First todo')).toBeNull();
+ });
+});

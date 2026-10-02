@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -123,38 +124,42 @@ func (p *planPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCallReq
 	}
 	// Validate advertised shapes without tightening their additional-properties
 	// policy or replacing core's explicit workspace/session/project coordinates.
-	args := call.Arguments
-	if args == nil {
-		args = map[string]any{}
-	}
-	raw, err := json.Marshal(args)
-	if err != nil {
+	args := declaredArguments(call.ToolName, call.Arguments)
+	fail := func(err error) (subprocess.MCPCallResult, error) {
+		if call.ToolName == "todo_update" {
+			return todoUpdateFailure(err), nil
+		}
 		return toolError(err), nil
+	}
+
+	raw, err := json.Marshal(call.Arguments)
+	if err != nil {
+		return fail(err)
 	}
 	if len(raw) > 512<<10 {
-		return toolError(errQuota), nil
+		return fail(errQuota)
 	}
 	if err = checkToolArguments(call.ToolName, args); err != nil {
-		return toolError(err), nil
+		return fail(err)
 	}
 	source, err := p.ready(ctx)
 	if err != nil {
-		return toolError(err), nil
+		return fail(err)
 	}
 	meta, err := p.session(ctx, call.SessionID)
 	if err != nil {
-		return toolError(err), nil
+		return fail(err)
 	}
 	p.mu.Lock()
 	db := p.db
 	p.mu.Unlock()
 	value, err := db.operate(ctx, source, call.ToolName, args, call.SessionID, meta.ProjectID, "agent")
 	if err != nil {
-		return toolError(err), nil
+		return fail(err)
 	}
 	message, err := toolText(call.ToolName, args, value, call.SessionID, meta.ProjectID)
 	if err != nil {
-		return toolError(err), nil
+		return fail(err)
 	}
 	if len(message) > maxResponseBytes {
 		return toolError(fmt.Errorf("%w: response exceeds 2 MiB; narrow filters", errQuota)), nil
@@ -166,6 +171,26 @@ func toolError(err error) subprocess.MCPCallResult {
 	raw, _ := json.Marshal([]map[string]string{{"type": "text", "text": err.Error()}})
 	return subprocess.MCPCallResult{Content: raw, IsError: true}
 }
+
+// Extra agent keys confer no authority: core handlers read only declared fields.
+func declaredArguments(name string, args map[string]any) map[string]any {
+	out := map[string]any{}
+	for _, tool := range agentTools() {
+		if tool.Name != name {
+			continue
+		}
+		var schema struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		_ = json.Unmarshal(tool.InputSchema, &schema)
+		for key := range schema.Properties {
+			if v, ok := args[key]; ok {
+				out[key] = v
+			}
+		}
+	}
+	return out
+}
 func checkToolArguments(name string, args map[string]any) error {
 	for _, tool := range agentTools() {
 		if tool.Name != name {
@@ -174,26 +199,84 @@ func checkToolArguments(name string, args map[string]any) error {
 		var schema struct {
 			Required   []string `json:"required"`
 			Properties map[string]struct {
-				Type string `json:"type"`
+				Type any `json:"type"`
 			} `json:"properties"`
 		}
 		if err := json.Unmarshal(tool.InputSchema, &schema); err != nil {
 			return err
 		}
 		for _, key := range schema.Required {
-			if args[key] == nil {
+			if str(args, key, "") == "" && key != "steps" {
+				if name == "todo_update" {
+					return updateError("invalid", "id is required", "id")
+				}
 				return fmt.Errorf("%w: %s required", errInvalid, key)
 			}
 		}
 		for key, def := range schema.Properties {
-			if value, ok := args[key]; ok && def.Type == "string" {
+			value, ok := args[key]
+			if !ok || value == nil {
+				continue
+			}
+			if def.Type != nil {
 				if _, ok := value.(string); !ok {
+					if name == "todo_update" {
+						return updateError("invalid", "invalid todo update fields", "")
+					}
 					return fmt.Errorf("%w: %s must be a string", errInvalid, key)
 				}
 			}
 		}
 	}
 	return nil
+}
+
+type todoPatchError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Field   string `json:"field,omitempty"`
+}
+
+func (e *todoPatchError) Error() string { return e.Message }
+func (e *todoPatchError) Unwrap() error {
+	switch e.Code {
+	case "invalid":
+		return errInvalid
+	case "not_found":
+		return errNotFound
+	default:
+		return errUnavailable
+	}
+}
+func updateError(code, message, field string) error { return &todoPatchError{code, message, field} }
+func todoUpdateFailure(err error) subprocess.MCPCallResult {
+	var typed *todoPatchError
+	if !errors.As(err, &typed) {
+		typed = &todoPatchError{Code: "internal", Message: "internal error"}
+		switch {
+		case errors.Is(err, errNotFound):
+			typed.Code = "not_found"
+			typed.Message = "todo not found"
+		case errors.Is(err, errUnavailable):
+			typed.Code = "unavailable"
+			typed.Message = "todo service not available"
+		case errors.Is(err, errQuota):
+			typed.Code = "invalid"
+			typed.Message = "todo update exceeds quota"
+		case errors.Is(err, errInvalid):
+			typed.Code = "invalid"
+			typed.Message = "invalid todo update"
+		}
+	}
+	raw, _ := json.Marshal(typed)
+	return toolError(errors.New(string(raw)))
+}
+func todoToolView(row []pluginapi.DataCell, index map[string]int) record {
+	out := project(row, index)
+	for _, key := range []string{"labels", "metadata"} {
+		out[key] = getCell(row, index, key)
+	}
+	return out
 }
 func toolText(name string, args map[string]any, value any, session, pid string) (string, error) {
 	raw, err := json.Marshal(value)
@@ -209,8 +292,7 @@ func toolText(name string, args map[string]any, value any, session, pid string) 
 		}
 		return fmt.Sprintf("Created %s %q (id=%s, scope=%s)\n%s", kind, row["title"], row["id"], row["scope"], raw), nil
 	case "todo_update":
-		row := value.(record)
-		return fmt.Sprintf("Updated todo %q (id=%s, status=%s, priority=%s)", row["title"], row["id"], row["status"], row["priority"]), nil
+		return string(raw), nil
 	case "plan_update":
 		if step := str(args, "step_id", ""); step != "" {
 			return fmt.Sprintf("Updated step %s in plan %s", step, str(args, "id", "")), nil

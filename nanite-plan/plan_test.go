@@ -138,7 +138,7 @@ func TestImportFailureDoesNotCommitOrPoisonCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := readState(t, db)
-	_, err := db.operate(t.Context(), "workspace-a", "work_sync", map[string]any{"todos_checked": []any{"legacy", "missing"}}, "session-a", "project-a", "user")
+	_, err := db.operate(t.Context(), "workspace-a", "work_sync", map[string]any{"todos_checked": []any{"legacy", map[string]any{"bad": "entry"}}}, "session-a", "project-a", "user")
 	if err == nil {
 		t.Fatal("failed batch accepted")
 	}
@@ -210,7 +210,7 @@ func TestPlanAppendStepIdentityAndApproval(t *testing.T) {
 			t.Fatal(todo)
 		}
 	}
-	workspace := operation(t, db, "plan_create", map[string]any{"title": "Workspace", "scope": "workspace"}).(record)
+	workspace := operation(t, db, "plan_create", map[string]any{"title": "Workspace", "scope": "workspace", "steps": `[{"title":"Cannot create workspace todo"}]`}).(record)
 	before = readState(t, db)
 	if _, err := db.operate(t.Context(), "workspace-a", "plan_approve", map[string]any{"id": workspace["id"], "create_todos": true}, "session-a", "project-a", "agent"); err == nil {
 		t.Fatal("retired workspace todos accepted")

@@ -57,12 +57,12 @@ func (p *planPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest
 			}
 			source, err := p.ready(r.Context())
 			if err != nil {
-				http.Error(w, err.Error(), httpStatus(err))
+				safeHTTPError(w, err)
 				return
 			}
 			meta, err := p.session(r.Context(), ids[0])
 			if err != nil {
-				http.Error(w, err.Error(), httpStatus(err))
+				safeHTTPError(w, err)
 				return
 			}
 			args := map[string]any{}
@@ -72,6 +72,9 @@ func (p *planPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest
 					http.Error(w, "request exceeds 512 KiB", http.StatusRequestEntityTooLarge)
 					return
 				}
+				if operation == "plan_approve" && len(raw) == 0 {
+					raw = []byte("{}")
+				}
 				var wrapped struct {
 					Request map[string]any `json:"request"`
 				}
@@ -79,6 +82,11 @@ func (p *planPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest
 				envelope = append(envelope, '}')
 				if err = manifest.DecodeExtension(envelope, &wrapped); err != nil || wrapped.Request == nil {
 					http.Error(w, "invalid request object", http.StatusBadRequest)
+					return
+				}
+				// Decode again with UseNumber after strict duplicate/shape validation.
+				if err = decodeNumbers(string(envelope), &wrapped); err != nil {
+					http.Error(w, "invalid request object", 400)
 					return
 				}
 				args = wrapped.Request
@@ -113,7 +121,7 @@ func (p *planPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest
 			p.mu.Unlock()
 			value, err := db.operate(r.Context(), source, operation, args, meta.ID, meta.ProjectID, "user")
 			if err != nil {
-				http.Error(w, err.Error(), httpStatus(err))
+				safeHTTPError(w, err)
 				return
 			}
 			if listing {
@@ -188,8 +196,11 @@ func checkHTTPArguments(op string, args map[string]any) error {
 		"plan_approve": {"create_todos"}, "work_sync": {"todos_checked", "todos_unchecked", "todos_added", "todos_reordered", "plan_steps_checked", "plan_steps_unchecked", "plans_approved", "plans_rejected"},
 	}
 	for key, value := range args {
-		if !slices.Contains(allowed[op], key) || value == nil {
+		if !slices.Contains(allowed[op], key) {
 			return fmt.Errorf("%w: unknown/null field %s", errInvalid, key)
+		}
+		if value == nil {
+			continue
 		}
 		switch key {
 		case "create_todos", "todos_reordered":
@@ -215,4 +226,13 @@ func checkHTTPArguments(op string, args map[string]any) error {
 		}
 	}
 	return nil
+}
+
+func safeHTTPError(w http.ResponseWriter, err error) {
+	status := httpStatus(err)
+	message := err.Error()
+	if status >= 500 {
+		message = "Plan storage unavailable"
+	}
+	http.Error(w, message, status)
 }

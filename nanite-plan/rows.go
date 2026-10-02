@@ -15,15 +15,15 @@ import (
 type record map[string]any
 
 func str(args map[string]any, key, fallback string) string {
-	if value, ok := args[key].(string); ok {
+	if value, ok := args[key].(string); ok && value != "" {
 		return value
 	}
 	return fallback
 }
 func text(value any) error {
 	s, ok := value.(string)
-	if !ok || !utf8.ValidString(s) || strings.ContainsRune(s, 0) || len(s) > 65536 {
-		return fmt.Errorf("%w: field must be UTF-8 text of at most 64 KiB without NUL", errInvalid)
+	if !ok || !utf8.ValidString(s) || strings.ContainsRune(s, 0) {
+		return fmt.Errorf("%w: field must be UTF-8 text without NUL", errInvalid)
 	}
 	return nil
 }
@@ -56,14 +56,14 @@ func project(row []pluginapi.DataCell, index map[string]int) record {
 		switch name {
 		case "steps", "labels":
 			var parsed []any
-			_ = json.Unmarshal([]byte(value), &parsed)
+			_ = decodeNumbers(value, &parsed)
 			if parsed == nil {
 				parsed = []any{}
 			}
 			result[name] = parsed
 		case "metadata":
 			var parsed map[string]any
-			_ = json.Unmarshal([]byte(value), &parsed)
+			_ = decodeNumbers(value, &parsed)
 			if parsed == nil {
 				parsed = map[string]any{}
 			}
@@ -157,7 +157,7 @@ func makeRow(snapshot pluginapi.DataSnapshot, args map[string]any, session, pid,
 		}
 	}
 	for _, key := range []string{"steps", "labels", "metadata"} {
-		if value, ok := args[key]; ok {
+		if value, ok := args[key]; ok && value != nil && value != "" {
 			raw, err := jsonValue(value)
 			if err != nil {
 				return nil, err
@@ -166,7 +166,7 @@ func makeRow(snapshot pluginapi.DataSnapshot, args map[string]any, session, pid,
 		}
 	}
 	for key, value := range fields {
-		if err := text(value); err != nil {
+		if err := boundedField(value, ""); err != nil {
 			return nil, err
 		}
 		setCell(row, index, key, value)
@@ -178,6 +178,14 @@ func makeRow(snapshot pluginapi.DataSnapshot, args map[string]any, session, pid,
 }
 func validateNative(row []pluginapi.DataCell, index map[string]int, plan bool) error {
 	status := getCell(row, index, "status")
+	scope := getCell(row, index, "scope")
+	allowed := []string{"turn", "session", "project"}
+	if plan {
+		allowed = []string{"workspace", "project", "session"}
+	}
+	if !slices.Contains(allowed, scope) {
+		return fmt.Errorf("%w: invalid scope", errInvalid)
+	}
 	if plan {
 		if !slices.Contains([]string{"proposed", "approved", "in_progress", "complete", "abandoned"}, status) {
 			return fmt.Errorf("%w: invalid plan status", errInvalid)
@@ -253,7 +261,7 @@ func ordered(snapshot pluginapi.DataSnapshot, args map[string]any) []record {
 }
 func stepsFrom(row []pluginapi.DataCell, index map[string]int) ([]record, error) {
 	var steps []record
-	err := json.Unmarshal([]byte(getCell(row, index, "steps")), &steps)
+	err := decodeNumbers(getCell(row, index, "steps"), &steps)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid steps JSON", errInvalid)
 	}
@@ -267,8 +275,8 @@ func encodeSteps(row []pluginapi.DataCell, index map[string]int, steps []record)
 	if err != nil {
 		return err
 	}
-	if len(raw) > 65536 {
-		return fmt.Errorf("%w: steps exceed 64 KiB", errQuota)
+	if err := boundedField(string(raw), getCell(row, index, "steps")); err != nil {
+		return err
 	}
 	setCell(row, index, "steps", string(raw))
 	stamp(row, index)
@@ -291,4 +299,23 @@ func nextStepID(existing, pending []record) string {
 		return fmt.Sprintf("s%d", maxN+1)
 	}
 	return newID()
+}
+
+// Decode nested JSON without changing integer precision or numeric spelling.
+func decodeNumbers(raw string, out any) error {
+	if !json.Valid([]byte(raw)) {
+		return fmt.Errorf("invalid JSON")
+	}
+	d := json.NewDecoder(strings.NewReader(raw))
+	d.UseNumber()
+	return d.Decode(out)
+}
+func boundedField(value, previous string) error {
+	if err := text(value); err != nil {
+		return err
+	}
+	if len(value) > 65536 && len(value) > len(previous) {
+		return fmt.Errorf("%w: field exceeds 64 KiB", errQuota)
+	}
+	return nil
 }

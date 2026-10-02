@@ -1,0 +1,123 @@
+[
+  {
+    "name": "todo_create",
+    "args": {
+      "description": "keep",
+      "labels": "[\"a\"]",
+      "title": "Golden todo"
+    },
+    "text": "Created todo \"Golden todo\" (id=$todo, scope=session)\n{\"id\":\"$todo\",\"scope\":\"session\",\"scope_id\":\"session-a\",\"parent_id\":\"\",\"title\":\"Golden todo\",\"description\":\"keep\",\"status\":\"pending\",\"priority\":\"medium\",\"labels\":\"[\\\"a\\\"]\",\"metadata\":\"{}\",\"created_by\":\"agent\",\"created_at\":\"2026-10-02T23:43:34Z\",\"updated_at\":\"2026-10-02T23:43:34Z\"}",
+    "is_error": false
+  },
+  {
+    "name": "todo_update",
+    "args": {
+      "description": "",
+      "id": "$todo",
+      "metadata": "{\"n\":9007199254740993}",
+      "title": null
+    },
+    "text": "{\"id\":\"$todo\",\"scope\":\"session\",\"scope_id\":\"session-a\",\"parent_id\":\"\",\"title\":\"Golden todo\",\"description\":\"\",\"status\":\"pending\",\"priority\":\"medium\",\"labels\":\"[\\\"a\\\"]\",\"metadata\":\"{\\\"n\\\":9007199254740993}\",\"created_by\":\"agent\",\"created_at\":\"2026-10-02T23:43:34Z\",\"updated_at\":\"2026-10-02T23:43:34Z\"}",
+    "is_error": false
+  },
+  {
+    "name": "todo_update",
+    "args": {
+      "id": "$todo",
+      "status": ""
+    },
+    "text": "{\"code\":\"invalid\",\"message\":\"invalid status \\\"\\\"\",\"field\":\"status\"}",
+    "is_error": true
+  },
+  {
+    "name": "todo_update",
+    "args": {
+      "id": "$todo",
+      "priority": ""
+    },
+    "text": "{\"code\":\"invalid\",\"message\":\"invalid priority \\\"\\\"\",\"field\":\"priority\"}",
+    "is_error": true
+  },
+  {
+    "name": "todo_update",
+    "args": {
+      "id": "$todo",
+      "labels": [
+        "bad"
+      ]
+    },
+    "text": "{\"code\":\"invalid\",\"message\":\"invalid todo update fields\"}",
+    "is_error": true
+  },
+  {
+    "name": "todo_update",
+    "args": {
+      "id": "missing"
+    },
+    "text": "{\"code\":\"not_found\",\"message\":\"todo not found\"}",
+    "is_error": true
+  },
+  {
+    "name": "todo_update",
+    "args": {},
+    "text": "{\"code\":\"invalid\",\"message\":\"id is required\",\"field\":\"id\"}",
+    "is_error": true
+  },
+  {
+    "name": "todo_list",
+    "args": {},
+    "text": "Found 1 todo(s):\n\n- [pending] Golden todo (id=$todo, priority=medium, scope=session/session-a)\n",
+    "is_error": false
+  },
+  {
+    "name": "plan_create",
+    "args": {
+      "scope": "session",
+      "steps": "[{\"id\":\"s1\",\"title\":\"First\",\"status\":\"pending\"}]",
+      "title": "Golden plan"
+    },
+    "text": "Created plan \"Golden plan\" (id=$plan, scope=session)\n{\"id\":\"$plan\",\"scope\":\"session\",\"scope_id\":\"session-a\",\"title\":\"Golden plan\",\"description\":\"\",\"status\":\"proposed\",\"steps\":\"[{\\\"id\\\":\\\"s1\\\",\\\"title\\\":\\\"First\\\",\\\"status\\\":\\\"pending\\\"}]\",\"metadata\":\"{}\",\"created_by\":\"agent\",\"created_at\":\"2026-10-02T23:43:34Z\",\"updated_at\":\"2026-10-02T23:43:34Z\"}",
+    "is_error": false
+  },
+  {
+    "name": "plan_update",
+    "args": {
+      "id": "$plan",
+      "status": "done",
+      "step_id": "s1"
+    },
+    "text": "Updated step s1 in plan $plan",
+    "is_error": false
+  },
+  {
+    "name": "plan_step_add",
+    "args": {
+      "plan_id": "$plan",
+      "steps": "[{\"title\":\"Second\"}]"
+    },
+    "text": "Appended 1 step(s) to plan $plan\n{\"appended\":[{\"id\":\"s2\",\"title\":\"Second\",\"status\":\"pending\"}],\"appended_count\":1,\"plan_id\":\"$plan\"}",
+    "is_error": false
+  },
+  {
+    "name": "plan_list",
+    "args": {},
+    "text": "Found 1 plan(s):\n\n- [proposed] Golden plan (id=$plan, scope=session/session-a, steps=2)\n",
+    "is_error": false
+  },
+  {
+    "name": "plan_get",
+    "args": {
+      "id": "$plan"
+    },
+    "text": "{\"id\":\"$plan\",\"scope\":\"session\",\"scope_id\":\"session-a\",\"title\":\"Golden plan\",\"description\":\"\",\"status\":\"proposed\",\"steps\":\"[{\\\"id\\\":\\\"s1\\\",\\\"title\\\":\\\"First\\\",\\\"status\\\":\\\"done\\\"},{\\\"id\\\":\\\"s2\\\",\\\"title\\\":\\\"Second\\\",\\\"status\\\":\\\"pending\\\"}]\",\"metadata\":\"{}\",\"created_by\":\"agent\",\"created_at\":\"2026-10-02T23:43:34Z\",\"updated_at\":\"2026-10-02T23:43:34Z\"}",
+    "is_error": false
+  },
+  {
+    "name": "plan_delete",
+    "args": {
+      "id": "$plan"
+    },
+    "text": "Deleted plan $plan",
+    "is_error": false
+  }
+]
