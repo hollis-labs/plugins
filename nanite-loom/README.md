@@ -29,8 +29,9 @@ unknown or duplicate fields are refused.
 
 Three declared reminder defaults target Loom agents: check-before-answer for
 Weaver, plus capture-on-discovery for Weaver and Curator. They use the bounded
-host predicate DSL and opt-out-able reminders. The host retains their durable
-edits, firing history and deletion intent. Disabling/unloading the plugin makes
+host predicate DSL and opt-out-able reminders. Host adoption binds the existing pilot reminders and retains their durable
+edits, firing history and deletion intent. A missing old reminder is not
+recreated; add any desired new reminder through the host reflex editor. Disabling/unloading the plugin makes
 its definitions unavailable to execution. The plugin receives no raw steering
 state, owns no execution engine and stores no durable data.
 
