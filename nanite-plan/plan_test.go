@@ -329,6 +329,11 @@ func TestNineToolsAndCoreEnvelopeSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, tool := range m.Tools {
+		if tool.Name == "plan_delete" && tool.Effect != pluginapi.ToolEffectDestructive {
+			t.Fatal("lost core destructive permission hint")
+		}
+	}
 	block, err := pluginapi.DecodeBlock(m.Nanite)
 	if err != nil {
 		t.Fatal(err)

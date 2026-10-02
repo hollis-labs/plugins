@@ -15,7 +15,8 @@ ignore obsolete responses. React is supplied by the host.
 
 ## Agent tools
 
-The nine existing core names and input schemas are retained:
+The nine existing core names and input schemas are retained; plan_delete keeps core’s destructive
+permission hint:
 
 | Tool | Behavior |
 | --- | --- |

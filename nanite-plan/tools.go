@@ -32,7 +32,7 @@ func agentTools() []manifest.Tool {
 		{Name: "plan_get", Effect: "read",
 			Description: "Get a single plan by ID, including all steps with their IDs, statuses, and dependencies.\n\n**When to use:** After plan_create or plan_list to retrieve step IDs needed for plan_update(step_id=...).\n\n**Output shape:** Full plan as JSON — {id, title, scope, scope_id, status, description, steps: [{id, title, status, depends_on, acceptance, notes}]}.",
 			InputSchema: json.RawMessage("{\"properties\":{\"id\":{\"description\":\"Plan ID\",\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}")},
-		{Name: "plan_delete", Effect: "write",
+		{Name: "plan_delete", Effect: "destructive",
 			Description: "Permanently delete a plan by ID, including all its steps. Irreversible.\n\n**When to use:** When the user explicitly discards a plan they no longer need.\n\n**Required context:** You need the plan ID — get it from plan_list if you don't have it.\n\n**Output shape:** \"Deleted plan <id>\" on success.",
 			InputSchema: json.RawMessage("{\"properties\":{\"id\":{\"description\":\"Plan ID to delete\",\"type\":\"string\"}},\"required\":[\"id\"],\"type\":\"object\"}")},
 	}
