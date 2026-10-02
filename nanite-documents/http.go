@@ -64,17 +64,46 @@ func (p *documentsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRe
 		return source, id, true
 	}
 	failed := func(w http.ResponseWriter, err error) {
-		status := http.StatusBadRequest
+		status := http.StatusInternalServerError
+		if errors.Is(err, errInvalid) {
+			status = http.StatusBadRequest
+		}
+		if errors.Is(err, errQuota) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			status = http.StatusGatewayTimeout
+		}
+		if errors.Is(err, context.Canceled) {
+			status = http.StatusServiceUnavailable
+		}
 		if errors.Is(err, errNotFound) {
 			status = http.StatusNotFound
 		}
-		http.Error(w, "document request failed", status)
+		message := "document storage unavailable"
+		if errors.Is(err, errInvalid) {
+			message = "invalid document request"
+		}
+		if errors.Is(err, errNotFound) {
+			message = "document not found"
+		}
+		if errors.Is(err, errQuota) {
+			message = err.Error()
+		}
+		if errors.Is(err, errCommitUncertain) {
+			message = errCommitUncertain.Error()
+		}
+		http.Error(w, message, status)
 	}
 	integer := func(r *http.Request, k string) (int, error) {
 		if !r.URL.Query().Has(k) {
 			return 0, nil
 		}
-		return strconv.Atoi(r.URL.Query().Get(k))
+		value, err := strconv.Atoi(r.URL.Query().Get(k))
+		if err != nil {
+			return 0, fmt.Errorf("%w: invalid %s", errInvalid, k)
+		}
+		return value, nil
 	}
 	mux.HandleFunc("GET /documents", func(w http.ResponseWriter, r *http.Request) {
 		source, id, ok := session(w, r)
@@ -179,41 +208,57 @@ func (p *documentsPlugin) contextFetch(ctx context.Context, call subprocess.HTTP
 	if err != nil {
 		return subprocess.HTTPResponse{Status: http.StatusServiceUnavailable}, nil
 	}
+	response := buildDocumentContext(rows, req.TokenBudget)
+	raw, err := json.Marshal(response)
+	return subprocess.HTTPResponse{Status: http.StatusOK, Body: raw, Headers: map[string]string{"Content-Type": "application/json"}}, err
+}
+
+// These formats are the per-document strings in core buildUserContextSlot.
+func documentContext(row document, full bool) string {
+	if full {
+		return fmt.Sprintf("### Document: %s\n%s", row.Name, row.Content)
+	}
+	summary := row.Summary
+	if summary == "" {
+		summary = fmt.Sprintf("(document ID: %s, size: %d bytes)", row.ID, row.SizeBytes)
+	}
+	return fmt.Sprintf("### Document: %s (pointer)\n%s", row.Name, summary)
+}
+func buildDocumentContext(rows []document, budget int) pluginapi.ContextResponse {
 	response := pluginapi.ContextResponse{Protocol: pluginapi.ContextProtocol, Items: []pluginapi.ContextItem{}}
-	remaining := req.TokenBudget
-	for _, row := range rows {
-		if !row.Included {
+	remaining := budget
+	for index, row := range rows {
+		if !row.Included || row.ID == "" || !utf8.ValidString(row.ID) || len(row.ID) > 256 {
 			continue
 		}
-		content := fmt.Sprintf("### Document: %s\n%s", row.Name, row.Content)
-		if !row.FullContent {
-			summary := row.Summary
-			if summary == "" {
-				summary = fmt.Sprintf("(document ID: %s, size: %d bytes)", row.ID, row.SizeBytes)
+		// If full text cannot fit, try the pointer in its place. No truncation or
+		// inclusion state mutation; if the pointer also cannot fit, skip it.
+		forms := []bool{false}
+		if row.FullContent {
+			forms = []bool{true, false}
+		}
+		for _, full := range forms {
+			content := documentContext(row, full)
+			if !utf8.ValidString(content) {
+				continue
 			}
-			content = fmt.Sprintf("### Document: %s (pointer)\n%s", row.Name, summary)
+			cost := len(content) + len(row.ID) + len("plugin/"+pluginID+"/documents") + 64
+			if cost > remaining {
+				continue
+			}
+			item := pluginapi.ContextItem{Key: row.ID, Content: content, Relevance: 1 - float64(index)/float64(len(rows)+1)}
+			response.Items = append(response.Items, item)
+			raw, err := json.Marshal(response)
+			if err != nil || len(raw) > pluginapi.MaxContextBytes {
+				response.Items = response.Items[:len(response.Items)-1]
+				continue
+			}
+			remaining -= cost
+			break
 		}
-		if !utf8.ValidString(content) || !utf8.ValidString(row.ID) || len(row.ID) > 256 {
-			continue
-		}
-		cost := len(content) + len(row.ID) + len("plugin/"+pluginID+"/documents") + 64
-		if cost > remaining {
-			continue
-		}
-		response.Items = append(response.Items, pluginapi.ContextItem{Key: row.ID, Content: content, Relevance: 1})
-		raw, e := json.Marshal(response)
-		if e != nil {
-			return subprocess.HTTPResponse{}, e
-		}
-		if len(raw) > pluginapi.MaxContextBytes {
-			response.Items = response.Items[:len(response.Items)-1]
-			continue
-		}
-		remaining -= cost
 		if len(response.Items) == pluginapi.MaxContextItems {
 			break
 		}
 	}
-	raw, err := json.Marshal(response)
-	return subprocess.HTTPResponse{Status: http.StatusOK, Body: raw, Headers: map[string]string{"Content-Type": "application/json"}}, err
+	return response
 }

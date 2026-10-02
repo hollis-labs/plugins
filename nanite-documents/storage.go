@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,11 +24,20 @@ type table struct {
 	ImportSHA256 string                 `json:"import_sha256"`
 	Snapshot     pluginapi.DataSnapshot `json:"snapshot"`
 }
-type database struct{ dir string }
+type database struct {
+	dir           string
+	cache         *tableCache
+	syncDirectory func(*os.File) error
+}
 
 var errNotFound = errors.New("document not found")
 
-const maxTableBytes = 256 << 20
+const maxTableBytes = pluginapi.MaxDataExportBytes
+const maxNativeTableBytes = 64 << 20
+
+var errInvalid = errors.New("invalid document request")
+var errQuota = errors.New("document quota exceeded")
+var errCommitUncertain = errors.New("commit outcome uncertain; refresh documents before retrying")
 
 func sourceFile(source string) string {
 	digest := sha256.Sum256([]byte(source))
@@ -85,36 +95,54 @@ func (db database) transaction(ctx context.Context, source string, mutate func(*
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
 	name := sourceFile(source)
+	if err = db.cleanupTemporary(root, name); err != nil {
+		return err
+	}
 	if err = noLink(root, name); err != nil {
 		return err
 	}
 	state := table{}
-	file, err := root.Open(name)
+	info, err := root.Stat(name)
 	if err == nil {
-		bounded := &io.LimitedReader{R: file, N: maxTableBytes + 1}
-		decoder := json.NewDecoder(bounded)
-		decoder.DisallowUnknownFields()
-		decodeErr := decoder.Decode(&state)
-		var extra any
-		if decodeErr == nil && decoder.Decode(&extra) != io.EOF {
-			decodeErr = fmt.Errorf("documents: trailing storage data")
-		}
-		closeErr := file.Close()
-		if decodeErr != nil {
-			return decodeErr
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		if bounded.N <= 0 {
-			return fmt.Errorf("documents: storage exceeds limit")
-		}
-		if err = validateTable(state, source); err != nil {
-			return err
+		var hit bool
+		state, hit = db.cached(name, info)
+		if !hit {
+			file, openErr := root.Open(name)
+			if openErr != nil {
+				return openErr
+			}
+			bounded := &io.LimitedReader{R: file, N: maxTableBytes + 1}
+			decoder := json.NewDecoder(bounded)
+			decoder.DisallowUnknownFields()
+			decodeErr := decoder.Decode(&state)
+			var extra any
+			if decodeErr == nil && decoder.Decode(&extra) != io.EOF {
+				decodeErr = fmt.Errorf("documents: trailing storage data")
+			}
+			closeErr := file.Close()
+			if decodeErr != nil {
+				return decodeErr
+			}
+			if closeErr != nil {
+				return closeErr
+			}
+			if bounded.N <= 0 {
+				return fmt.Errorf("documents: storage exceeds import limit")
+			}
+			if err = validateTable(state, source); err != nil {
+				return err
+			}
+			db.remember(name, info, state)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	previousBytes := int64(0)
+	if info != nil {
+		previousBytes = info.Size()
+	}
+	imported := state.ImportSHA256 != ""
+
 	changed, err := mutate(&state)
 	if err != nil || !changed {
 		return err
@@ -130,7 +158,10 @@ func (db database) transaction(ctx context.Context, source string, mutate func(*
 		return err
 	}
 	if len(raw) > maxTableBytes {
-		return fmt.Errorf("documents: storage exceeds limit")
+		return fmt.Errorf("%w: serialized table exceeds 128 MiB import bound", errQuota)
+	}
+	if imported && len(raw) > maxNativeTableBytes && int64(len(raw)) > previousBytes {
+		return fmt.Errorf("%w: serialized table exceeds 64 MiB growth cap", errQuota)
 	}
 	temporary := name + "." + newID() + ".tmp"
 	out, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -154,14 +185,24 @@ func (db database) transaction(ctx context.Context, source string, mutate func(*
 	}
 	directory, err := root.Open(".")
 	if err != nil {
-		return err
+		return errCommitUncertain
 	}
-	syncErr := directory.Sync()
+	syncDirectory := db.syncDirectory
+	if syncDirectory == nil {
+		syncDirectory = func(file *os.File) error { return file.Sync() }
+	}
+	syncErr := syncDirectory(directory)
 	closeErr = directory.Close()
-	if syncErr != nil {
-		return syncErr
+	// The renamed state is visible even if directory fsync fails. Cache only
+	// that visible committed image and report the uncertainty explicitly.
+	info, statErr := root.Stat(name)
+	if statErr == nil {
+		db.remember(name, info, state)
 	}
-	return closeErr
+	if syncErr != nil || closeErr != nil || statErr != nil {
+		return errCommitUncertain
+	}
+	return nil
 }
 func newID() string { return rand.Text() }
 
@@ -207,40 +248,96 @@ func (db database) importReceipt(ctx context.Context, receipt pluginapi.DataExpo
 	if receipt.PluginID != pluginID || receipt.Feature != "documents" {
 		return fmt.Errorf("documents: foreign receipt")
 	}
-	root, err := os.OpenRoot(db.dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close() //nolint:errcheck
-	file, err := root.Open(receipt.Path)
-	if err != nil {
-		return err
-	}
-	exported, decodeErr := pluginapi.DecodeDataExport(file)
-	closeErr := file.Close()
-	if decodeErr != nil {
-		return decodeErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if err = receipt.Verify(exported); err != nil {
-		return err
-	}
-	incoming := table{ImportSHA256: receipt.SHA256, Snapshot: exported.Snapshot}
-	if err = validateTable(incoming, receipt.SourceID); err != nil {
-		return err
-	}
 	return db.transaction(ctx, receipt.SourceID, func(state *table) (bool, error) {
+		// The durable checkpoint is authoritative after a successful import.
+		// Export files may be archived without disabling reads or replay.
 		if state.ImportSHA256 != "" {
 			if state.ImportSHA256 != receipt.SHA256 {
 				return false, fmt.Errorf("documents: conflicting export replay")
 			}
 			return false, nil
 		}
+		root, err := os.OpenRoot(db.dir)
+		if err != nil {
+			return false, err
+		}
+		defer root.Close() //nolint:errcheck
+		file, err := root.Open(receipt.Path)
+		if err != nil {
+			return false, err
+		}
+		exported, decodeErr := pluginapi.DecodeDataExport(file)
+		closeErr := file.Close()
+		if decodeErr != nil {
+			return false, decodeErr
+		}
+		if closeErr != nil {
+			return false, closeErr
+		}
+		if err = receipt.Verify(exported); err != nil {
+			return false, err
+		}
+		incoming := table{ImportSHA256: receipt.SHA256, Snapshot: exported.Snapshot}
+		if err = validateTable(incoming, receipt.SourceID); err != nil {
+			return false, err
+		}
 		*state = incoming
 		return true, nil
 	})
+}
+func (db database) cleanupTemporary(root *os.Root, name string) error {
+	if db.cache != nil {
+		db.cache.mu.Lock()
+		done := db.cache.cleaned[name]
+		db.cache.mu.Unlock()
+		if done {
+			return nil
+		}
+	}
+	dir, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	entries, readErr := dir.ReadDir(-1)
+	closeErr := dir.Close()
+	if readErr != nil {
+		return readErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	for _, entry := range entries {
+		file := entry.Name()
+		if !strings.HasPrefix(file, name+".") || !strings.HasSuffix(file, ".tmp") {
+			continue
+		}
+		nonce := strings.TrimSuffix(strings.TrimPrefix(file, name+"."), ".tmp")
+		if len(nonce) != 26 {
+			continue
+		}
+		valid := true
+		for _, r := range nonce {
+			if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
+				valid = false
+			}
+		}
+		if !valid {
+			continue
+		}
+		// Only our regular temporary files for this locked workspace are removed.
+		if err = noLink(root, file); err != nil {
+			return err
+		}
+		if err = root.Remove(file); err != nil {
+			return err
+		}
+	}
+	if db.cache != nil {
+		db.cache.mu.Lock()
+		db.cache.cleaned[name] = true
+		db.cache.mu.Unlock()
+	}
+	return nil
 }
 
 func cellString(cell pluginapi.DataCell) (string, error) {

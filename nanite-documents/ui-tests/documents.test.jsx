@@ -48,10 +48,10 @@ describe("Documents drawer", () => {
 		render(<DocumentsTab session_id="session/a" />);
 		await screen.findByText("Reference");
 		fireEvent.change(screen.getByLabelText("Document name"), {
-			target: { value: "Pasted" },
+			target: { value: "  Pasted  " },
 		});
 		fireEvent.change(screen.getByLabelText("Paste content"), {
-			target: { value: "keep\n spacing" },
+			target: { value: "  keep\n spacing  " },
 		});
 		fireEvent.click(screen.getByText("Add document"));
 		await waitFor(() =>
@@ -98,11 +98,42 @@ describe("Documents drawer", () => {
 		);
 		const tooLarge = vi.fn(async () => "");
 		fireEvent.change(screen.getByLabelText("Upload files"), {
-			target: { files: [{ name: "big", size: 524289, text: tooLarge }] },
+			target: { files: [{ name: "big.txt", size: 524289, text: tooLarge }] },
 		});
 		await screen.findByRole("alert");
 		expect(tooLarge).not.toHaveBeenCalled();
 	});
+	it("keeps the primary drawer scrollable and matches core file acceptance", async () => {
+		setup(); render(<DocumentsTab session_id="session-a" />);
+		await screen.findByText("Reference");
+		const upload = screen.getByLabelText("Upload files");
+		expect(upload.accept).toBe("text/*,.md,.txt,.json,.yaml,.yml,.csv");
+		const section = upload.closest("section");
+		expect(section.style.overflow).toBe("auto");
+		expect(section.style.height).toBe("100%");
+		expect(section.style.minHeight).toBe("0");
+	});
+	it("rejects blank pasted content but permits empty uploaded text", async () => {
+		const fetch = setup((url,o) => Promise.resolve(o?.method === "POST" ? reply(row) : page([row])));
+		render(<DocumentsTab session_id="session-a" />); await screen.findByText("Reference");
+		fireEvent.change(screen.getByLabelText("Document name"), {target:{value:"name"}});
+		fireEvent.change(screen.getByLabelText("Paste content"), {target:{value:"   "}});
+		fireEvent.click(screen.getByText("Add document")); await screen.findByRole("alert");
+		expect(fetch.mock.calls.some(([,o]) => o?.method === "POST")).toBe(false);
+		fireEvent.change(screen.getByLabelText("Upload files"), {target:{files:[{name:"empty.json",type:"application/json",size:0,text:async()=>""}]}});
+		await waitFor(()=>expect(fetch.mock.calls.some(([,o])=>o?.method === "POST" && JSON.parse(o.body).content === "")).toBe(true));
+	});
+	it("refreshes on focus and visibility with thirty second polling", async () => {
+		const interval = vi.spyOn(window,"setInterval"); const fetch = setup();
+		render(<DocumentsTab session_id="session-a" />); await screen.findByText("Reference");
+		expect(interval.mock.calls.some(([,ms])=>ms===30000)).toBe(true);
+		expect(interval.mock.calls.some(([,ms])=>ms===5000)).toBe(false);
+		const before=fetch.mock.calls.length; fireEvent(window,new Event("focus"));
+		await waitFor(()=>expect(fetch.mock.calls.length).toBeGreaterThan(before));
+		const focused=fetch.mock.calls.length; fireEvent(document,new Event("visibilitychange"));
+		await waitFor(()=>expect(fetch.mock.calls.length).toBeGreaterThan(focused));
+	});
+
 	it("patches one setting at a time and deletes by encoded document ID", async () => {
 		const fetch = setup((url, o) =>
 			Promise.resolve(o?.method ? reply({ ok: true }) : page([row])),
@@ -162,7 +193,7 @@ describe("Documents drawer", () => {
 		const view = render(<DocumentsTab session_id="session-a" />);
 		await screen.findByText("Reference");
 		fireEvent.change(screen.getByLabelText("Upload files"), {
-			target: { files: [{ name: "late", size: 4, text }] },
+			target: { files: [{ name: "late", type: "text/plain", size: 4, text }] },
 		});
 		expect(text).toHaveBeenCalledOnce();
 		view.rerender(<DocumentsTab session_id="session-b" />);

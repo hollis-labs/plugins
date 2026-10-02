@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -29,7 +30,57 @@ type document struct {
 func project(row []pluginapi.DataCell, index map[string]int) document {
 	get := func(k string) string { v, _ := cellString(row[index[k]]); return v }
 	size, _ := strconv.ParseInt(get("size_bytes"), 10, 64)
-	return document{get("id"), get("session_id"), get("name"), get("mime_type"), get("content"), size, get("included") == "1", get("full_content") == "1", get("summary"), get("created_at"), get("updated_at")}
+	return document{get("id"), get("session_id"), get("name"), get("mime_type"), get("content"), size, nonzero(get("included")), nonzero(get("full_content")), get("summary"), get("created_at"), get("updated_at")}
+}
+
+func nonzero(s string) bool { v, err := strconv.ParseFloat(s, 64); return err == nil && v != 0 }
+
+const maxSessionDocuments = 200
+const maxSessionBytes = 8 << 20
+
+func documentBytes(d document) int64 {
+	return int64(len(d.Content) + len(d.Summary) + len(d.Name) + len(d.MimeType))
+}
+func sessionUsage(state table, session string) (int, int64) {
+	index, _ := columns(state.Snapshot)
+	count := 0
+	var bytes int64
+	for _, row := range state.Snapshot.Rows {
+		d := project(row, index)
+		if d.SessionID == session {
+			count++
+			bytes += documentBytes(d)
+		}
+	}
+	return count, bytes
+}
+func checkSessionQuota(count int, bytes int64) error {
+	if count > maxSessionDocuments {
+		return fmt.Errorf("%w: session limit is 200 documents", errQuota)
+	}
+	if bytes > maxSessionBytes {
+		return fmt.Errorf("%w: session text/metadata limit is 8 MiB", errQuota)
+	}
+	return nil
+}
+func documentOrder(a, b document) int {
+	at, ae := time.Parse(time.RFC3339Nano, a.CreatedAt)
+	bt, be := time.Parse(time.RFC3339Nano, b.CreatedAt)
+	var order int
+	switch {
+	case ae == nil && be == nil:
+		order = at.Compare(bt)
+	case ae == nil:
+		order = -1
+	case be == nil:
+		order = 1
+	default:
+		order = strings.Compare(a.CreatedAt, b.CreatedAt)
+	}
+	if order == 0 {
+		order = strings.Compare(a.ID, b.ID)
+	}
+	return order
 }
 func (db database) list(ctx context.Context, source, session string) ([]document, error) {
 	result := []document{}
@@ -44,15 +95,7 @@ func (db database) list(ctx context.Context, source, session string) ([]document
 				result = append(result, d)
 			}
 		}
-		slices.SortStableFunc(result, func(a, b document) int {
-			if a.CreatedAt < b.CreatedAt {
-				return -1
-			}
-			if a.CreatedAt > b.CreatedAt {
-				return 1
-			}
-			return 0
-		})
+		slices.SortFunc(result, documentOrder)
 		return false, nil
 	})
 	return result, err
@@ -72,6 +115,10 @@ func (db database) create(ctx context.Context, source string, d document) (docum
 	err := db.transaction(ctx, source, func(state *table) (bool, error) {
 		if state.ImportSHA256 == "" {
 			return false, fmt.Errorf("committed import required")
+		}
+		count, bytes := sessionUsage(*state, d.SessionID)
+		if err := checkSessionQuota(count+1, bytes+documentBytes(d)); err != nil {
+			return false, err
 		}
 		index, _ := columns(state.Snapshot)
 		row := make([]pluginapi.DataCell, len(state.Snapshot.Columns))
@@ -115,6 +162,13 @@ func (db database) change(ctx context.Context, source, session, id string, patch
 					row[index["full_content"]] = boolCell(*patch.FullContent)
 				}
 				if patch.Summary != nil {
+					count, bytes := sessionUsage(*state, session)
+					growth := int64(len(*patch.Summary) - len(d.Summary))
+					if growth > 0 {
+						if err := checkSessionQuota(count, bytes+growth); err != nil {
+							return false, err
+						}
+					}
 					row[index["summary"]] = pluginapi.DataCell{Kind: "text", Text: *patch.Summary}
 				}
 				row[index["updated_at"]] = pluginapi.DataCell{Kind: "text", Text: time.Now().UTC().Format(time.RFC3339Nano)}
@@ -133,7 +187,7 @@ type documentPage struct {
 
 func (db database) page(ctx context.Context, source, session string, offset int) (documentPage, error) {
 	if offset < 0 || offset > pluginapi.MaxDataExportRows {
-		return documentPage{}, fmt.Errorf("invalid offset")
+		return documentPage{}, fmt.Errorf("%w: invalid offset", errInvalid)
 	}
 	rows, err := db.list(ctx, source, session)
 	if err != nil {
@@ -157,7 +211,7 @@ func (db database) page(ctx context.Context, source, session string, offset int)
 		p.NextOffset++
 	}
 	if p.NextOffset == start && start < len(rows) {
-		return p, fmt.Errorf("legacy metadata exceeds limit")
+		return p, fmt.Errorf("%w: legacy metadata exceeds limit", errInvalid)
 	}
 	p.More = p.NextOffset < len(rows)
 	return p, nil
@@ -172,7 +226,7 @@ type documentRead struct {
 
 func (db database) read(ctx context.Context, source, session, id string, offset, limit int) (documentRead, error) {
 	if offset < 0 || limit < 0 || limit > 65536 {
-		return documentRead{}, fmt.Errorf("invalid range")
+		return documentRead{}, fmt.Errorf("%w: invalid range", errInvalid)
 	}
 	if limit == 0 {
 		limit = 65536
@@ -187,17 +241,17 @@ func (db database) read(ctx context.Context, source, session, id string, offset,
 		}
 		content := row.Content
 		if !utf8.ValidString(content) {
-			return documentRead{}, fmt.Errorf("legacy content is not UTF-8; retained in typed storage")
+			return documentRead{}, fmt.Errorf("%w: legacy content is not UTF-8; retained in typed storage", errInvalid)
 		}
 		if offset > len(content) || (offset < len(content) && !utf8.RuneStart(content[offset])) {
-			return documentRead{}, fmt.Errorf("offset must be a UTF-8 byte boundary")
+			return documentRead{}, fmt.Errorf("%w: offset must be a UTF-8 byte boundary", errInvalid)
 		}
 		end := min(offset+limit, len(content))
 		for end > offset && end < len(content) && !utf8.RuneStart(content[end]) {
 			end--
 		}
 		if end == offset && offset < len(content) {
-			return documentRead{}, fmt.Errorf("limit smaller than next rune")
+			return documentRead{}, fmt.Errorf("%w: limit smaller than next rune", errInvalid)
 		}
 		row.Content = content[offset:end]
 		result := documentRead{row, end < len(content), end, "utf-8"}
@@ -206,7 +260,7 @@ func (db database) read(ctx context.Context, source, session, id string, offset,
 			return result, e
 		}
 		if len(raw) > maxResponseBytes {
-			return documentRead{}, fmt.Errorf("legacy metadata exceeds limit")
+			return documentRead{}, fmt.Errorf("%w: legacy metadata exceeds limit", errInvalid)
 		}
 		return result, nil
 	}

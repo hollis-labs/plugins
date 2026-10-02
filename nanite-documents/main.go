@@ -53,7 +53,7 @@ func (p *documentsPlugin) Init(_ context.Context, params subprocess.InitParams) 
 	}
 	p.mu.Lock()
 	p.client = client
-	p.db = database{dir: params.DataDir}
+	p.db = newDatabase(params.DataDir)
 	p.closed = false
 	p.source = ""
 	p.mu.Unlock()
@@ -69,15 +69,19 @@ func (p *documentsPlugin) Unload(context.Context) error {
 	return nil
 }
 func (p *documentsPlugin) ready(ctx context.Context) (string, error) {
+	// The mutex protects connection state only. Host I/O and import use caller
+	// cancellation and the storage lock, so a stalled caller cannot hold it.
 	p.mu.Lock()
-	defer p.mu.Unlock()
 	if p.closed || p.client == nil {
+		p.mu.Unlock()
 		return "", fmt.Errorf("documents unavailable")
 	}
-	if p.source != "" {
-		return p.source, nil
+	source, client, db := p.source, p.client, p.db
+	p.mu.Unlock()
+	if source != "" {
+		return source, nil
 	}
-	receipts, err := p.client.ExportReceipts(ctx, 100)
+	receipts, err := client.ExportReceipts(ctx, 100)
 	if err != nil {
 		return "", err
 	}
@@ -98,8 +102,13 @@ func (p *documentsPlugin) ready(ctx context.Context) (string, error) {
 	if receipt == nil {
 		return "", fmt.Errorf("waiting for committed core import")
 	}
-	if err = p.db.importReceipt(ctx, *receipt); err != nil {
+	if err = db.importReceipt(ctx, *receipt); err != nil {
 		return "", err
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed || p.client != client {
+		return "", fmt.Errorf("documents connection changed")
 	}
 	p.source = receipt.SourceID
 	return p.source, nil
@@ -108,7 +117,10 @@ func (p *documentsPlugin) session(ctx context.Context, id string) (pluginapi.Que
 	if _, err := p.ready(ctx); err != nil {
 		return pluginapi.QuerySession{}, err
 	}
-	result, err := p.client.Query(ctx, pluginapi.QueryRequest{Resource: pluginapi.QuerySessions, SessionID: id, Limit: 1})
+	p.mu.Lock()
+	client := p.client
+	p.mu.Unlock()
+	result, err := client.Query(ctx, pluginapi.QueryRequest{Resource: pluginapi.QuerySessions, SessionID: id, Limit: 1})
 	if err != nil {
 		return pluginapi.QuerySession{}, err
 	}
@@ -164,16 +176,16 @@ func validText(s string, maxBytes int) bool {
 }
 func validateCreate(req createRequest) error {
 	if strings.TrimSpace(req.Name) == "" || !validText(req.Name, 512) || !validText(req.MimeType, 256) || !validText(req.Content, maxContentBytes) || !validText(req.Summary, maxSummaryBytes) {
-		return fmt.Errorf("invalid document: name required; UTF-8 without NUL; name 512, MIME 256, content 524288, summary 8192 bytes maximum")
+		return fmt.Errorf("%w: invalid document: name required; UTF-8 without NUL; name 512, MIME 256, content 524288, summary 8192 bytes maximum", errInvalid)
 	}
 	return nil
 }
 func validatePatch(req patchRequest) error {
 	if req.Included == nil && req.FullContent == nil && req.Summary == nil {
-		return fmt.Errorf("empty document patch")
+		return fmt.Errorf("%w: empty document patch", errInvalid)
 	}
 	if req.Summary != nil && !validText(*req.Summary, maxSummaryBytes) {
-		return fmt.Errorf("invalid summary")
+		return fmt.Errorf("%w: invalid summary", errInvalid)
 	}
 	return nil
 }
@@ -262,12 +274,21 @@ func (p *documentsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCa
 	var value any
 	switch call.ToolName {
 	case "documents_create":
-		var req createRequest
-		if err = decodeArgs(call.Arguments, &req); err == nil {
-			var created document
-			created, err = p.create(ctx, call.SessionID, req)
-			created.Content = ""
-			value = created
+		var args struct {
+			Name     string `json:"name"`
+			MimeType string `json:"mime_type,omitempty"`
+			Content  string `json:"content"`
+			Summary  string `json:"summary,omitempty"`
+		}
+		if err = decodeArgs(call.Arguments, &args); err == nil {
+			if _, ok := call.Arguments["content"].(string); !ok {
+				err = fmt.Errorf("content required")
+			} else {
+				var created document
+				created, err = p.create(ctx, call.SessionID, createRequest{Name: args.Name, MimeType: args.MimeType, Content: args.Content, Summary: args.Summary})
+				created.Content = ""
+				value = created
+			}
 		}
 	case "documents_list":
 		var args struct {
@@ -285,25 +306,7 @@ func (p *documentsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCa
 		if err = decodeArgs(call.Arguments, &args); err == nil {
 			value, err = p.db.read(ctx, source, call.SessionID, args.ID, args.Offset, args.Limit)
 		}
-	case "documents_update":
-		var args struct {
-			ID          string  `json:"id"`
-			Included    *bool   `json:"included,omitempty"`
-			FullContent *bool   `json:"full_content,omitempty"`
-			Summary     *string `json:"summary,omitempty"`
-		}
-		if err = decodeArgs(call.Arguments, &args); err == nil {
-			err = p.db.change(ctx, source, call.SessionID, args.ID, patchRequest{args.Included, args.FullContent, args.Summary}, false)
-			value = map[string]string{"id": args.ID, "status": "updated"}
-		}
-	case "documents_delete":
-		var args struct {
-			ID string `json:"id"`
-		}
-		if err = decodeArgs(call.Arguments, &args); err == nil {
-			err = p.db.change(ctx, source, call.SessionID, args.ID, patchRequest{}, true)
-			value = map[string]string{"id": args.ID, "status": "deleted"}
-		}
+
 	default:
 		err = fmt.Errorf("unknown document tool")
 	}
@@ -322,7 +325,7 @@ func (p *documentsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCa
 }
 func declaration() (manifest.Manifest, error) {
 	block := pluginapi.Block{UI: pluginapi.UI{Bundle: "ui/index.js"}, Registers: pluginapi.Registrations{
-		Slots:          []pluginapi.Slot{{ID: "documents", Slot: pluginapi.SlotWorkingDrawer, Component: "DocumentsTab", Title: "Documents", Icon: "FileText", Priority: 40}},
+		Slots:          []pluginapi.Slot{{ID: "documents", Slot: pluginapi.SlotPrimaryDrawer, Component: "DocumentsTab", Title: "Documents", Icon: "file-text", Priority: 40}},
 		ContextSources: []pluginapi.ContextSource{{ID: "documents"}},
 		HTTPRoutes:     []pluginapi.Route{{Method: "GET", Path: "documents"}, {Method: "POST", Path: "documents"}, {Method: "GET", Path: "documents/"}, {Method: "PATCH", Path: "documents/"}, {Method: "DELETE", Path: "documents/"}}}}
 	raw, err := pluginapi.EncodeBlock(block)
@@ -338,11 +341,10 @@ func declaration() (manifest.Manifest, error) {
 		return manifest.Manifest{}, err
 	}
 	tools := []manifest.Tool{
-		{Name: "documents_create", Effect: "write", Description: "Create a text document in the calling session; excluded from context by default", InputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","maxLength":512},"mime_type":{"type":"string","maxLength":256},"content":{"type":"string","maxLength":524288},"summary":{"type":"string","maxLength":8192},"included":{"type":"boolean"},"full_content":{"type":"boolean"}},"required":["name","content"],"additionalProperties":false}`)},
+		{Name: "documents_create", Effect: "write", Description: "Create a text document in the calling session; excluded from context by default", InputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","maxLength":512},"mime_type":{"type":"string","maxLength":256},"content":{"type":"string","maxLength":524288},"summary":{"type":"string","maxLength":8192}},"required":["name","content"],"additionalProperties":false}`)},
 		{Name: "documents_list", Effect: "read", Description: "List session document metadata, 100 per page, without content", InputSchema: json.RawMessage(`{"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":1000000}},"additionalProperties":false}`)},
-		{Name: "documents_get", Effect: "read", Description: "Read a session document in UTF-8 byte chunks (default and maximum 65536 bytes); next_offset continues", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":65536}},"required":["id"],"additionalProperties":false}`)},
-		{Name: "documents_update", Effect: "write", Description: "Update inclusion, full-content mode or summary; omitted fields stay unchanged", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"included":{"type":"boolean"},"full_content":{"type":"boolean"},"summary":{"type":"string","maxLength":8192}},"required":["id"],"additionalProperties":false}`)},
-		{Name: "documents_delete", Effect: "write", Description: "Delete a document from the calling session", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}`)}}
+		{Name: "documents_get", Effect: "read", Description: "Read a session document in UTF-8 byte chunks (default and maximum 65536 bytes); next_offset continues", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":65536}},"required":["id"],"additionalProperties":false}`)}}
+
 	m := manifest.Manifest{SchemaVersion: manifest.SchemaVersion, ID: pluginID, Name: "Documents", Description: "Session text documents with bounded full-content or pointer context", Version: version, License: "Apache-2.0", Repository: "https://github.com/hollis-labs/nanite-plugins", Protocol: subprocess.ProtocolVersion, Runtime: manifest.Runtime, Entrypoint: manifest.Entrypoint{Command: "bin/documents"}, Hosts: map[string]manifest.HostRange{"nanite": {Min: pluginapi.Version}}, Nanite: raw, Tools: tools,
 		Capabilities: []subprocess.CapabilityRequest{{Name: pluginapi.CapabilityReadOnlyQuery, Reason: "Import committed documents and resolve session metadata; no message content", Metadata: query}, {Name: pluginapi.CapabilityContextSource, Reason: "Include selected documents within the session context budget", Metadata: scope}}}
 	if _, err = pluginapi.ContextScopeFor(block, m.Capabilities); err != nil {

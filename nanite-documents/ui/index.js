@@ -72,12 +72,21 @@ export function DocumentsTab({ session_id: sessionId }) {
 				loading = false;
 			}
 		};
-		if (sessionId) void load();
-		const timer = sessionId ? setInterval(load, 5000) : null;
+		const onFocus = () => {
+			if (document.visibilityState !== "hidden") void load();
+		};
+		if (sessionId) {
+			void load();
+			window.addEventListener("focus", onFocus);
+			document.addEventListener("visibilitychange", onFocus);
+		}
+		const timer = sessionId ? setInterval(load, 30000) : null;
 		return () => {
 			current = false;
 			abort.abort();
 			if (timer) clearInterval(timer);
+			window.removeEventListener("focus", onFocus);
+			document.removeEventListener("visibilitychange", onFocus);
 		};
 	}, [sessionId, revision]);
 	const operation = async (fn) => {
@@ -125,6 +134,13 @@ export function DocumentsTab({ session_id: sessionId }) {
 		operation(async (request, live) => {
 			try {
 				for (const file of files) {
+					if (
+						!(
+							file.type?.startsWith("text/") ||
+							/\.(md|txt|json|yaml|yml|csv)$/i.test(file.name)
+						)
+					)
+						throw new Error("Choose a supported text file");
 					if (file.size > maxContent) throw new Error("File exceeds 512 KiB");
 					const content = await file.text();
 					if (!live()) return;
@@ -189,7 +205,10 @@ export function DocumentsTab({ session_id: sessionId }) {
 	const disabled = busy || state.session !== sessionId;
 	return h(
 		"section",
-		{ "aria-label": "Documents" },
+		{
+			"aria-label": "Documents",
+			style: { overflow: "auto", height: "100%", minHeight: 0 },
+		},
 		h(
 			"p",
 			null,
@@ -202,6 +221,7 @@ export function DocumentsTab({ session_id: sessionId }) {
 			"Upload files",
 			h("input", {
 				type: "file",
+				accept: "text/*,.md,.txt,.json,.yaml,.yml,.csv",
 				multiple: true,
 				disabled,
 				onChange: (e) => {
@@ -217,7 +237,11 @@ export function DocumentsTab({ session_id: sessionId }) {
 				onSubmit: (e) => {
 					e.preventDefault();
 					void operation(async (request, live) => {
-						await create(request, { name, content: text });
+						const pastedName = name.trim(),
+							content = text.trim();
+						if (!pastedName || !content)
+							throw new Error("Paste a document name and non-empty content");
+						await create(request, { name: pastedName, content });
 						if (live()) {
 							setName("");
 							setText("");

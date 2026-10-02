@@ -269,7 +269,7 @@ func TestActualSDKProcessPersistsAcrossReconnect(t *testing.T) {
 			t.Fatal("SDK list content missing", string(listRaw))
 		}
 		if save {
-			call("mcp/call_tool", subprocess.MCPCallRequest{ToolName: "documents_create", SessionID: "session-a", Arguments: map[string]any{"name": "Wire", "content": "wire document", "included": true, "full_content": true}})
+			call("mcp/call_tool", subprocess.MCPCallRequest{ToolName: "documents_create", SessionID: "session-a", Arguments: map[string]any{"name": "Wire", "content": "wire document"}})
 		}
 		raw := call("http/handle", subprocess.HTTPRequest{Method: "GET", Path: "/api/plugins/" + pluginID + "/documents", RawQuery: "session_id=session-a"})
 		var response subprocess.HTTPResponse
@@ -286,7 +286,7 @@ func TestActualSDKProcessPersistsAcrossReconnect(t *testing.T) {
 			t.Fatal(err)
 		}
 		decoded, decodeErr := pluginapi.DecodeContextResponse(contextResponse.Body)
-		if contextResponse.Status != 200 || decodeErr != nil || len(decoded.Items) != 3 {
+		if contextResponse.Status != 200 || decodeErr != nil || len(decoded.Items) != 2 {
 			t.Fatal("SDK context failed", contextResponse, decodeErr)
 		}
 		if err = input.Close(); err != nil {
