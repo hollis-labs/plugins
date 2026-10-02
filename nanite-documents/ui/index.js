@@ -2,6 +2,13 @@ import React, { useEffect, useState, useRef } from "react";
 const h = React.createElement;
 const base = "/api/plugins/nanite.documents";
 const maxContent = 524288;
+async function responseError(res, fallback) {
+	if (res.status >= 400 && res.status < 500) {
+		const message = (await res.text()).trim();
+		if (message) return new Error(message);
+	}
+	return new Error(fallback);
+}
 export function DocumentsTab({ session_id: sessionId }) {
 	const lifetime = useRef({ session: sessionId, epoch: 0 });
 	if (lifetime.current.session !== sessionId)
@@ -51,7 +58,7 @@ export function DocumentsTab({ session_id: sessionId }) {
 						`${base}/documents?session_id=${encodeURIComponent(sessionId)}&offset=${cursor}`,
 						{ signal: abort.signal },
 					);
-					if (!res.ok) throw new Error("Could not load documents");
+					if (!res.ok) throw await responseError(res, "Could not load documents");
 					data = await res.json();
 					rows.push(...data.documents);
 					if (data.more && data.next_offset <= cursor)
@@ -106,7 +113,7 @@ export function DocumentsTab({ session_id: sessionId }) {
 					body: body ? JSON.stringify(body) : undefined,
 				},
 			);
-			if (!res.ok) throw new Error("Document request failed");
+			if (!res.ok) throw await responseError(res, "Document request failed");
 			return res.json();
 		};
 		try {

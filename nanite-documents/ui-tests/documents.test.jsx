@@ -134,6 +134,18 @@ describe("Documents drawer", () => {
 		await waitFor(()=>expect(fetch.mock.calls.length).toBeGreaterThan(focused));
 	});
 
+	it("shows actionable server messages for quota and other client errors", async () => {
+		setup((url, options) => Promise.resolve(options?.method === "POST"
+			? {ok:false, status:413, text:async()=>"document quota exceeded: session text/metadata limit is 8 MiB\n"}
+			: page([row])));
+		render(<DocumentsTab session_id="session-a" />);
+		await screen.findByText("Reference");
+		fireEvent.change(screen.getByLabelText("Document name"), {target:{value:"name"}});
+		fireEvent.change(screen.getByLabelText("Paste content"), {target:{value:"content"}});
+		fireEvent.click(screen.getByText("Add document"));
+		expect((await screen.findByRole("alert")).textContent).toBe("document quota exceeded: session text/metadata limit is 8 MiB");
+	});
+
 	it("patches one setting at a time and deletes by encoded document ID", async () => {
 		const fetch = setup((url, o) =>
 			Promise.resolve(o?.method ? reply({ ok: true }) : page([row])),

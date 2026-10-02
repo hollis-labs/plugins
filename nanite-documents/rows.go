@@ -112,13 +112,13 @@ func (db database) create(ctx context.Context, source string, d document) (docum
 	d.ID = newID()
 	d.CreatedAt = now
 	d.UpdatedAt = now
-	err := db.transaction(ctx, source, func(state *table) (bool, error) {
+	err := db.transactionWithGrowth(ctx, source, func(state *table) (bool, bool, error) {
 		if state.ImportSHA256 == "" {
-			return false, fmt.Errorf("committed import required")
+			return false, false, fmt.Errorf("committed import required")
 		}
 		count, bytes := sessionUsage(*state, d.SessionID)
 		if err := checkSessionQuota(count+1, bytes+documentBytes(d)); err != nil {
-			return false, err
+			return false, false, err
 		}
 		index, _ := columns(state.Snapshot)
 		row := make([]pluginapi.DataCell, len(state.Snapshot.Columns))
@@ -132,7 +132,7 @@ func (db database) create(ctx context.Context, source string, d document) (docum
 		row[index["included"]] = boolCell(d.Included)
 		row[index["full_content"]] = boolCell(d.FullContent)
 		state.Snapshot.Rows = append(state.Snapshot.Rows, row)
-		return true, nil
+		return true, true, nil
 	})
 	return d, err
 }
@@ -142,11 +142,12 @@ func (db database) change(ctx context.Context, source, session, id string, patch
 			return err
 		}
 	}
-	return db.transaction(ctx, source, func(state *table) (bool, error) {
+	return db.transactionWithGrowth(ctx, source, func(state *table) (bool, bool, error) {
 		if state.ImportSHA256 == "" {
-			return false, errNotFound
+			return false, false, errNotFound
 		}
 		index, _ := columns(state.Snapshot)
+		growing := false
 		for i, row := range state.Snapshot.Rows {
 			d := project(row, index)
 			if id == "" || d.ID != id || d.SessionID != session {
@@ -165,17 +166,18 @@ func (db database) change(ctx context.Context, source, session, id string, patch
 					count, bytes := sessionUsage(*state, session)
 					growth := int64(len(*patch.Summary) - len(d.Summary))
 					if growth > 0 {
+						growing = true
 						if err := checkSessionQuota(count, bytes+growth); err != nil {
-							return false, err
+							return false, false, err
 						}
 					}
 					row[index["summary"]] = pluginapi.DataCell{Kind: "text", Text: *patch.Summary}
 				}
 				row[index["updated_at"]] = pluginapi.DataCell{Kind: "text", Text: time.Now().UTC().Format(time.RFC3339Nano)}
 			}
-			return true, nil
+			return true, growing, nil
 		}
-		return false, errNotFound
+		return false, false, errNotFound
 	})
 }
 
@@ -186,12 +188,18 @@ type documentPage struct {
 }
 
 func (db database) page(ctx context.Context, source, session string, offset int) (documentPage, error) {
+	return db.pageVisible(ctx, source, session, offset, false)
+}
+func (db database) pageVisible(ctx context.Context, source, session string, offset int, includedOnly bool) (documentPage, error) {
 	if offset < 0 || offset > pluginapi.MaxDataExportRows {
 		return documentPage{}, fmt.Errorf("%w: invalid offset", errInvalid)
 	}
 	rows, err := db.list(ctx, source, session)
 	if err != nil {
 		return documentPage{}, err
+	}
+	if includedOnly {
+		rows = slices.DeleteFunc(rows, func(row document) bool { return !row.Included })
 	}
 	slices.Reverse(rows)
 	start := min(offset, len(rows))
@@ -225,6 +233,9 @@ type documentRead struct {
 }
 
 func (db database) read(ctx context.Context, source, session, id string, offset, limit int) (documentRead, error) {
+	return db.readVisible(ctx, source, session, id, offset, limit, false)
+}
+func (db database) readVisible(ctx context.Context, source, session, id string, offset, limit int, includedOnly bool) (documentRead, error) {
 	if offset < 0 || limit < 0 || limit > 65536 {
 		return documentRead{}, fmt.Errorf("%w: invalid range", errInvalid)
 	}
@@ -236,7 +247,7 @@ func (db database) read(ctx context.Context, source, session, id string, offset,
 		return documentRead{}, err
 	}
 	for _, row := range rows {
-		if id == "" || row.ID != id {
+		if id == "" || row.ID != id || (includedOnly && !row.Included) {
 			continue
 		}
 		content := row.Content

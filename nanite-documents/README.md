@@ -11,21 +11,26 @@ HTML; MIME metadata does not enable binary parsing or executable previews.
 - `documents_create`: required `name`, `content`; optional `mime_type`,
   `summary`. Creates are always excluded, with full-content disabled.
 - `documents_list`: optional `offset`; newest-first metadata, at most 100
-  records per page. Content is omitted.
-- `documents_get`: `id`, optional `offset` and `limit`; content chunks of at
-  most 65,536 UTF-8 bytes. Continue with `next_offset` while `more` is true.
+  user-included records per page, only from the calling session. Content is omitted.
+- `documents_get`: `id` of a user-included document, optional `offset` and `limit`;
+  content chunks of at most 65,536 UTF-8 bytes. Continue with `next_offset` while `more` is true.
 
-Agents have only create, list and get authority. Update/delete tools are
-absent: agents cannot change context settings or alter/delete any document,
-including user-created and imported documents. Core did not previously provide
-agent document tools.
+The MCP tool surface has only create, list and get authority. Update/delete
+tools are absent: MCP calls cannot change context settings or alter/delete any
+document, including user-created and imported documents. Core did not
+previously provide agent document tools. List/get honor user inclusion,
+independent of full-content/pointer mode: excluded IDs return the same not-found as IDs from another session. Agent-created documents stay excluded and
+unreadable through MCP until the user includes them. HTTP/UI still show all
+session documents.
 
 HTTP uses `/api/plugins/nanite.documents/documents` (GET metadata pages, POST
 create) and `/documents/{id}` (GET chunks, PATCH settings, DELETE). Every route
 requires one `session_id` query parameter. GET accepts the same
 range/pagination parameters as the tools. A supplied SDK session must match the
 HTTP session. The current host HTTP forwarder supplies no session identity, so
-HTTP query-session scoping is cooperative; agent-tool scoping uses the
+HTTP query-session scoping is cooperative, matching core’s trust model. HTTP
+PATCH/DELETE still permit mutations through that interface; the no-mutation
+restriction applies only to MCP tools. Agent-tool scoping uses the
 authoritative SDK calling session. Tools use only their authoritative calling
 session; neither transport accepts a session ID in the body. Sessions must
 exist in approved host metadata. Documents from another session are
@@ -93,10 +98,15 @@ state. The shared export contract bounds snapshots to 128 MiB and one million
 rows; the serialized storage file is capped at 128 MiB. Native growth stops at
 64 MiB serialized across sessions, 200 documents per session, and 8 MiB of
 UTF-8 content plus metadata per session. Imports retain oversized legacy
-sessions/tables losslessly; nongrowing changes and deletion remain available,
-while growth above the limits is refused with HTTP 413. Parsed tables are
-cached; inode, modification time and size are rechecked under the cross-process
-lock on every operation.
+sessions/tables losslessly; toggle-only changes, unchanged/shrinking summaries,
+timestamp changes and deletion remain available above the native growth cap.
+Only added rows or longer content/summaries trigger that cap; growth above the
+limits is refused with HTTP 413. Parsed tables are cached; inode, modification
+time and size are rechecked under the cross-process lock on every operation.
+
+Corrupt-state recovery requires the retained export: back up the corrupt state
+file, remove it and restart to re-import; this loses any post-import edits.
+Without that export file, this recovery path is unavailable.
 
 ## Host boundary
 

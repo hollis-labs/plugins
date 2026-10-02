@@ -25,9 +25,10 @@ type table struct {
 	Snapshot     pluginapi.DataSnapshot `json:"snapshot"`
 }
 type database struct {
-	dir           string
-	cache         *tableCache
-	syncDirectory func(*os.File) error
+	dir             string
+	cache           *tableCache
+	syncDirectory   func(*os.File) error
+	nativeGrowthCap int // Optional smaller cap for bounded regression fixtures.
 }
 
 var errNotFound = errors.New("document not found")
@@ -60,6 +61,15 @@ func noLink(root *os.Root, name string) error {
 // Separate lock descriptors coordinate both concurrent SDK calls and multiple
 // host processes sharing DataDir. Nonblocking polling honors cancellation.
 func (db database) transaction(ctx context.Context, source string, mutate func(*table) (bool, error)) error {
+	return db.transactionWithGrowth(ctx, source, func(state *table) (bool, bool, error) {
+		changed, err := mutate(state)
+		return changed, false, err
+	})
+}
+
+// Growth is semantic: added rows or longer content/summary, excluding settings
+// and timestamp serialization. Imports use transaction without native growth.
+func (db database) transactionWithGrowth(ctx context.Context, source string, mutate func(*table) (bool, bool, error)) error {
 	root, err := os.OpenRoot(db.dir)
 	if err != nil {
 		return err
@@ -137,13 +147,7 @@ func (db database) transaction(ctx context.Context, source string, mutate func(*
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	previousBytes := int64(0)
-	if info != nil {
-		previousBytes = info.Size()
-	}
-	imported := state.ImportSHA256 != ""
-
-	changed, err := mutate(&state)
+	changed, growing, err := mutate(&state)
 	if err != nil || !changed {
 		return err
 	}
@@ -160,8 +164,12 @@ func (db database) transaction(ctx context.Context, source string, mutate func(*
 	if len(raw) > maxTableBytes {
 		return fmt.Errorf("%w: serialized table exceeds 128 MiB import bound", errQuota)
 	}
-	if imported && len(raw) > maxNativeTableBytes && int64(len(raw)) > previousBytes {
-		return fmt.Errorf("%w: serialized table exceeds 64 MiB growth cap", errQuota)
+	limit := maxNativeTableBytes
+	if db.nativeGrowthCap > 0 {
+		limit = db.nativeGrowthCap
+	}
+	if growing && len(raw) > limit {
+		return fmt.Errorf("%w: serialized table exceeds native growth cap (%d bytes)", errQuota, limit)
 	}
 	temporary := name + "." + newID() + ".tmp"
 	out, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)

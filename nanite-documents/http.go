@@ -58,7 +58,11 @@ func (p *documentsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRe
 			return "", "", false
 		}
 		if _, err = p.session(r.Context(), id); err != nil {
-			http.Error(w, "current session unavailable", http.StatusBadRequest)
+			status := http.StatusServiceUnavailable
+			if errors.Is(err, errNotFound) {
+				status = http.StatusNotFound
+			}
+			http.Error(w, "current session unavailable", status)
 			return "", "", false
 		}
 		return source, id, true

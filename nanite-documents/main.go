@@ -129,7 +129,7 @@ func (p *documentsPlugin) session(ctx context.Context, id string) (pluginapi.Que
 		return pluginapi.QuerySession{}, err
 	}
 	if len(sessions.Sessions) != 1 || sessions.Sessions[0].ID != id {
-		return pluginapi.QuerySession{}, fmt.Errorf("current session unavailable")
+		return pluginapi.QuerySession{}, fmt.Errorf("%w: current session unavailable", errNotFound)
 	}
 	return sessions.Sessions[0], nil
 }
@@ -295,7 +295,7 @@ func (p *documentsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCa
 			Offset int `json:"offset,omitempty"`
 		}
 		if err = decodeArgs(call.Arguments, &args); err == nil {
-			value, err = p.db.page(ctx, source, call.SessionID, args.Offset)
+			value, err = p.db.pageVisible(ctx, source, call.SessionID, args.Offset, true)
 		}
 	case "documents_get":
 		var args struct {
@@ -304,7 +304,7 @@ func (p *documentsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCa
 			Limit  int    `json:"limit,omitempty"`
 		}
 		if err = decodeArgs(call.Arguments, &args); err == nil {
-			value, err = p.db.read(ctx, source, call.SessionID, args.ID, args.Offset, args.Limit)
+			value, err = p.db.readVisible(ctx, source, call.SessionID, args.ID, args.Offset, args.Limit, true)
 		}
 
 	default:
@@ -341,9 +341,9 @@ func declaration() (manifest.Manifest, error) {
 		return manifest.Manifest{}, err
 	}
 	tools := []manifest.Tool{
-		{Name: "documents_create", Effect: "write", Description: "Create a text document in the calling session; excluded from context by default", InputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","maxLength":512},"mime_type":{"type":"string","maxLength":256},"content":{"type":"string","maxLength":524288},"summary":{"type":"string","maxLength":8192}},"required":["name","content"],"additionalProperties":false}`)},
-		{Name: "documents_list", Effect: "read", Description: "List session document metadata, 100 per page, without content", InputSchema: json.RawMessage(`{"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":1000000}},"additionalProperties":false}`)},
-		{Name: "documents_get", Effect: "read", Description: "Read a session document in UTF-8 byte chunks (default and maximum 65536 bytes); next_offset continues", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":65536}},"required":["id"],"additionalProperties":false}`)}}
+		{Name: "documents_create", Effect: "write", Description: "Create a text document in the calling session; excluded from context and agent reads until the user includes it", InputSchema: json.RawMessage(`{"type":"object","properties":{"name":{"type":"string","maxLength":512},"mime_type":{"type":"string","maxLength":256},"content":{"type":"string","maxLength":524288},"summary":{"type":"string","maxLength":8192}},"required":["name","content"],"additionalProperties":false}`)},
+		{Name: "documents_list", Effect: "read", Description: "List only user-included documents in the calling session, 100 per page, without content", InputSchema: json.RawMessage(`{"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":1000000}},"additionalProperties":false}`)},
+		{Name: "documents_get", Effect: "read", Description: "Read only a user-included document in the calling session, including pointer-mode documents; UTF-8 chunks up to 65536 bytes, next_offset continues", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":65536}},"required":["id"],"additionalProperties":false}`)}}
 
 	m := manifest.Manifest{SchemaVersion: manifest.SchemaVersion, ID: pluginID, Name: "Documents", Description: "Session text documents with bounded full-content or pointer context", Version: version, License: "Apache-2.0", Repository: "https://github.com/hollis-labs/nanite-plugins", Protocol: subprocess.ProtocolVersion, Runtime: manifest.Runtime, Entrypoint: manifest.Entrypoint{Command: "bin/documents"}, Hosts: map[string]manifest.HostRange{"nanite": {Min: pluginapi.Version}}, Nanite: raw, Tools: tools,
 		Capabilities: []subprocess.CapabilityRequest{{Name: pluginapi.CapabilityReadOnlyQuery, Reason: "Import committed documents and resolve session metadata; no message content", Metadata: query}, {Name: pluginapi.CapabilityContextSource, Reason: "Include selected documents within the session context budget", Metadata: scope}}}

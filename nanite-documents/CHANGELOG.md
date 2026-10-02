@@ -10,3 +10,5 @@
   Documents drawer tab; context settings and deletion remain user authority.
 - Bound native storage growth, cache validated tables under the storage lock,
   and fall back from full context to pointers when the shared budget is small.
+- Restrict agent list/get to user-included documents and show quota messages in
+  the drawer; allow legacy toggle/timestamp changes above native growth limits.
