@@ -1,4 +1,45 @@
 {
-  "catalog_version": "2.0.0",
-  "plugins": []
+  "catalog_version": "2.0.1",
+  "plugins": [
+    {
+      "manifest": "manifests/bookmarks-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "bookmarks/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "2a2f35bf7e794ae532130e673799eecb37a9988b96f8adf1b43c7af75655fe7a",
+          "size": 2643802
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "72e1f8ec0d3fe61eefda23f346e3e196840c952acbfcf002bc5f917853697008",
+          "size": 2871957
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-linux-arm64.tar.gz",
+          "sha256": "d1284d91fb7879eaa92fc499e159775016d518271d8bc212e1bc71c3eed4e40e",
+          "size": 2560221
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-linux-amd64.tar.gz",
+          "sha256": "d9acd74db0e7d3715e1c87a1864de39d8c1c5bcfbe5c71489bfabab3efd86ef2",
+          "size": 2840163
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Bookmark session messages and preserve imported notes and tags",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/bookmarks/v0.1.0/bookmarks"
+      }
+    }
+  ]
 }

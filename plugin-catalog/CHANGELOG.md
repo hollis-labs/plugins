@@ -12,3 +12,9 @@
 
 - Publish the portfolio feed and schema as GitHub release assets under
   `hollis-labs/plugins-catalog`; the Go module uses the same portfolio name.
+
+## v0.1.1
+
+Publishes the first bookmarks plugin with its exact released manifest and
+checksummed archives for macOS and Linux on arm64 and amd64. Existing feed and
+schema URLs stay the same.
