@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.8",
+  "catalog_version": "2.0.9",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -202,46 +202,6 @@
       }
     },
     {
-      "manifest": "manifests/pins-0.1.0.json",
-      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.1.0/plugin.yaml",
-      "source": {
-        "type": "git",
-        "repo": "https://github.com/hollis-labs/nanite-plugins",
-        "tag": "pins/v0.1.0"
-      },
-      "archives": [
-        {
-          "platform": "darwin-arm64",
-          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.1.0/pins-0.1.0-darwin-arm64.tar.gz",
-          "sha256": "31b5d17f7e46784ade039a7cbf2fa9a5bec577fa0a74b871aea9e6e5f74c14f5",
-          "size": 2659662
-        },
-        {
-          "platform": "darwin-amd64",
-          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.1.0/pins-0.1.0-darwin-amd64.tar.gz",
-          "sha256": "e20bdb04fd6baf5bc0895983fb81825424b823a822e2612388ee173ce6e25853",
-          "size": 2888502
-        },
-        {
-          "platform": "linux-arm64",
-          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.1.0/pins-0.1.0-linux-arm64.tar.gz",
-          "sha256": "3a0299009495f507cde9956d5b9fbff6cfdc9f30da0e37f5aafb608ee3369541",
-          "size": 2574664
-        },
-        {
-          "platform": "linux-amd64",
-          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.1.0/pins-0.1.0-linux-amd64.tar.gz",
-          "sha256": "7b3aabbad18b6ca25a2ecccf798885be73706bf1d43f17e19e58d71db54a79a7",
-          "size": 2855420
-        }
-      ],
-      "directory": {
-        "status": "experimental",
-        "short_desc": "Durable pinned context with session/project scope",
-        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/pins/v0.1.0/pins"
-      }
-    },
-    {
       "manifest": "manifests/documents-0.1.0.json",
       "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/plugin.yaml",
       "source": {
@@ -319,6 +279,46 @@
         "status": "experimental",
         "short_desc": "Durable scoped todos and multi-step plans",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/plan/v0.1.0/plan"
+      }
+    },
+    {
+      "manifest": "manifests/pins-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "pins/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "f4ec109ea040567cefe63268a76cd9f2324b8fdd634f35a420062d09c56e1a02",
+          "size": 2670852
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "625b79b2870b62fac6b4d5e3304ced09d83c85b2c155615e4c7a132d85574d68",
+          "size": 2902026
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-linux-arm64.tar.gz",
+          "sha256": "f4a8d666188be6d0efa7859d64192536b059a15cbc2ea1a6252b0967522bc857",
+          "size": 2586991
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-linux-amd64.tar.gz",
+          "sha256": "c9cbe44691852afe6fdd563793402b88b9ed0044d4bb0d42fe9b76995111a8fd",
+          "size": 2870080
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Durable pinned context with session/project scope",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/pins/v0.2.0/pins"
       }
     }
   ]
