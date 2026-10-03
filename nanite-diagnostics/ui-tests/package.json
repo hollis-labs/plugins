@@ -1,0 +1,16 @@
+{
+  "name": "nanite-diagnostics-ui-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "build": "vite build --config vitest.config.js"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "happy-dom": "20.9.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "vitest": "4.1.11"
+  }
+}

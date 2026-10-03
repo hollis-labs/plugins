@@ -1,0 +1,70 @@
+package service
+
+import (
+ "context"
+ "encoding/json"
+ "os"
+ "path/filepath"
+ "testing"
+
+ "github.com/hollis-labs/nanite/internal/inspector"
+ "github.com/hollis-labs/nanite/internal/store"
+ "github.com/hollis-labs/nanite/pkg/pluginapi"
+)
+
+type diagnosticsSessions struct { SessionService; db *store.Store }
+func (s diagnosticsSessions) Get(ctx context.Context, id string) (*store.Session,error) { return s.db.GetSession(ctx,id) }
+
+// Run only in the pinned detached scratch worktree. All data is synthetic.
+func TestCaptureDiagnosticsGolden(t *testing.T) {
+ ctx:=t.Context()
+ db,err:=store.New(ctx,filepath.Join(t.TempDir(),"core.db")); if err!=nil {t.Fatal(err)}
+ defer func(){if err:=db.Close(ctx);err!=nil {t.Error(err)}}()
+ for _,id:=range []string{"session-a","empty-session"} {if err:=db.CreateSession(ctx,&store.Session{ID:id,Title:id});err!=nil {t.Fatal(err)}}
+ // Persist deterministic synthetic accounting rows; Read still uses actual core SQL/projection.
+ for _,row:=range []struct{in,out,total,tool,write,read int;cost float64}{{1200,300,1500,200,100,500,0.005},{800,200,1000,50,20,200,0.001}} {
+  _,err=db.DB.ExecContext(ctx,`INSERT INTO token_usage(session_id,message_id,model,input_tokens,output_tokens,total_tokens,tool_input_tokens,cache_creation_tokens,cache_read_tokens,estimated_cost_usd,cost_status,reasoning_tokens) VALUES('session-a','','fixture-model',?,?,?,?,?,?,?,'PARTIAL',17)`,row.in,row.out,row.total,row.tool,row.write,row.read,row.cost);if err!=nil {t.Fatal(err)}
+ }
+ for i:=1;i<=51;i++ {
+  m:=store.ExecutionMetrics{SessionID:"session-a",Provider:"fixture-provider",Adapter:"http",Model:"fixture-model",AgentID:"agent-a",AgentSlug:"worker",DurationMs:int64(i)*1200,ContextMessages:i,ContextTokens:i*100,InputTokens:i*10,OutputTokens:i*3,CacheCreationTokens:i,CacheReadTokens:i*2,ToolIterations:i%3,ToolCalls:i%5,IsUtility:i==50,StopReason:"end_turn",ProfileName:"default",ProfileDigest:"fixture-digest",Error:"private error text",DebugSnapshots:"private debug text",EffectiveLimitsJSON:"private config"}
+  if i==51 {m.Error="";m.Adapter="sub"}
+  if err:=db.RecordExecutionMetrics(ctx,&m);err!=nil {t.Fatal(err)}
+ }
+ // All timestamps tie: secondary descending ID ordering must remain genuine core behavior.
+ if _,err:=db.DB.ExecContext(ctx,`UPDATE execution_metrics SET created_at='2026-10-03T09:00:00Z',estimated_cost_usd=0.005`);err!=nil {t.Fatal(err)}
+ snaps:=inspector.NewService()
+ snaps.RecordSlots("session-a","old",[]inspector.SlotSnapshot{{Name:"old",Tokens:999,Content:"old private content"}})
+ snaps.RecordSlots("session-a","latest",[]inspector.SlotSnapshot{
+  {Name:"system",Tokens:1200,Cached:true,CacheKey:"fixture-key",Sensitive:true,TrafficLight:"green",Content:"private prompt content"},
+  {Name:"agent",Tokens:500,TrafficLight:"yellow",Content:"private agent content"},
+  {Name:"mode",Tokens:0,TrafficLight:"red"},
+ })
+ scope:=pluginapi.QueryScope{Resources:[]pluginapi.QueryResource{pluginapi.QueryUsage,pluginapi.QueryExecutionMetrics,pluginapi.QueryContextSlots},AllSessions:true}
+ reader:=NewPluginQueryService(db,diagnosticsSessions{db:db},NewUsageService(db,db),snaps)
+ type sample struct{Name string `json:"name"`;Resource pluginapi.QueryResource `json:"resource"`;Session string `json:"session_id"`;Limit int `json:"limit"`;Data any `json:"data,omitempty"`;Error string `json:"error,omitempty"`}
+ samples:=[]sample{
+  {Name:"usage",Resource:pluginapi.QueryUsage,Session:"session-a"},
+  {Name:"metrics",Resource:pluginapi.QueryExecutionMetrics,Session:"session-a",Limit:50},
+  {Name:"metrics-small",Resource:pluginapi.QueryExecutionMetrics,Session:"session-a",Limit:2},
+  {Name:"slots",Resource:pluginapi.QueryContextSlots,Session:"session-a"},
+  {Name:"empty-usage",Resource:pluginapi.QueryUsage,Session:"empty-session"},
+  {Name:"empty-metrics",Resource:pluginapi.QueryExecutionMetrics,Session:"empty-session",Limit:50},
+  {Name:"missing-capture",Resource:pluginapi.QueryContextSlots,Session:"empty-session"},
+  {Name:"empty-capture",Resource:pluginapi.QueryContextSlots,Session:"empty-session"},
+  {Name:"disabled-inspector",Resource:pluginapi.QueryContextSlots,Session:"session-a"},
+  {Name:"missing-session",Resource:pluginapi.QueryUsage,Session:"missing"},
+  {Name:"denied",Resource:pluginapi.QuerySessions,Session:"session-a"},
+ }
+ for i:=range samples {
+  c:=&samples[i]
+  if c.Name=="empty-capture" {snaps.EnsureTurn("empty-session","empty")}
+  if c.Name=="disabled-inspector" {reader.inspector=nil}
+  value,e:=reader.Read(ctx,scope,pluginapi.QueryRequest{Resource:c.Resource,SessionID:c.Session,Limit:c.Limit})
+  if e!=nil {c.Error=e.Error();continue}
+  // Only wall-clock capture timestamps are normalized, never values/order/availability.
+  if slots,ok:=value.(pluginapi.QuerySlotsData);ok && slots.Available {slots.StartedAt="2026-10-03T10:00:00Z";value=slots}
+  c.Data=value
+ }
+ raw,err:=json.MarshalIndent(samples,"","  ");if err!=nil {t.Fatal(err)}
+ if err:=os.WriteFile(os.Getenv("DIAGNOSTICS_GOLDEN_OUT"),append(raw,'\n'),0600);err!=nil {t.Fatal(err)}
+}
