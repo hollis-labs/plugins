@@ -68,9 +68,9 @@ describe('review regressions',()=>{
   todos.push({...todos[0],id:'t2',title:'Second todo',created_at:'2026-02-01'});
   await mount();const rows=screen.getAllByRole('listitem');expect(rows[0].textContent).toContain('First todo');
   fireEvent.change(screen.getByLabelText('Title'),{target:{value:'Draft work'}});
-  fireEvent.click(screen.getByRole('button',{name:'Edit todo First todo'}));fireEvent.change(screen.getByLabelText('Todo title'),{target:{value:'Unsubmitted edit'}});
+  fireEvent.click(screen.getByRole('button',{name:'Edit todo First todo (t1)'}));fireEvent.change(screen.getByLabelText('Todo title'),{target:{value:'Unsubmitted edit'}});
   fireEvent.click(screen.getByLabelText('Second todo'));await waitFor(()=>expect(requests.some(r=>r.method==='PUT'&&r.url.pathname.endsWith('/t2'))).toBe(true));
-  await waitFor(()=>expect(screen.getByRole('button',{name:'Edit todo First todo'}).disabled).toBe(false));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Edit todo First todo (t1)'}).disabled).toBe(false));
   expect(screen.getByLabelText('Title').value).toBe('Draft work');expect(screen.getByLabelText('Todo title').value).toBe('Unsubmitted edit');
  });
  it('renders malformed step shapes without crashing',async()=>{
@@ -86,5 +86,13 @@ describe('review regressions',()=>{
   const view=await mount();fireEvent.click(screen.getByLabelText('First todo'));await waitFor(()=>expect(finish).toBeTypeOf('function'));
   view.rerender(<PlanPanel session_id="b"/>);await screen.findByText('No todos.');fireEvent.change(screen.getByLabelText('Title'),{target:{value:'B draft'}});
   finish(response({ok:true}));await waitFor(()=>expect(screen.getByLabelText('Title').value).toBe('B draft'));expect(screen.queryByText('First todo')).toBeNull();
+ });
+});
+
+describe('round-two regressions',()=>{
+ it('coerces malformed step content and uniquely labels identically named rows',async()=>{
+  todos.push({...todos[0],id:'t2'});plans[0].steps=[{id:'s1',title:{bad:'title'},notes:{bad:'notes'},acceptance:{bad:'acceptance'}},{id:'s2',title:'Duplicate'},{id:'s3',title:'Duplicate'}];
+  const view=render(<PlanPanel session_id="a"/>);await screen.findByRole('button',{name:'Edit todo First todo (t1)'});expect(screen.getByRole('button',{name:'Edit todo First todo (t2)'})).toBeTruthy();
+  expect(view.container.textContent).toContain('[object Object]');expect(screen.getByRole('button',{name:'Edit step Duplicate (s2) in plan Existing plan (p1)'})).toBeTruthy();expect(screen.getByRole('button',{name:'Edit step Duplicate (s3) in plan Existing plan (p1)'})).toBeTruthy();
  });
 });

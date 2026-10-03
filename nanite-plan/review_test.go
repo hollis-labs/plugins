@@ -99,7 +99,7 @@ func TestOptionalArgumentsAndDeclaredAuthority(t *testing.T) {
 			keys = []string{"description", "scope_id", "steps"}
 		}
 		for _, key := range keys {
-			for _, v := range []any{nil, ""} {
+			for _, v := range []any{nil, "", 5, []any{"a", "b"}, map[string]any{"ignored": true}} {
 				args := map[string]any{key: v}
 				if strings.HasSuffix(name, "create") {
 					args["title"] = "optional"
@@ -505,5 +505,116 @@ func TestCoreOutputGolden(t *testing.T) {
 		if bad != sample.IsError || normalizeGolden(t, sample.Name, text) != normalizeGolden(t, sample.Name, sample.Text) {
 			t.Errorf("core output drift %s args=%v\ngot %s\nwant %s", sample.Name, sample.Args, text, sample.Text)
 		}
+	}
+}
+
+func TestScopeGrowthAndHTMLFieldRoundTrip(t *testing.T) {
+	p, _ := pluginFixture(t, true)
+	oversize := strings.Repeat("x", 200000)
+	for _, args := range []map[string]any{{"scope": "session", "scope_id": oversize}, {"scope": "project", "scope_id": "project-a", "project_id": oversize}} {
+		raw, _ := json.Marshal(args)
+		requireStatus(t, httpCall(t, p, "PATCH", "todos/legacy/scope", string(raw)), 413)
+	}
+	changeFixture(t, p.db, func(s *table) {
+		v := s.Tables["todos"]
+		idx, _ := columns(v.Snapshot)
+		setCell(v.Snapshot.Rows[0], idx, "scope_id", oversize)
+		s.Tables["todos"] = v
+	})
+	raw, _ := json.Marshal(map[string]any{"scope": "session", "scope_id": oversize})
+	requireStatus(t, httpCall(t, p, "PATCH", "todos/legacy/scope", string(raw)), 200)
+	requireStatus(t, httpCall(t, p, "PATCH", "todos/legacy/scope", `{"scope":"session","scope_id":"session-a"}`), 200)
+	notes := strings.Repeat("<>&", 5000)
+	id := operation(t, p.db, "plan_create", map[string]any{"title": "HTML notes", "scope": "session", "steps": `[{"id":"s1","title":"step","status":"pending","notes":"` + notes + `"}]`}).(record)["id"].(string)
+	requireStatus(t, httpCall(t, p, "PUT", "plans/"+id+"/steps/s1", `{"status":"done"}`), 200)
+	state := readState(t, p.db)
+	snap := state.Tables["plans"].Snapshot
+	i, idx, _ := find(snap, id)
+	steps := getCell(snap.Rows[i], idx, "steps")
+	if !strings.Contains(steps, notes) || strings.Contains(steps, `\u003c`) {
+		t.Fatal("step bytes inflated", len(steps))
+	}
+	// Typed labels and reorder metadata use the same faithful field encoder.
+	raw, _ = fieldJSON(map[string]any{"labels": []any{notes}, "metadata": map[string]any{"notes": notes}})
+	requireStatus(t, httpCall(t, p, "PUT", "todos/legacy", string(raw)), 200)
+	requireStatus(t, httpCall(t, p, "POST", "work/reorder", `{"items":[{"id":"legacy","sort_order":0}]}`), 200)
+	state = readState(t, p.db)
+	snap = state.Tables["todos"].Snapshot
+	idx, _ = columns(snap)
+	for _, key := range []string{"labels", "metadata"} {
+		if !strings.Contains(getCell(snap.Rows[0], idx, key), notes) {
+			t.Fatal("field inflated", key)
+		}
+	}
+}
+func TestHTTPUncertainCommitWarnsWithoutCauses(t *testing.T) {
+	p, _ := pluginFixture(t, true)
+	if _, err := p.ready(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	p.db.syncDirectory = func(*os.File) error { return fmt.Errorf("directory sync /private/path failed") }
+	r := httpCall(t, p, "POST", "todos", `{"title":"Maybe committed"}`)
+	requireStatus(t, r, 500)
+	if !strings.Contains(string(r.Body), errCommitUncertain.Error()) || strings.Contains(string(r.Body), "/private") {
+		t.Fatal("unsafe or missing retry guidance", string(r.Body))
+	}
+	r = httpCall(t, p, "GET", "todos", "")
+	requireStatus(t, r, 200)
+	if !strings.Contains(string(r.Body), "Maybe committed") {
+		t.Fatal("fixture did not commit before sync failure")
+	}
+}
+func TestSyncSkipsInvalidEntriesAndLegacySteps(t *testing.T) {
+	p, _ := pluginFixture(t, true)
+	if _, err := p.ready(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	id := operation(t, p.db, "plan_create", map[string]any{"title": "broken", "scope": "session"}).(record)["id"].(string)
+	changeFixture(t, p.db, func(s *table) {
+		v := s.Tables["plans"]
+		i, idx, _ := find(v.Snapshot, id)
+		setCell(v.Snapshot.Rows[i], idx, "steps", "broken JSON")
+		s.Tables["plans"] = v
+	})
+	raw, _ := json.Marshal(map[string]any{"todos_checked": []any{"", 123, nil, map[string]any{}, "legacy"}, "plan_steps_checked": []any{map[string]any{"plan_id": id, "step_id": "s1"}, nil}})
+	r := httpCall(t, p, "POST", "work/sync", string(raw))
+	requireStatus(t, r, 200)
+	var result struct {
+		OK      bool
+		Skipped []struct {
+			Kind, ID, Reason string
+			Status           any
+		}
+	}
+	if err := json.Unmarshal(r.Body, &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.OK || len(result.Skipped) != 6 {
+		t.Fatal(string(r.Body))
+	}
+	for _, item := range result.Skipped {
+		if item.Kind == "" || item.Reason == "" || item.Status != nil {
+			t.Fatal("unhelpful skip report", string(r.Body))
+		}
+	}
+	r = httpCall(t, p, "GET", "todos/legacy", "")
+	requireStatus(t, r, 200)
+	if !strings.Contains(string(r.Body), `"status":"done"`) {
+		t.Fatal("valid entry did not apply", string(r.Body))
+	}
+	raw, _ = json.Marshal(map[string]any{"todos_checked": make([]any, 10001)})
+	requireStatus(t, httpCall(t, p, "POST", "work/sync", string(raw)), 413)
+}
+func TestWrongTypedPlanUpdateOptional(t *testing.T) {
+	p, _ := pluginFixture(t, true)
+	text := mcpCall(t, p, "plan_create", map[string]any{"title": "Optional steps", "scope": "session", "steps": []any{map[string]any{"title": "ignored"}}})
+	var row record
+	_ = json.Unmarshal([]byte(text[strings.Index(text, "\n")+1:]), &row)
+	if len(row["steps"].([]any)) != 0 {
+		t.Fatal("real array should be ignored as in core")
+	}
+	text = mcpCall(t, p, "plan_update", map[string]any{"id": row["id"], "status": 5})
+	if !strings.Contains(text, "status=proposed") {
+		t.Fatal(text)
 	}
 }

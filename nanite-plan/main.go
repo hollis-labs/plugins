@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -222,6 +223,10 @@ func checkToolArguments(name string, args map[string]any) error {
 				if _, ok := value.(string); !ok {
 					if name == "todo_update" {
 						return updateError("invalid", "invalid todo update fields", "")
+					}
+					if !slices.Contains(schema.Required, key) {
+						delete(args, key)
+						continue
 					}
 					return fmt.Errorf("%w: %s must be a string", errInvalid, key)
 				}

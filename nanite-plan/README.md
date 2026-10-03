@@ -49,9 +49,10 @@ Parity targets current core `81f8d3f2`, including #437. Golden fixtures cover
 all nine descriptions/schemas/annotations and representative real-core outputs;
 see [testdata](testdata/README.md). Host adoption must re-verify parity against
 then-current core. Undeclared agent arguments are ignored. Optional null/empty
-strings are absent except todo_update's explicit patch. Descriptions retain
-core references verbatim. Manifest effects cannot express IdempotentHint; this
-host limitation is tracked in CW-20261002-0137.
+strings and wrong-typed optional string arguments are absent except todo_update's
+explicit patch (which rejects wrong types). plan_create ignores a real steps
+array and creates an empty plan, like core; use a JSON-array string instead. Descriptions retain
+core references verbatim.
 
 Native text is valid UTF-8 without NUL. Newly set or growing text/JSON fields
 are capped at 64 KiB; unchanged/shrinking larger legacy fields remain editable.
@@ -60,6 +61,9 @@ Creation validates JSON fields. Current-core todo_update stores labels/metadata
 strings verbatim, including empty/malformed strings; HTTP uses typed JSON.
 
 ### Deliberate behavior differences
+
+- Manifest effects cannot express core IdempotentHint; this host limitation is
+  tracked in CW-20261002-0137.
 
 - Projections parse arrays/objects instead of core's JSON strings, except
   todo_update, whose labels/metadata remain strings. Map key order differs.
@@ -71,6 +75,12 @@ strings verbatim, including empty/malformed strings; HTTP uses typed JSON.
   private causes. Core ID lookups could operate without this session check.
 - Missing plan update/approve returns 404 (core used 400). Empty-body POST approve
   defaults create_todos=false, like core; malformed bodies are rejected.
+- HTTP scope=session lists default omitted scope_id to the calling session;
+  core HTTP left it unfiltered.
+- Workspace plan approval with create_todos=true and titled steps fails with
+  "invalid scope"; current core 81f8d3f2 also fails inserting those todos because
+  migration 043 restricts the todo scope CHECK to turn/session/project, but
+  exposes a different database error. Empty workspace plans still approve.
 - PATCH scope fills omitted coordinates from the calling session/project and
   clears project_id to NULL on demotion. Core required scope_id and retained
   project_id. Project-scoped HTTP creation stores the caller's project when
@@ -80,7 +90,14 @@ strings verbatim, including empty/malformed strings; HTTP uses typed JSON.
   Unknown body fields are rejected; optional null values are omitted.
 - HTTP labels/steps are arrays and metadata is an object. Step rewrites preserve
   unknown properties and numeric spelling; core's typed rewrites dropped them.
-  Transport/storage caps deliberately bound growth.
+  Transport/storage caps deliberately bound growth; work/sync batches cap at
+  10,000 entries. Stale/invalid IDs and malformed legacy steps are skipped with
+  `{kind,id,reason,step_id?}` diagnostics instead of logging only on the host.
+- The standalone UI uses immediate mutations, host-query project coordinates,
+  polling/focus refresh and window.prompt for step notes. Send Changes,
+  agent-notify toasts, This Session/This Project sections and session project
+  initialization remain ChatComposer/host adoption work. Malformed step display
+  values are coerced to text, and row action labels include stable IDs.
 
 ## HTTP and UI
 
@@ -91,7 +108,8 @@ Routes live under `/api/plugins/nanite.plan/`:
 - `GET/POST plans`; `GET/PUT/DELETE plans/{id}`;
   `PUT plans/{id}/steps/{stepID}`; `POST plans/{id}/approve`.
 - `POST plans/{id}/steps` appends without replacing existing steps.
-- `POST work/sync` skips and reports stale IDs, applies the remaining diffs in
+- `POST work/sync` skips stale/invalid IDs and malformed legacy steps, reports
+  `{kind,id,reason,step_id?}`, applies the remaining diffs in
   one transaction, and returns 200 `{ok:true,skipped:[...]}`.
 - `POST work/reorder` atomically assigns metadata.sort_order for its items.
 
@@ -123,11 +141,8 @@ compatibility aliases or host edits are included here.
 
 ### UI differences vs core Work tab
 
-Send Changes, agent-notify toasts, This Session/This Project sections, project
-initialization from the session's project_id and replacing window.prompt for
-step notes belong to ChatComposer and host adoption. The standalone panel uses
-immediate mutations, derives project from host query responses and does not
-claim to notify an agent. No Send Changes flow is built here. Todos order
+See the single [Deliberate behavior differences](#deliberate-behavior-differences)
+list above for the UI deltas and their adoption ownership. Todos order
 oldest-first by sort_order then created_at. Refresh preserves drafts, open forms
 and scroll; a session change resets them.
 
@@ -190,14 +205,15 @@ rendering remain separately owned. This plugin needs no task-backend hook.
 - Re-verify all nine definitions and behavior against current core; regenerate
   and review the golden fixtures from that same commit.
 - Verify paired E1 table transfer and receipts before activation.
-- In the **same host release**, drop the Manager's reserved `work` panel
-  registration and core's nine tool registrations, and remove the core Work tab
+- In the **same host release**, drop Host.registerBuiltinPanels' reserved `work` panel
+  registration (internal/plugin/panels.go) and core's nine tool registrations
+  that collide in Manager.AddPluginTools, and remove the core Work tab
   body. Keep `work` in V1BuiltinPanelIDs so panel_open("work") remains ungated.
   Current reservations/tool collisions prevent activation; the frontend registry
   must accept the panel and RightRailV2 must render PluginPanelBody once. These
   are adoption work, not standalone plugin defects.
 - Migrate generic cards/routes, ChatComposer work sync and presence consumers;
-  resolve the documented UI differences (Send Changes, agent-notify, sections,
-  session project initialization and step-note editor) in that adoption.
+  resolve the UI deltas in the
+  [Deliberate behavior differences](#deliberate-behavior-differences) list.
 - Release/tag/install and delete core copies only after host verification.
   This PR does not edit host seams or task-backend orchestration.

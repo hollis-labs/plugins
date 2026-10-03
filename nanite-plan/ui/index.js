@@ -3,6 +3,7 @@ const h = React.createElement;
 const base = '/api/plugins/nanite.plan';
 const styles = {flex: 1, minHeight: 0, overflowY: 'auto', padding: 12};
 const encode = encodeURIComponent;
+const display = value => value == null ? '' : String(value);
 
 export function PlanPanel({session_id: sessionId}) {
  const lifetime = useRef({session: sessionId, epoch: 0});
@@ -88,10 +89,10 @@ export function PlanPanel({session_id: sessionId}) {
   h('ul', null, ...todos.map(row => h('li', {key: row.id},
    h('label', null, h('input', {type: 'checkbox', checked: row.status === 'done', disabled: busy, onChange: e => void mutate(`/todos/${encode(row.id)}`, 'PUT', {status: e.target.checked ? 'done' : 'pending'})}), row.title),
    h('small', null, ` ${row.scope} · ${row.priority}${row.parent_id ? ' · child todo' : ''}`), row.description && h('p', null, row.description),
-   button('Edit todo', () => setTodoEdit({...row, labelsText: JSON.stringify(row.labels ?? [])}), false, `Edit todo ${row.title}`),
-   button('Delete todo', () => {if (window.confirm('Delete this todo and its children?')) void mutate(`/todos/${encode(row.id)}`, 'DELETE');},false,`Delete todo ${row.title}`),
-   button(row.scope === 'project' ? 'Make session' : 'Make project', () => void mutate(`/todos/${encode(row.id)}/scope`, 'PATCH', {scope: row.scope === 'project' ? 'session' : 'project', scope_id: row.scope === 'project' ? sessionId : data.project, project_id: row.scope === 'project' ? '' : data.project}), row.scope !== 'project' && !data.project, `${row.scope === 'project' ? 'Make session' : 'Make project'} todo ${row.title}`),
-   button('Move up', () => reorder(row,-1),false,`Move up todo ${row.title}`), button('Move down', () => reorder(row,1),false,`Move down todo ${row.title}`)
+   button('Edit todo', () => setTodoEdit({...row, labelsText: JSON.stringify(row.labels ?? [])}), false, `Edit todo ${display(row.title)} (${row.id})`),
+   button('Delete todo', () => {if (window.confirm('Delete this todo and its children?')) void mutate(`/todos/${encode(row.id)}`, 'DELETE');},false,`Delete todo ${display(row.title)} (${row.id})`),
+   button(row.scope === 'project' ? 'Make session' : 'Make project', () => void mutate(`/todos/${encode(row.id)}/scope`, 'PATCH', {scope: row.scope === 'project' ? 'session' : 'project', scope_id: row.scope === 'project' ? sessionId : data.project, project_id: row.scope === 'project' ? '' : data.project}), row.scope !== 'project' && !data.project, `${row.scope === 'project' ? 'Make session' : 'Make project'} todo ${display(row.title)} (${row.id})`),
+   button('Move up', () => reorder(row,-1),false,`Move up todo ${display(row.title)} (${row.id})`), button('Move down', () => reorder(row,1),false,`Move down todo ${display(row.title)} (${row.id})`)
   ))),
   todoEdit && h('form', {'aria-label': 'Edit todo', onSubmit: e => {e.preventDefault(); let labels; try {labels = JSON.parse(todoEdit.labelsText);if (!Array.isArray(labels)) throw new Error();} catch {setError('Labels must be a JSON array.');return;} void mutate(`/todos/${encode(todoEdit.id)}`, 'PUT', {title: todoEdit.title, description: todoEdit.description, status: todoEdit.status, priority: todoEdit.priority, labels}, () => setTodoEdit(null));}},
    field('Todo title',todoEdit.title,v=>setTodoEdit({...todoEdit,title:v}),{required:true}),field('Description',todoEdit.description,v=>setTodoEdit({...todoEdit,description:v})),
@@ -99,15 +100,15 @@ export function PlanPanel({session_id: sessionId}) {
    field('Labels',todoEdit.labelsText,v=>setTodoEdit({...todoEdit,labelsText:v})),h('button',{disabled:busy},'Save todo'),button('Cancel edit',()=>setTodoEdit(null))),
   h('h3', null, 'Plans'), plans.length === 0 && h('p', null, 'No plans.'),
   ...plans.map(row => h('article', {key: row.id, 'aria-label': row.title}, h('h4', null, row.title), h('small', null, `${row.scope} · ${row.status}`), row.description && h('p', null, row.description),
-   button('Edit plan',()=>setPlanEdit({...row}),false,`Edit plan ${row.title}`),button('Delete plan',()=>{if(window.confirm('Delete this plan?'))void mutate(`/plans/${encode(row.id)}`,'DELETE');},false,`Delete plan ${row.title}`),
+   button('Edit plan',()=>setPlanEdit({...row}),false,`Edit plan ${display(row.title)} (${row.id})`),button('Delete plan',()=>{if(window.confirm('Delete this plan?'))void mutate(`/plans/${encode(row.id)}`,'DELETE');},false,`Delete plan ${display(row.title)} (${row.id})`),
    row.status === 'proposed' && h(React.Fragment,null,
-    button('Approve plan',()=>void mutate(`/plans/${encode(row.id)}/approve`,'POST',{create_todos:false}),false,`Approve plan ${row.title}`),
-    button('Approve and create todos',()=>void mutate(`/plans/${encode(row.id)}/approve`,'POST',{create_todos:true}),row.scope==='workspace',`Approve and create todos for plan ${row.title}`),
-    button('Reject plan',()=>void mutate(`/plans/${encode(row.id)}`,'PUT',{status:'abandoned'}),false,`Reject plan ${row.title}`)),
+    button('Approve plan',()=>void mutate(`/plans/${encode(row.id)}/approve`,'POST',{create_todos:false}),false,`Approve plan ${display(row.title)} (${row.id})`),
+    button('Approve and create todos',()=>void mutate(`/plans/${encode(row.id)}/approve`,'POST',{create_todos:true}),row.scope==='workspace',`Approve and create todos for plan ${display(row.title)} (${row.id})`),
+    button('Reject plan',()=>void mutate(`/plans/${encode(row.id)}`,'PUT',{status:'abandoned'}),false,`Reject plan ${display(row.title)} (${row.id})`)),
    h('ol',null,...(Array.isArray(row.steps) ? row.steps.filter(step => step && typeof step === 'object') : []).map((step,i)=>h('li',{key:step.id || i},
-    h('label',null,h('input',{type:'checkbox',checked:step.status==='done',disabled:busy||!step.id,onChange:e=>void mutate(`/plans/${encode(row.id)}/steps/${encode(step.id)}`,'PUT',{status:e.target.checked?'done':'pending'})}),step.title),
-    h('small',null,` ${step.status || 'pending'}`), Array.isArray(step.depends_on)&&step.depends_on.length>0&&h('p',null,`Depends on: ${step.depends_on.join(', ')}`),step.acceptance&&h('p',null,step.acceptance),step.notes&&h('p',null,step.notes),
-    button('Edit step',()=>{const notes=window.prompt('Step notes',step.notes || '');if(notes!==null)void mutate(`/plans/${encode(row.id)}/steps/${encode(step.id)}`,'PUT',{notes});},!step.id,`Edit step ${step.title || step.id || i} in plan ${row.title}`)
+    h('label',null,h('input',{type:'checkbox',checked:step.status==='done',disabled:busy||!step.id,onChange:e=>void mutate(`/plans/${encode(row.id)}/steps/${encode(step.id)}`,'PUT',{status:e.target.checked?'done':'pending'})}),display(step.title)),
+    h('small',null,` ${step.status || 'pending'}`), Array.isArray(step.depends_on)&&step.depends_on.length>0&&h('p',null,`Depends on: ${step.depends_on.join(', ')}`),step.acceptance&&h('p',null,display(step.acceptance)),step.notes&&h('p',null,display(step.notes)),
+    button('Edit step',()=>{const notes=window.prompt('Step notes',display(step.notes));if(notes!==null)void mutate(`/plans/${encode(row.id)}/steps/${encode(step.id)}`,'PUT',{notes});},!step.id,`Edit step ${display(step.title) || step.id || i} (${step.id || i}) in plan ${display(row.title)} (${row.id})`)
    ))),
    h(StepForm,{disabled:busy||!current,onAdd:step=>void mutate(`/plans/${encode(row.id)}/steps`,'POST',{steps:[step]})})
   )),

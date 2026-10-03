@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -34,7 +35,7 @@ func jsonValue(value any) (string, error) {
 		}
 		return s, nil
 	}
-	raw, err := json.Marshal(value)
+	raw, err := fieldJSON(value)
 	return string(raw), err
 }
 func project(row []pluginapi.DataCell, index map[string]int) record {
@@ -271,7 +272,7 @@ func stepsFrom(row []pluginapi.DataCell, index map[string]int) ([]record, error)
 	return steps, nil
 }
 func encodeSteps(row []pluginapi.DataCell, index map[string]int, steps []record) error {
-	raw, err := json.Marshal(steps)
+	raw, err := fieldJSON(steps)
 	if err != nil {
 		return err
 	}
@@ -318,4 +319,16 @@ func boundedField(value, previous string) error {
 		return fmt.Errorf("%w: field exceeds 64 KiB", errQuota)
 	}
 	return nil
+}
+
+// Field bytes determine growth limits. HTML escaping must not inflate a
+// previously accepted label, metadata value, or step note on unrelated edits.
+func fieldJSON(value any) ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }

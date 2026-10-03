@@ -231,7 +231,9 @@ func checkHTTPArguments(op string, args map[string]any) error {
 func safeHTTPError(w http.ResponseWriter, err error) {
 	status := httpStatus(err)
 	message := err.Error()
-	if status >= 500 {
+	if errors.Is(err, errCommitUncertain) {
+		message = errCommitUncertain.Error()
+	} else if status >= 500 {
 		message = "Plan storage unavailable"
 	}
 	http.Error(w, message, status)

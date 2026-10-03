@@ -119,7 +119,8 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		if err != nil {
 			return false, false, err
 		}
-		row := snapshot.Rows[i]
+		// A skipped sync item must leave its original row untouched on failure.
+		row := append([]pluginapi.DataCell(nil), snapshot.Rows[i]...)
 		if name == "plans" && str(args, "step_id", "") != "" {
 			return apply(state, "plan_step_update", args, session, pid, actor, result)
 		}
@@ -173,6 +174,7 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		if err := validateNative(row, idx, name == "plans"); err != nil {
 			return false, false, err
 		}
+		snapshot.Rows[i] = row
 		stamp(row, idx)
 		*result = project(row, idx)
 		if op == "todo_update" && actor == "agent" {
@@ -204,6 +206,14 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		if !slices.Contains([]string{"turn", "session", "project"}, scope) || scopeID == "" || (scope == "project" && projectID == "") {
 			return false, false, fmt.Errorf("%w: invalid scope coordinates", errInvalid)
 		}
+		growing := false
+		for key, value := range map[string]string{"scope_id": scopeID, "project_id": projectID} {
+			previous := getCell(row, idx, key)
+			if err := boundedField(value, previous); err != nil {
+				return false, false, err
+			}
+			growing = growing || len(value) > len(previous)
+		}
 		setCell(row, idx, "scope", scope)
 		setCell(row, idx, "scope_id", scopeID)
 		row[idx["project_id"]] = pluginapi.DataCell{Kind: "null"}
@@ -212,7 +222,7 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 		}
 		stamp(row, idx)
 		*result = project(row, idx)
-		return finish(true, false, nil)
+		return finish(true, growing, nil)
 	case "plan_step_update", "plan_step_add":
 		id := str(args, "id", str(args, "plan_id", ""))
 		i, idx, err := find(snapshot, id)
@@ -359,7 +369,10 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 				metadata = map[string]any{}
 			}
 			metadata["sort_order"] = order
-			raw, _ := json.Marshal(metadata)
+			raw, err := fieldJSON(metadata)
+			if err != nil {
+				return false, false, err
+			}
 			if err := boundedField(string(raw), getCell(row, idx, "metadata")); err != nil {
 				return false, false, err
 			}
@@ -371,50 +384,65 @@ func apply(state *table, op string, args map[string]any, session, pid, actor str
 
 	case "work_sync":
 		skipped := []map[string]any{}
+		total := 0
+		changed := false
 		for _, key := range []string{"todos_checked", "todos_unchecked", "plan_steps_checked", "plan_steps_unchecked"} {
 			entries, ok := args[key].([]any)
 			if !ok && args[key] != nil {
 				return false, false, errInvalid
 			}
+			total += len(entries)
+			if total > 10000 {
+				return false, false, errQuota
+			}
 			for _, entry := range entries {
+				kind, operation := "todo", "todo_update"
 				status := "done"
 				if strings.Contains(key, "unchecked") {
 					status = "pending"
 				}
-				operation := "todo_update"
 				req := map[string]any{"status": status}
 				if strings.HasPrefix(key, "plan_") {
-					item, ok := entry.(map[string]any)
-					if !ok {
-						return false, false, errInvalid
-					}
-					operation = "plan_step_update"
+					kind, operation = "plan", "plan_step_update"
+					item, _ := entry.(map[string]any)
 					req["id"] = item["plan_id"]
 					req["step_id"] = item["step_id"]
 				} else if key == "todos_checked" {
 					req["id"] = entry
 				} else {
-					item, ok := entry.(map[string]any)
-					if !ok {
-						return false, false, errInvalid
-					}
+					item, _ := entry.(map[string]any)
 					req["id"] = item["id"]
 				}
-				if str(req, "id", "") == "" || (operation == "plan_step_update" && str(req, "step_id", "") == "") {
-					return false, false, errInvalid
+				skip := func(reason string) {
+					item := map[string]any{"kind": kind, "id": str(req, "id", ""), "reason": reason}
+					if kind == "plan" {
+						item["step_id"] = str(req, "step_id", "")
+					}
+					skipped = append(skipped, item)
+				}
+				if str(req, "id", "") == "" || (kind == "plan" && str(req, "step_id", "") == "") {
+					skip("invalid_id")
+					continue
 				}
 				var ignored any
-				if _, _, err := apply(state, operation, req, session, pid, actor, &ignored); err != nil {
-					if errors.Is(err, errNotFound) {
-						skipped = append(skipped, req)
+				didChange, _, err := apply(state, operation, req, session, pid, actor, &ignored)
+				if err != nil {
+					switch {
+					case errors.Is(err, errNotFound):
+						skip("missing")
 						continue
+					case errors.Is(err, errInvalid):
+						skip("invalid_legacy_data")
+						continue
+					default:
+						return false, false, err
 					}
-					return false, false, err
 				}
+				changed = changed || didChange
 			}
 		}
 		*result = map[string]any{"ok": true, "skipped": skipped}
-		return true, false, nil
+		return changed, false, nil
 	}
 	return false, false, fmt.Errorf("%w: unknown operation", errInvalid)
 }
