@@ -16,7 +16,7 @@ import (
 
 const (
 	pluginID = "nanite.pins"
-	version  = "0.1.0"
+	version  = "0.2.0"
 )
 
 var _ subprocess.MCPHandler = (*pinsPlugin)(nil)
@@ -178,25 +178,9 @@ func (p *pinsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCallReq
 		}
 		value, err = p.create(ctx, call.SessionID, req)
 	case "pins_list":
-		var args struct {
-			Offset int `json:"offset,omitempty"`
-		}
-		arguments := call.Arguments
-		if arguments == nil {
-			arguments = map[string]any{}
-		}
-		rawArgs, marshalErr := json.Marshal(arguments)
-		if marshalErr != nil {
-			return subprocess.MCPCallResult{}, marshalErr
-		}
-		if decodeErr := manifest.DecodeExtension(rawArgs, &args); decodeErr != nil || args.Offset < 0 || args.Offset > pluginapi.MaxDataExportRows {
-			return subprocess.MCPCallResult{}, fmt.Errorf("invalid list offset")
-		}
-		var rows []pin
-		rows, err = p.db.list(ctx, source, call.SessionID, meta.ProjectID)
-		start := min(args.Offset, len(rows))
-		end := min(start+100, len(rows))
-		value = map[string]any{"pins": rows[start:end], "more": end < len(rows), "next_offset": end}
+		return p.listInventory(ctx, source, call.SessionID, meta.ProjectID, call.Arguments)
+	case "pins_get":
+		return p.getContent(ctx, source, call.SessionID, meta.ProjectID, call.Arguments)
 	case "pins_delete":
 		id, valid := call.Arguments["id"].(string)
 		if !valid || id == "" || len(call.Arguments) != 1 {
@@ -236,7 +220,7 @@ func (p *pinsPlugin) MCPCallTool(ctx context.Context, call subprocess.MCPCallReq
 }
 func declaration() (manifest.Manifest, error) {
 	block := pluginapi.Block{UI: pluginapi.UI{Bundle: "ui/index.js"}, Registers: pluginapi.Registrations{
-		Slots: []pluginapi.Slot{{ID: "pins", Slot: pluginapi.SlotWorkingDrawer, Component: "PinsTab", Title: "Pins", Icon: "Pin", Priority: 30}}, ContextSources: []pluginapi.ContextSource{{ID: "pins"}},
+		Slots: []pluginapi.Slot{{ID: "pins", Slot: pluginapi.SlotWorkingDrawer, Component: "PinsTab", Title: "Pins", Icon: "Pin", Priority: 30}}, AlwaysShipSources: []pluginapi.AlwaysShipSource{{ID: "pins", Title: "Pinned Context", ListTool: "pins_list"}},
 		HTTPRoutes: []pluginapi.Route{{Method: "GET", Path: "pins"}, {Method: "POST", Path: "pins"}, {Method: "PATCH", Path: "pins/"}, {Method: "DELETE", Path: "pins/"}},
 	}}
 	raw, err := pluginapi.EncodeBlock(block)
@@ -247,19 +231,20 @@ func declaration() (manifest.Manifest, error) {
 	if err != nil {
 		return manifest.Manifest{}, err
 	}
-	scope, err := json.Marshal(pluginapi.ContextScope{SourceIDs: []string{"pins"}, AllSessions: true})
+	scope, err := json.Marshal(pluginapi.AlwaysShipScope{SourceIDs: []string{"pins"}, AllSessions: true, MaxBytes: pluginapi.MaxAlwaysShipBodyBytes})
 	if err != nil {
 		return manifest.Manifest{}, err
 	}
 	m := manifest.Manifest{SchemaVersion: manifest.SchemaVersion, ID: pluginID, Name: "Pins", Description: "Durable pinned context with session/project scope", Version: version, License: "Apache-2.0", Repository: "https://github.com/hollis-labs/nanite-plugins", Protocol: subprocess.ProtocolVersion, Runtime: manifest.Runtime, Entrypoint: manifest.Entrypoint{Command: "bin/pins"}, Hosts: map[string]manifest.HostRange{"nanite": {Min: pluginapi.Version}}, Nanite: raw,
-		Capabilities: []subprocess.CapabilityRequest{{Name: pluginapi.CapabilityReadOnlyQuery, Reason: "Import committed pins exports and resolve session/project metadata; no message content", Metadata: query}, {Name: pluginapi.CapabilityContextSource, Reason: "Include visible pinned context in approved sessions", Metadata: scope}},
+		Capabilities: []subprocess.CapabilityRequest{{Name: pluginapi.CapabilityReadOnlyQuery, Reason: "Import committed pins exports and resolve session/project metadata; no message content", Metadata: query}, {Name: pluginapi.CapabilityContextAlwaysShip, Reason: "Retain visible pins on every turn, including review, recall and resume; survives compaction and shares user-context budget", Metadata: scope}},
 		Tools: []manifest.Tool{
 			{Name: "pins_set", Effect: "write", Description: "Pin content in the calling session or project; persists until explicit deletion", InputSchema: json.RawMessage(`{"type":"object","properties":{"content":{"type":"string","maxLength":8192},"scope":{"enum":["session","project"]}},"required":["content"],"additionalProperties":false}`)},
-			{Name: "pins_list", Effect: "read", Description: "List visible pins, 100 per page", InputSchema: json.RawMessage(`{"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":1000000}},"additionalProperties":false}`)},
+			{Name: "pins_list", Effect: "read", Description: "List bounded visible pin inventory; call with no arguments for first page, follow next_offset while more, then pins_get for content (agent tool grants required)", InputSchema: json.RawMessage(`{"type":"object","properties":{"offset":{"type":"integer","minimum":0,"maximum":1000000}},"additionalProperties":false}`)},
+			{Name: "pins_get", Effect: "read", Description: "Read a visible pin in bounded UTF-8 chunks; offset is a content byte offset, follow next_offset while more; total_bytes is the complete content size", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string","minLength":1},"offset":{"type":"integer","minimum":0}},"required":["id"],"additionalProperties":false}`)},
 			{Name: "pins_update", Effect: "write", Description: "Edit the content of a visible pin", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"},"content":{"type":"string","maxLength":8192}},"required":["id","content"],"additionalProperties":false}`)},
 			{Name: "pins_delete", Effect: "write", Description: "Delete a visible pin", InputSchema: json.RawMessage(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}`)},
 		}}
-	if _, err = pluginapi.ContextScopeFor(block, m.Capabilities); err != nil {
+	if _, err = pluginapi.AlwaysShipScopeFor(block, m.Capabilities, m.Tools); err != nil {
 		return m, err
 	}
 	return m, m.Validate()

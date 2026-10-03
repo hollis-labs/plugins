@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"unicode/utf8"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
 	"github.com/hollis-labs/plugin-sdk/manifest"
@@ -16,8 +14,8 @@ import (
 )
 
 func (p *pinsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest) (subprocess.HTTPResponse, error) {
-	if call.Path == pluginapi.ContextFetchPath {
-		return p.contextFetch(ctx, call)
+	if call.Path == pluginapi.AlwaysShipFetchPath {
+		return p.alwaysShipFetch(ctx, call)
 	}
 	mux := http.NewServeMux()
 	send := func(w http.ResponseWriter, value any) {
@@ -135,61 +133,4 @@ func (p *pinsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTPRequest
 	mux.HandleFunc("PATCH /pins/{id}/scope", mutation("scope"))
 	mux.HandleFunc("DELETE /pins/{id}", mutation("delete"))
 	return pluginapi.HandleHTTP(ctx, pluginID, mux, call)
-}
-func (p *pinsPlugin) contextFetch(ctx context.Context, call subprocess.HTTPRequest) (subprocess.HTTPResponse, error) {
-	request, err := pluginapi.DecodeContextRequest(&call)
-	if err != nil {
-		return subprocess.HTTPResponse{Status: http.StatusBadRequest}, nil
-	}
-	if request.SourceID != "pins" {
-		return subprocess.HTTPResponse{Status: http.StatusNotFound}, nil
-	}
-	source, err := p.ready(ctx)
-	if err != nil {
-		return subprocess.HTTPResponse{Status: http.StatusServiceUnavailable}, nil
-	}
-	meta, err := p.session(ctx, request.SessionID)
-	if err != nil {
-		return subprocess.HTTPResponse{Status: http.StatusServiceUnavailable}, nil
-	}
-	rows, err := p.db.list(ctx, source, request.SessionID, meta.ProjectID)
-	if err != nil {
-		return subprocess.HTTPResponse{Status: http.StatusServiceUnavailable}, nil
-	}
-	response := pluginapi.ContextResponse{Protocol: pluginapi.ContextProtocol, Items: []pluginapi.ContextItem{}}
-	remaining := request.TokenBudget
-	for _, row := range rows {
-		if row.Scope == "turn" || !utf8.ValidString(row.Content) || !utf8.ValidString(row.ID) {
-			continue
-		}
-		content := fmt.Sprintf("[pinned:%s] %s", row.Scope, row.Content)
-		// Match the host's conservative byte estimate; retrieval never consumes a
-		// pin and a future larger budget can still deliver an omitted item.
-		cost := len(content) + len(row.ID) + len("plugin/"+pluginID+"/pins") + 64
-		if cost > remaining {
-			continue
-		}
-		candidate := pluginapi.ContextItem{Key: row.ID, Content: content, Relevance: 1}
-		response.Items = append(response.Items, candidate)
-		trial, marshalErr := json.Marshal(response)
-		if marshalErr != nil {
-			return subprocess.HTTPResponse{}, marshalErr
-		}
-		if len(trial) > pluginapi.MaxContextBytes {
-			response.Items = response.Items[:len(response.Items)-1]
-			continue
-		}
-		remaining -= cost
-		if len(response.Items) == pluginapi.MaxContextItems {
-			break
-		}
-	}
-	raw, err := json.Marshal(response)
-	if err != nil {
-		return subprocess.HTTPResponse{}, err
-	}
-	if len(raw) > pluginapi.MaxContextBytes {
-		return subprocess.HTTPResponse{Status: http.StatusRequestEntityTooLarge}, nil
-	}
-	return subprocess.HTTPResponse{Status: http.StatusOK, Body: raw, Headers: map[string]string{"Content-Type": "application/json"}}, nil
 }
