@@ -1,0 +1,362 @@
+{
+  "core_commit": "81f8d3f28b4d724699fb6e4961885f9cf63bf49b",
+  "tools": [
+    {
+      "description": "Create a todo item scoped to project, session, or turn (D1, CW-20260428-0014).\n\n**When to use:** When the user asks to track a task, action item, or follow-up. Choose the scope that matches where the work lives:\n- `session` (default): items tied to this chat conversation only. scope_id auto-filled from the current session when omitted.\n- `project`: items that belong to a project and surface in any session of the same project. scope_id = project_id (or pass project_id explicitly).\n- `turn`: items scoped to the current turn (rare \u2014 most callers want session).\n\n**When NOT to use:** Do not use for multi-step plans with dependencies \u2014 use plan_create for those.\n\n**Required context:** `scope=project` requires `project_id`. For scope=session/turn, `scope_id` is auto-filled from the current session context if omitted.\n\n**Output shape:** \"Created todo <title> (<id>)\" on success.",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "description": {
+            "description": "Detailed description (optional)",
+            "type": "string"
+          },
+          "labels": {
+            "description": "JSON array of label strings (optional)",
+            "type": "string"
+          },
+          "parent_id": {
+            "description": "Parent todo ID for nesting (optional)",
+            "type": "string"
+          },
+          "priority": {
+            "description": "Priority: low, medium, high, critical (default: medium)",
+            "type": "string"
+          },
+          "project_id": {
+            "description": "Project ID \u2014 required when scope=project. Resolved from the current session's project when omitted.",
+            "type": "string"
+          },
+          "scope": {
+            "description": "Scope: turn, session, or project (default: session)",
+            "enum": [
+              "turn",
+              "session",
+              "project"
+            ],
+            "type": "string"
+          },
+          "scope_id": {
+            "description": "Scope ID (session_id for turn/session; project_id for project). Auto-filled from the current chat session when scope is 'session'/'turn' and this field is omitted.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Todo title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "name": "todo_create",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Update a todo's title, description, status, priority, labels, or metadata. Omitted or null fields stay unchanged. An empty string clears the field, except status and priority, where an empty string is invalid. Labels must be a JSON array encoded as a string; a labels array argument is rejected.\n\n**When to use:** When the user marks a task done, blocks it, changes its priority, or renames it. Typical status transitions: pending \u2192 in_progress \u2192 done, or \u2192 blocked.\n\n**Required context:** You need the todo ID. Get it from todo_list if you don't have it.\n\n**Output shape:** Updated todo JSON on success.",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "description": {
+            "description": "New description (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Todo ID to update",
+            "type": "string"
+          },
+          "labels": {
+            "description": "New labels JSON array (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "metadata": {
+            "description": "New metadata JSON object (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "description": "New priority: low, medium, high, critical (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "New status: pending, in_progress, done, blocked (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "description": "New title (optional)",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "todo_update",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "List todos with optional filters, and render an interactive todo list card (a `list-card` with a live todos data source) when scope is provided.\n\n**When to use:** When the user asks to see their todos, check what's pending, or view the task list for a session or project.\n\n**Scope semantics:** Pass `scope` + `scope_id` to get a correctly scoped live card. For `scope=session`, `scope_id` is auto-filled from the current session context when omitted \u2014 you do not need to supply it explicitly. For `scope=project`, supply the project_id explicitly (or rely on the current session's project).\n\n**Output shape:** Text summary of matching todos (count + titles). When `scope` is provided, also emits a `list-card` envelope (with a `data_source` pointer) that the UI renders as a live card (lazy-fetches current data at render time \u2014 NOT the snapshot from this call). Do NOT emit a nanite-envelope block manually \u2014 this tool handles that automatically.\n\n**When NOT to use:** Do not call without `scope` if you want the interactive card \u2014 a scopeless call returns text only and emits no card.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "priority": {
+            "description": "Filter by priority: low, medium, high, critical (optional)",
+            "type": "string"
+          },
+          "project_id": {
+            "description": "Convenience: filter by project_id directly (matches both project-scoped todos and session/turn todos whose originating session belongs to this project).",
+            "type": "string"
+          },
+          "scope": {
+            "description": "Filter by scope: turn, session, or project. Required to render an interactive card.",
+            "enum": [
+              "turn",
+              "session",
+              "project"
+            ],
+            "type": "string"
+          },
+          "scope_id": {
+            "description": "Scope ID (session_id for turn/session; project_id for project). Auto-filled from the current chat session when scope is 'session' and this field is omitted.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Filter by status: pending, in_progress, done, blocked (optional)",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title shown at the top of the interactive card (optional, defaults to \"Todos\")",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "todo_list",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Create a multi-step plan with ordered phases, dependencies, and acceptance criteria.\n\n**When to use:** When the user describes a multi-step or phased deliverable where order and dependencies matter \u2014 code migrations, feature rollouts, structured workflows. Prefer plans over todos when steps have depends_on relationships or acceptance criteria.\n\n**When NOT to use:** For simple unordered checklists, use todo_create instead. Do not create a plan for a single action.\n\n**Scope semantics:** Same three-tier scope as todos (workspace / project / session). For `scope=session`, `scope_id` is auto-filled from the current session context when omitted.\n\n**After creating a plan with status 'proposed'**, emit TWO envelopes so the user can review the steps and approve/reject inline \u2014 a `list-card` for the live step list and a `confirmation-card` for the approve/reject/request-changes decision. (The standalone `plan-review` type is retired \u2014 this two-card composition replaces it; see TASKS/phase-6/02-rebuild-plan-review-as-composition.md. Both cards share the same `plan_id` and re-fetch the plan live, so they stay in sync with each other and with any later plan_update calls.) Note `list-card` items use `label`, not `title`, for the step text:\n```nanite-envelope\n{\"kind\":\"envelope\",\"version\":1,\"type\":\"list-card\",\"data\":{\"title\":\"...\",\"items\":[{\"id\":\"...\",\"label\":\"...\",\"status\":\"pending\"}],\"data_source\":{\"kind\":\"plans\",\"plan_id\":\"...\"}}}\n```\n```nanite-envelope\n{\"kind\":\"envelope\",\"version\":1,\"type\":\"confirmation-card\",\"data\":{\"title\":\"Approve \\\"...\\\"?\",\"message\":\"...\",\"confirm_label\":\"Approve plan\",\"cancel_label\":\"Reject\",\"data_source\":{\"kind\":\"plan_approval\",\"plan_id\":\"...\"}}}\n```\n\n**Output shape:** \"Created plan <title> (<id>)\" on success. Use plan_get to retrieve the full plan with step IDs.\n\n**Chaining:** Follow with plan_update(step_id=...) to advance individual step statuses as work progresses.",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "description": {
+            "description": "Plan description (optional)",
+            "type": "string"
+          },
+          "scope": {
+            "description": "Scope: workspace, project, or session",
+            "type": "string"
+          },
+          "scope_id": {
+            "description": "Scope ID (project_id or session_id). Auto-filled from the current chat session when scope is 'session' and this field is omitted.",
+            "type": "string"
+          },
+          "steps": {
+            "description": "JSON array of step objects: [{id, title, status, depends_on, acceptance, notes}]",
+            "type": "string"
+          },
+          "title": {
+            "description": "Plan title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "scope"
+        ],
+        "type": "object"
+      },
+      "name": "plan_create",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Update a plan's top-level fields or transition a single step's status.\n\n**When to use:** To advance a step as work progresses (e.g. pending \u2192 in_progress \u2192 done), or to rename/re-status the plan itself.\n\n**When NOT to use:** Do NOT use this to add a new step \u2014 it only mutates existing steps and plan-level fields. To append a new step to an existing plan, use plan_step_add (do not delete and recreate the plan).\n\n**Required context:** Always supply the plan `id`. Supply `step_id` to update only that step; omit it to update plan-level fields.\n\n**Plan status transitions:** proposed \u2192 approved \u2192 in_progress \u2192 complete (or abandoned).\n**Step status transitions:** pending \u2192 in_progress \u2192 done (or skipped).\n\n**Output shape:** \"Updated plan <id>\" or \"Updated step <step_id> in plan <id>\" on success.",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "id": {
+            "description": "Plan ID to update",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Notes for the step (optional, only with step_id)",
+            "type": "string"
+          },
+          "status": {
+            "description": "New status. Plan: proposed/approved/in_progress/complete/abandoned. Step: pending/in_progress/done/skipped.",
+            "type": "string"
+          },
+          "step_id": {
+            "description": "Step ID to update (optional \u2014 if provided, updates just that step)",
+            "type": "string"
+          },
+          "title": {
+            "description": "New plan title (optional, ignored if step_id set)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "plan_update",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Append one or more new steps to an existing plan without deleting or recreating it. Existing step IDs and statuses are preserved.\n\n**When to use:** When the user adds a new step to a plan that already exists, or when you need to extend a plan mid-flight (e.g. a discovery during execution justifies one more step). Always prefer this over plan_delete + plan_create \u2014 recreation loses step history and reorders IDs.\n\n**When NOT to use:** To rename, re-status, or transition an existing step, use plan_update(step_id=...). To create the very first set of steps, use plan_create.\n\n**Required context:** plan_id (from plan_create / plan_list / plan_get) and a non-empty `steps` array. Each step needs a `title`. The `id` is optional \u2014 when omitted, an ID is auto-assigned (e.g. s4 if your plan already has s1..s3). Supplying an ID that collides with an existing step is an error.\n\n**Behavior:** Steps are appended at the end in the order given. Existing steps are not reordered, renumbered, or modified. Returns the appended steps with their resolved IDs so you can immediately reference them in plan_update.\n\n**Output shape:** \"Appended N step(s) to plan <plan_id>\" plus a JSON object {plan_id, appended: [step...], appended_count}. The `appended` array contains each step exactly as stored, including the resolved `id`. Call `tool_describe(name=\"plan_step_add\")` for a worked example.\n\n**Cross-references:** plan_create (initial plan + steps), plan_update (advance a step's status), plan_get (read step IDs before appending).",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "plan_id": {
+            "description": "Plan ID to append to. Required.",
+            "type": "string"
+          },
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Step objects to append: [{id?, title, status?, depends_on?, acceptance?, notes?}]. `title` is required per step; `id` is auto-assigned when omitted. Pass either a JSON array string or a real array \u2014 the handler accepts both."
+          }
+        },
+        "required": [
+          "plan_id",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "name": "plan_step_add",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "List plans, optionally filtered by scope, scope_id, and/or status.\n\n**When to use:** When the user asks what plans are active, or before creating a plan to check for duplicates. For scope=session, scope_id is auto-filled when omitted.\n\n**Output shape:** Text list of matching plans with title, status, scope, and step count. Use plan_get for full step detail.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "scope": {
+            "description": "Filter by scope: workspace, project, or session (optional)",
+            "type": "string"
+          },
+          "scope_id": {
+            "description": "Scope ID (project_id or session_id). Auto-filled from the current chat session when scope is 'session' and this field is omitted.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Filter by status: proposed, approved, in_progress, complete, abandoned (optional)",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "plan_list",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Get a single plan by ID, including all steps with their IDs, statuses, and dependencies.\n\n**When to use:** After plan_create or plan_list to retrieve step IDs needed for plan_update(step_id=...).\n\n**Output shape:** Full plan as JSON \u2014 {id, title, scope, scope_id, status, description, steps: [{id, title, status, depends_on, acceptance, notes}]}.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "id": {
+            "description": "Plan ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "plan_get",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "description": "Permanently delete a plan by ID, including all its steps. Irreversible.\n\n**When to use:** When the user explicitly discards a plan they no longer need.\n\n**Required context:** You need the plan ID \u2014 get it from plan_list if you don't have it.\n\n**Output shape:** \"Deleted plan <id>\" on success.",
+      "effect": "destructive",
+      "input_schema": {
+        "properties": {
+          "id": {
+            "description": "Plan ID to delete",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "name": "plan_delete",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
