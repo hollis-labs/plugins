@@ -10,6 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import samples from "../testdata/core-queries.json";
+import goUsageResponse from "../testdata/plugin-usage-response.json";
 import {
   DiagnosticsPanel,
   SystemPromptsViewer,
@@ -463,4 +464,20 @@ it("retains pinned core formatter boundary outputs", () => {
     "1.0s",
     "1.0m",
   ]);
+});
+
+it("renders the actual Go-produced single-resource response body", async () => {
+  const data = results();
+  vi.stubGlobal("fetch", vi.fn(url => Promise.resolve(response(
+    query(url).get("resource") === "usage"
+      ? goUsageResponse
+      : envelope(url, data[query(url).get("resource")])
+  ))));
+  render(<DiagnosticsPanel session_id="session-a" />);
+  await done();
+  const usage = region("Recorded session usage");
+  expect(within(usage).queryByRole("alert")).toBeNull();
+  expect(field(usage, "Input")).toBe("2.0k");
+  expect(field(usage, "Messages")).toBe("2");
+  expect(field(usage, "Recorded estimated cost")).toBe("$0.006");
 });

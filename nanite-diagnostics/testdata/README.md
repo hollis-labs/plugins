@@ -52,3 +52,18 @@ A reviewer can regenerate in another pinned worktree and deliberately mutate
 the plugin's metric ordering, usage field mapping, content handling or
 availability to confirm parity checks fail. Static source reconciliation is
 separate release work; no test compares prompt bundle text to core files.
+
+## Plugin wire response
+
+`plugin-usage-response.json` is the actual response body emitted by the plugin
+HTTP handler in `TestSingleResourceLiteralWireContract`, using the pinned core
+usage data above through the public QueryClient. The test asserts literal
+UI-facing JSON keys and coordinates, independently of the plugin response
+structs; a rendered UI test consumes this captured body.
+
+Regenerate from the diagnostics module, then review the response before committing:
+
+```sh
+GOWORK=off DIAGNOSTICS_WIRE_CAPTURE_OUT="$PWD/testdata/plugin-usage-response.json" \
+  go test -run '^TestSingleResourceLiteralWireContract$' .
+```

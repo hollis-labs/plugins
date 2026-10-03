@@ -33,13 +33,13 @@ The plugin owns no persistent user data; there is no migration or import.
 ## Recorded diagnostics
 
 The selected host session is supplied by E5. The plugin-local read endpoint is
-`GET /api/plugins/nanite.diagnostics/diagnostics?session_id=<id>`; it reads three
-fixed E6 resources concurrently using the approved grant. The UI adds
+`GET /api/plugins/nanite.diagnostics/diagnostics?session_id=<id>`. Without a
+resource selector, it reads the three fixed E6 resources concurrently and waits
+for their combined results. The UI issues three parallel requests, adding
 `&resource=usage`, `&resource=execution_metrics` or `&resource=context_slots`
-to read each section independently; only those three selectors are accepted.
-Without the selector, the endpoint returns their combined results. If an SDK
-request supplies its own session coordinate, the URL must agree. Browser coordinates are cooperative
-desktop UI scope; the issued E6 grant remains the authority boundary.
+to read and render each section independently. Only those three selectors are
+accepted. If an SDK request supplies its own session coordinate, the URL must
+agree. Browser coordinates are cooperative desktop UI scope; the issued E6 grant remains the authority boundary.
 
 - Usage: recorded input/output/total/tool tokens, cache creation/read tokens,
   message count and recorded estimated cost. Content input is
@@ -63,23 +63,28 @@ Resource failures are shown independently; one failure does not zero the other
 resources. Known host denial/missing-session/size/unavailable errors use safe
 messages; transport details and host error bodies are not forwarded. Invalid
 accounting and mismatched envelopes are errors rather than fabricated zeros.
-Each resource has its own 30-second deadline. Pending sections show their own
+Each resource has its own 25-second deadline, leaving headroom before the
+host subprocess call limit of 30 seconds. Pending sections show their own
 loading state; healthy sections render without waiting for another resource.
-A timeout or cancellation is a resource error and preserves healthy sections.
-Each host reply is limited to 1 MiB; the combined response fits the SDK's 4 MiB buffer. Unload cancels active
-reads. There are no application retries or polling timers.
+On the single-resource path used by the UI, a timeout or cancellation returns
+a per-resource error and preserves healthy sections.
+Each host reply is limited to 1 MiB; the combined response fits the SDK's
+4 MiB buffer. Unload cancels active reads. There are no application retries or polling timers.
 
-Additive fields within accounting data are ignored, except that a slot `content`
-key is rejected. All required accounting fields remain mandatory. Known limit:
-the public pluginapi QueryClient strictly decodes the outer response envelope,
+Accounting data uses Go's case-insensitive JSON field matching; case variants
+of known field names can overwrite those values. Other additive fields are
+ignored. Any slot key equal to `content` case-insensitively (including `Content`
+and `CONTENT`) is rejected. All required accounting fields remain mandatory.
+Known limit: the public pluginapi QueryClient strictly decodes the outer response envelope,
 so a future additive envelope field would require a public contract update.
 
 Initial mount, session changes and **Refresh** read the data. E5 currently
 mounts CSS-hidden panels too, so initial/session-change reads can occur while
 the tab is hidden. There is no background timer or focus/visibility loop.
 Session changes clear old data immediately and abort/discard old responses.
-Manual refresh clears displayed accounting while reading, and preserves metric
-sort and expanded details; failed refreshes clear the old displayed accounting and show the failure.
+Manual refresh clears displayed accounting immediately, replacing each section
+with its loading state while reading. Metric sort and expanded details are
+preserved; failures show per-resource errors without restoring old accounting.
 
 ## STATIC references
 
@@ -149,6 +154,6 @@ scope/shape/bounds/redaction, failure distinctions and lifecycle cancellation;
 rendered checks cover newest ordering, unavailable/empty capture, manual
 refresh, stale session responses, scroll/accessibility and static labels.
 
-No host installation, live DB probe, service change, tag or release is part of
-this PR. Published-artifact qualification and a host adoption window follow
-independent review.
+This phase is merge-only. No host installation, live DB probe, service change,
+tag, release or catalog update is part of this PR. Published-artifact
+qualification and host adoption remain separate later work.

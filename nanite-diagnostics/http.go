@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
 )
+
+// Leave headroom before the host subprocess call deadline (30 seconds).
+const resourceReadTimeout = 25 * time.Second
 
 // Content is intentionally not part of this transport, even if a host misbehaves.
 type accountingSlot struct {
@@ -76,7 +80,7 @@ func (p *diagnosticsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTP
 		}
 		session := q.Get("session_id")
 		read := func(resource pluginapi.QueryResource) resourceResult {
-			readCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+			readCtx, cancel := context.WithTimeout(r.Context(), resourceReadTimeout)
 			stop := context.AfterFunc(lifetime, cancel)
 			defer cancel()
 			defer stop()
@@ -202,8 +206,10 @@ func validData(raw json.RawMessage, data any, session string) bool {
 			return false
 		}
 		for _, row := range rows {
-			if _, content := row["content"]; content {
-				return false
+			for key := range row {
+				if strings.EqualFold(key, "content") {
+					return false
+				}
 			}
 			if !hasFields(row, "name", "tokens", "cached", "sensitive", "traffic_light") {
 				return false

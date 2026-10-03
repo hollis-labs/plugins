@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -198,8 +199,8 @@ func TestEachReadHasIndependentDeadline(t *testing.T) {
 	// HTTP-client timeout. Otherwise the SDK would mask a missing plugin deadline.
 	p.client = queryFunc(func(ctx context.Context, q pluginapi.QueryRequest) (pluginapi.QueryResponse, error) {
 		deadline, ok := ctx.Deadline()
-		if !ok || time.Until(deadline) > 30*time.Second || time.Until(deadline) < 29*time.Second {
-			t.Error("missing 30-second resource deadline")
+		if !ok || time.Until(deadline) > 25*time.Second || time.Until(deadline) < 24*time.Second {
+			t.Error("missing 25-second resource deadline")
 		}
 		if q.Resource == pluginapi.QueryUsage {
 			return pluginapi.QueryResponse{}, context.DeadlineExceeded
@@ -313,5 +314,61 @@ func TestSlotTransportCannotSerializeContent(t *testing.T) {
 	}
 	if _, present := fields["content"]; present {
 		t.Fatal("captured content became serializable")
+	}
+}
+
+func TestSingleResourceLiteralWireContract(t *testing.T) {
+	usage := goldens(t)["usage"].Data
+	for _, denied := range []bool{false, true} {
+		name := "success"
+		if denied {
+			name = "denied"
+		}
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if denied {
+					http.Error(w, "private detail", http.StatusForbidden)
+					return
+				}
+				hostReply(w, r, usage)
+			}))
+			defer server.Close()
+			p := &diagnosticsPlugin{}
+			initialize(t, p, grantFor(server.URL))
+			got := callHTTP(t, p, "session_id=session-a&resource=usage")
+			if got.Status != 200 {
+				t.Fatalf("wire status: %d", got.Status)
+			}
+			// Literal UI-facing keys/coordinates; no plugin response structs or tags.
+			expected := []byte(`{"session_id":"session-a","resource":"usage","result":{"data":` + string(usage) + `}}`)
+			if denied {
+				expected = []byte(`{"session_id":"session-a","resource":"usage","result":{"error":"Session or resource is outside the approved read scope","code":"host_403"}}`)
+			}
+			equalJSON(t, got.Body, expected)
+			if !denied {
+				if path := os.Getenv("DIAGNOSTICS_WIRE_CAPTURE_OUT"); path != "" {
+					if err := os.WriteFile(path, append(got.Body, '\n'), 0600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSlotContentKeysCaseInsensitive(t *testing.T) {
+	for _, key := range []string{"content", "Content", "CONTENT"} {
+		t.Run(key, func(t *testing.T) {
+			var obj map[string]any
+			if err := json.Unmarshal(goldens(t)["slots"].Data, &obj); err != nil {
+				t.Fatal(err)
+			}
+			obj["slots"].([]any)[0].(map[string]any)[key] = "PRIVATE PROMPT"
+			raw, err := json.Marshal(obj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertBadResource(t, "context_slots", raw)
+		})
 	}
 }
