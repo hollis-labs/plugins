@@ -1,5 +1,5 @@
 {
-  "catalog_version": "2.0.7",
+  "catalog_version": "2.0.8",
   "plugins": [
     {
       "manifest": "manifests/bookmarks-0.1.0.json",
@@ -279,6 +279,46 @@
         "status": "experimental",
         "short_desc": "Session text documents with bounded full-content or pointer context",
         "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/documents/v0.1.0/documents"
+      }
+    },
+    {
+      "manifest": "manifests/plan-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "plan/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "09c9b12048c2f537a9c5d76001be983563b8b6276e5096a989194855e47819b1",
+          "size": 2707279
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "b3090422ea6f20baf2ba6d8f62a49ecc1c2a7b8f88b430f78c7db58ed0d969fd",
+          "size": 2943220
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-linux-arm64.tar.gz",
+          "sha256": "394cb6258ea89d3e0cdadae67f0a69e0096e8d26a94490949b208976374bc84f",
+          "size": 2621653
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-linux-amd64.tar.gz",
+          "sha256": "35d5b40e713098c5d553cb8bbde2417248607c2bd7a8a2d49ad7581442fff450",
+          "size": 2909668
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Durable scoped todos and multi-step plans",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/plan/v0.1.0/plan"
       }
     }
   ]
