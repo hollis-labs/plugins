@@ -62,16 +62,20 @@ UTF-8/NUL content is indicated in inventory and refused by content reads.
 **Oldest-first context demotion is NEW behavior.** The pre-cutover core
 comment described it but the builder emitted every pin. When the complete
 historic body does not fit, this plugin removes whole oldest pins until the
-remaining chronological suffix and its omission notice fit. Timestamp ties
-retain snapshot order. Pins are never consumed, sliced or modified by a read.
+remaining chronological suffix and its omission notice fit. When all pins fit,
+body text and ordering are byte-identical to core for distinct timestamps;
+same-second ties follow creation order, which may differ from core’s undefined
+order. Pins are never consumed, sliced or modified by a read.
 The new notice is:
 
 `N more pins not included; use pins_list, then pins_get (requires an agent tool grant; if unavailable, open the Pins plugin UI).`
 
 No notice is added when all pins fit. A genuinely empty inventory returns an
 empty body. If even the notice cannot fit, or content cannot be rendered, the
-fetch fails explicitly so the host can keep its section fallback. The host's
-inline-core stash-failure exception can leave no room for plugin fallback;
+fetch fails explicitly so the host can keep its section fallback. A pin containing
+NUL or invalid UTF-8 (possible only through import) makes always-ship fetch fail
+for sessions that see it until the pin is deleted in the Pins UI; `pins_get`
+refuses that content too. The host's inline-core stash-failure exception can leave no room for plugin fallback;
 it emits an operator diagnostic. Context approval does not grant either MCP
 tool, and CLI tool usability also depends on the host transport.
 

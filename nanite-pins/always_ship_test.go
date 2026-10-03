@@ -34,14 +34,6 @@ func TestHistoricPinBodyGoldens(t *testing.T) {
 			}
 		})
 	}
-	// Pin body composed with historic headings/separators and document formats.
-	// This is a text parity golden, not a claim that the plugin owns documents.
-	body, _ := renderPins([]pin{{Scope: "session", Content: "remember"}}, 6000)
-	got := "## Session Context\nuser note\n\n## Session Documents\n### Document: Full\nbody\n\n### Document: Pointer (pointer)\n(document ID: doc-p, size: 12 bytes)\n\n## Pinned Context\n" + body
-	want := "## Session Context\nuser note\n\n## Session Documents\n### Document: Full\nbody\n\n### Document: Pointer (pointer)\n(document ID: doc-p, size: 12 bytes)\n\n## Pinned Context\n[pinned] remember"
-	if got != want {
-		t.Fatalf("composed golden: %q", got)
-	}
 }
 
 func TestNewOldestFirstDemotion(t *testing.T) {
@@ -54,11 +46,11 @@ func TestNewOldestFirstDemotion(t *testing.T) {
 		fail      bool
 	}{
 		{len(full), full, false},
-		{len(full) - 1, "[pinned:project] " + strings.Repeat("b", 200) + "\n[pinned] newest\n" + omissionLine(1), false},
-		{len("[pinned] newest\n") + len(omissionLine(2)), "[pinned] newest\n" + omissionLine(2), false},
-		{len("[pinned] newest\n") + len(omissionLine(2)) - 1, omissionLine(3), false},
-		{len(omissionLine(3)), omissionLine(3), false},
-		{len(omissionLine(3)) - 1, "", true},
+		{len(full) - 1, "[pinned:project] " + strings.Repeat("b", 200) + "\n[pinned] newest\n" + expectedOmissionLine(1), false},
+		{len("[pinned] newest\n") + len(expectedOmissionLine(2)), "[pinned] newest\n" + expectedOmissionLine(2), false},
+		{len("[pinned] newest\n") + len(expectedOmissionLine(2)) - 1, expectedOmissionLine(3), false},
+		{len(expectedOmissionLine(3)), expectedOmissionLine(3), false},
+		{len(expectedOmissionLine(3)) - 1, "", true},
 		{1, "", true},
 	} {
 		got, err := renderPins(rows, tc.allowance)
@@ -71,7 +63,7 @@ func TestNewOldestFirstDemotion(t *testing.T) {
 	}
 	// A huge newest pin cannot be skipped to squeeze older pins back in.
 	got, err := renderPins([]pin{{Scope: "session", Content: "older"}, {Scope: "session", Content: strings.Repeat("new", 3000)}}, 200)
-	if err != nil || got != omissionLine(2) {
+	if err != nil || got != expectedOmissionLine(2) {
 		t.Fatal("not a suffix", got, err)
 	}
 	for _, content := range []string{"bad\x00pin", string([]byte{0xff})} {
@@ -84,8 +76,8 @@ func TestNewOldestFirstDemotion(t *testing.T) {
 	for i := range many {
 		many[i] = pin{Scope: "session", Content: strings.Repeat("界", 300)}
 	}
-	got, err = renderPins(many, len(omissionLine(12)))
-	if err != nil || got != omissionLine(12) {
+	got, err = renderPins(many, len(expectedOmissionLine(12)))
+	if err != nil || got != expectedOmissionLine(12) {
 		t.Fatal("count/UTF-8", got, err)
 	}
 }
@@ -102,6 +94,9 @@ func TestAlwaysShipDeclarationAndPrivateFetch(t *testing.T) {
 	scope, err := pluginapi.AlwaysShipScopeFor(block, m.Capabilities, m.Tools)
 	if err != nil || scope.MaxBytes != 6000 || !scope.AllSessions || len(block.Registers.ContextSources) != 0 || len(block.Registers.AlwaysShipSources) != 1 || m.Version != "0.2.0" || m.Hosts["nanite"].Min != "0.1.8" {
 		t.Fatal("declaration mismatch", m, scope, err)
+	}
+	if block.Registers.AlwaysShipSources[0].Title != "Pinned Context" {
+		t.Fatal("manifest title differs from core", block.Registers.AlwaysShipSources[0].Title)
 	}
 	for _, request := range m.Capabilities {
 		if request.Name == pluginapi.CapabilityContextSource {
