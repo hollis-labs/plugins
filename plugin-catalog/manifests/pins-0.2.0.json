@@ -1,0 +1,188 @@
+{
+  "schema_version": 2,
+  "id": "nanite.pins",
+  "name": "Pins",
+  "description": "Durable pinned context with session/project scope",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/pins"
+  },
+  "capabilities": [
+    {
+      "name": "readonly.query",
+      "reason": "Import committed pins exports and resolve session/project metadata; no message content",
+      "metadata": {
+        "resources": [
+          "sessions",
+          "data_exports"
+        ],
+        "all_sessions": true
+      }
+    },
+    {
+      "name": "context.always_ship",
+      "reason": "Retain visible pins on every turn, including review, recall and resume; survives compaction and shares user-context budget",
+      "metadata": {
+        "source_ids": [
+          "pins"
+        ],
+        "all_sessions": true,
+        "max_bytes": 6000
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "pins_set",
+      "description": "Pin content in the calling session or project; persists until explicit deletion",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 8192
+          },
+          "scope": {
+            "enum": [
+              "session",
+              "project"
+            ]
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "pins_list",
+      "description": "List bounded visible pin inventory; call with no arguments for first page, follow next_offset while more, then pins_get for content (agent tool grants required)",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "additionalProperties": false
+      },
+      "effect": "read"
+    },
+    {
+      "name": "pins_get",
+      "description": "Read a visible pin in bounded UTF-8 chunks; offset is a content byte offset, follow next_offset while more; total_bytes is the complete content size",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "read"
+    },
+    {
+      "name": "pins_update",
+      "description": "Edit the content of a visible pin",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "id",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "pins_delete",
+      "description": "Delete a visible pin",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.8"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "slots": [
+        {
+          "id": "pins",
+          "slot": "drawer.working.tabs",
+          "component": "PinsTab",
+          "title": "Pins",
+          "icon": "Pin",
+          "priority": 30
+        }
+      ],
+      "http_routes": [
+        {
+          "method": "GET",
+          "path": "pins"
+        },
+        {
+          "method": "POST",
+          "path": "pins"
+        },
+        {
+          "method": "PATCH",
+          "path": "pins/"
+        },
+        {
+          "method": "DELETE",
+          "path": "pins/"
+        }
+      ],
+      "always_ship_sources": [
+        {
+          "id": "pins",
+          "title": "Pinned Context",
+          "list_tool": "pins_list"
+        }
+      ]
+    }
+  }
+}
