@@ -44,7 +44,7 @@ function Rows({rows}) {
 }
 function Section({title, result, children}) {
  return h('section', {style: cardStyle, 'aria-label': title}, h('h3', {style: {marginTop: 0}}, title),
-  result?.error ? h('p', {role: 'alert'}, text(result.error)) : result?.data ? children(result.data) : h('p', null, 'Accounting data unavailable'));
+  result?.loading ? h('p', {role: 'status'}, 'Loading recorded accounting…') : result?.error ? h('p', {role: 'alert'}, text(result.error)) : result?.data ? children(result.data) : h('p', null, 'Accounting data unavailable'));
 }
 
 function Usage({data}) {
@@ -72,7 +72,7 @@ function Slots({data}) {
 }
 
 const columns = [['created_at', 'Time'], ['provider', 'Provider'], ['adapter', 'Adapter'], ['model', 'Model'],
- ['duration_ms', 'Duration'], ['input_tokens', 'In'], ['output_tokens', 'Out'], ['estimated_cost_usd', 'Cost']];
+ ['duration_ms', 'Duration'], ['input_tokens', 'In'], ['output_tokens', 'Out'], ['estimated_cost_usd', 'Recorded estimated cost']];
 const sortFields = new Set(['created_at', 'duration_ms', 'input_tokens', 'output_tokens', 'estimated_cost_usd']);
 function metricCell(row, field) {
  if (field === 'created_at') return timestamp(row[field]);
@@ -107,46 +107,46 @@ function Metrics({data, sort, onSort, expanded, onExpand}) {
     ]})))))))) : h('p', null, 'No execution metrics recorded yet.'));
 }
 
+const resourceNames = ['usage', 'execution_metrics', 'context_slots'];
 export function DiagnosticsPanel({session_id: sessionId}) {
- const [state, setState] = useState({session: null, data: null, loading: false, error: '', refreshed: ''});
+ const [state, setState] = useState({session: null, data: null});
  const [revision, setRevision] = useState(0);
  const [sort, setSort] = useState({field: null, asc: false});
  const [expanded, setExpanded] = useState(new Set());
  useEffect(() => {setSort({field: null, asc: false}); setExpanded(new Set());}, [sessionId]);
  useEffect(() => {
-  if (!sessionId) return;
+  if (!sessionId) {setState({session: null, data: null}); return;}
   const controller = new AbortController(); let live = true;
-  setState(old => ({session: sessionId, data: old.session === sessionId ? old.data : null, loading: true, error: '', refreshed: old.session === sessionId ? old.refreshed : ''}));
-  const load = async () => {
+  setState({session: sessionId, data: Object.fromEntries(resourceNames.map(resource => [resource, {loading: true}]))});
+  const load = async resource => {
+   let result;
    try {
-    const response = await fetch(`/api/plugins/nanite.diagnostics/diagnostics?${new URLSearchParams({session_id: sessionId})}`, {signal: controller.signal, cache: 'no-store'});
+    const response = await fetch(`/api/plugins/nanite.diagnostics/diagnostics?${new URLSearchParams({session_id: sessionId, resource})}`, {signal: controller.signal, cache: 'no-store'});
     if (!response.ok) throw new Error(await response.text() || 'Diagnostics could not be read');
     const data = await response.json();
-    if (data.session_id !== sessionId || !data.usage || !data.execution_metrics || !data.context_slots) throw new Error('Invalid diagnostics response');
-    if (live) setState({session: sessionId, data, loading: false, error: '', refreshed: new Date().toLocaleTimeString()});
+    if (data.session_id !== sessionId || data.resource !== resource || !data.result || (!data.result.data && !data.result.error)) throw new Error('Invalid diagnostics response');
+    result = {...data.result, refreshed: new Date().toLocaleTimeString()};
    } catch (error) {
-    if (live) setState(old => ({...old, loading: false, error: error.name === 'AbortError' ? 'Diagnostics read canceled' : error.message, data: null}));
+    result = {error: error.name === 'AbortError' ? 'Diagnostics read canceled' : error.message, data: null};
    }
+   if (live) setState(old => ({session: sessionId, data: {...old.data, [resource]: result}}));
   };
-  void load();
+  void resourceNames.map(load);
   return () => {live = false; controller.abort();};
  }, [sessionId, revision]);
  const current = state.session === sessionId;
  const data = current ? state.data : null;
  const toggle = id => setExpanded(old => {const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next;});
+ const section = (title, resource, children) => h(Section, {title, result: data?.[resource] ?? {loading: true}}, value => h(React.Fragment, null,
+  children(value), h('p', null, `Last read: ${data[resource].refreshed}. Refresh manually to read newer records.`)));
  return h('div', {style: panelStyle},
-  h('h2', null, 'Session Diagnostics'),
   h('p', null, 'Recorded accounting for the selected session. Recent metrics and latest captured slots are independent projections, not full snapshots.'),
   !sessionId ? h('p', null, 'Select a session to view recorded diagnostics.') : h(React.Fragment, null,
    h('p', {style: mono}, `Session: ${sessionId}`),
-   h('button', {type: 'button', disabled: current && state.loading, onClick: () => setRevision(value => value + 1)}, 'Refresh'),
-   current && state.loading && h('p', {role: 'status'}, 'Loading recorded accounting…'),
-   current && state.refreshed && h('p', null, `Last read: ${state.refreshed}. Refresh manually to read newer records.`),
-   current && state.error && h('p', {role: 'alert'}, state.error),
-   data && h(React.Fragment, null,
-    h(Section, {title: 'Recorded session usage', result: data.usage}, usage => h(Usage, {data: usage})),
-    h(Section, {title: 'Recent execution metrics', result: data.execution_metrics}, metrics => h(Metrics, {data: metrics, sort, onSort: setSort, expanded, onExpand: toggle})),
-    h(Section, {title: 'Latest captured slot accounting', result: data.context_slots}, slots => h(Slots, {data: slots})))));
+   h('button', {type: 'button', disabled: data && resourceNames.some(resource => data[resource]?.loading), onClick: () => setRevision(value => value + 1)}, 'Refresh'),
+   section('Recorded session usage', 'usage', usage => h(Usage, {data: usage})),
+   section('Recent execution metrics', 'execution_metrics', metrics => h(Metrics, {data: metrics, sort, onSort: setSort, expanded, onExpand: toggle})),
+   section('Latest captured slot accounting', 'context_slots', slots => h(Slots, {data: slots}))));
 }
 
 export function SystemPromptsViewer() {

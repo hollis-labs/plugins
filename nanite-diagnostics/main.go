@@ -20,7 +20,7 @@ var resources = []pluginapi.QueryResource{pluginapi.QueryUsage, pluginapi.QueryE
 
 type diagnosticsPlugin struct {
 	mu       sync.RWMutex
-	client   *pluginapi.QueryClient
+	client   queryReader
 	lifetime context.Context
 	cancel   context.CancelFunc
 }

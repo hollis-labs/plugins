@@ -45,15 +45,11 @@ func TestCaptureDiagnosticsGolden(t *testing.T) {
  samples:=[]sample{
   {Name:"usage",Resource:pluginapi.QueryUsage,Session:"session-a"},
   {Name:"metrics",Resource:pluginapi.QueryExecutionMetrics,Session:"session-a",Limit:50},
-  {Name:"metrics-small",Resource:pluginapi.QueryExecutionMetrics,Session:"session-a",Limit:2},
   {Name:"slots",Resource:pluginapi.QueryContextSlots,Session:"session-a"},
-  {Name:"empty-usage",Resource:pluginapi.QueryUsage,Session:"empty-session"},
   {Name:"empty-metrics",Resource:pluginapi.QueryExecutionMetrics,Session:"empty-session",Limit:50},
   {Name:"missing-capture",Resource:pluginapi.QueryContextSlots,Session:"empty-session"},
   {Name:"empty-capture",Resource:pluginapi.QueryContextSlots,Session:"empty-session"},
   {Name:"disabled-inspector",Resource:pluginapi.QueryContextSlots,Session:"session-a"},
-  {Name:"missing-session",Resource:pluginapi.QueryUsage,Session:"missing"},
-  {Name:"denied",Resource:pluginapi.QuerySessions,Session:"session-a"},
  }
  for i:=range samples {
   c:=&samples[i]
@@ -65,6 +61,10 @@ func TestCaptureDiagnosticsGolden(t *testing.T) {
   if slots,ok:=value.(pluginapi.QuerySlotsData);ok && slots.Available {slots.StartedAt="2026-10-03T10:00:00Z";value=slots}
   c.Data=value
  }
+ // A second genuine read distinguishes created_at ordering from ID ordering.
+ if _,err:=db.DB.ExecContext(ctx,`UPDATE execution_metrics SET created_at=CASE WHEN id=2 THEN '2026-10-03T12:00:00Z' WHEN id=3 THEN '2026-10-03T11:00:00Z' ELSE '2026-10-03T09:00:00Z' END`);err!=nil {t.Fatal(err)}
+ value,err:=reader.Read(ctx,scope,pluginapi.QueryRequest{Resource:pluginapi.QueryExecutionMetrics,SessionID:"session-a",Limit:50});if err!=nil {t.Fatal(err)}
+ samples=append(samples,sample{Name:"metrics-time-order",Resource:pluginapi.QueryExecutionMetrics,Session:"session-a",Limit:50,Data:value})
  raw,err:=json.MarshalIndent(samples,"","  ");if err!=nil {t.Fatal(err)}
  if err:=os.WriteFile(os.Getenv("DIAGNOSTICS_GOLDEN_OUT"),append(raw,'\n'),0600);err!=nil {t.Fatal(err)}
 }

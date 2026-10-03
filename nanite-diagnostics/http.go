@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/manifest"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
 )
 
@@ -33,6 +34,12 @@ type resourceResult struct {
 	Error string `json:"error,omitempty"`
 	Code  string `json:"code,omitempty"`
 }
+type singleResponse struct {
+	SessionID string                  `json:"session_id"`
+	Resource  pluginapi.QueryResource `json:"resource"`
+	Result    resourceResult          `json:"result"`
+}
+
 type diagnosticsResponse struct {
 	SessionID string         `json:"session_id"`
 	Usage     resourceResult `json:"usage"`
@@ -54,8 +61,10 @@ func (p *diagnosticsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTP
 			return
 		}
 		q, err := url.ParseQuery(r.URL.RawQuery)
-		if err != nil || len(q) != 1 || len(q["session_id"]) != 1 || !validSession(q.Get("session_id")) || (call.SessionID != "" && call.SessionID != q.Get("session_id")) || len(call.Body) != 0 {
-			http.Error(w, "One valid calling session_id is required; other parameters and request bodies are not supported", http.StatusBadRequest)
+		selected := pluginapi.QueryResource(q.Get("resource"))
+		validQuery := len(q) == 1 || (len(q) == 2 && len(q["resource"]) == 1 && diagnosticsResource(selected))
+		if err != nil || !validQuery || len(q["session_id"]) != 1 || !validSession(q.Get("session_id")) || (call.SessionID != "" && call.SessionID != q.Get("session_id")) || len(call.Body) != 0 {
+			http.Error(w, "One valid calling session_id and an optional approved resource are required; other parameters and request bodies are not supported", http.StatusBadRequest)
 			return
 		}
 		p.mu.RLock()
@@ -65,18 +74,27 @@ func (p *diagnosticsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTP
 			http.Error(w, "Diagnostics read grant unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		readCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		stop := context.AfterFunc(lifetime, cancel)
-		defer cancel()
-		defer stop()
 		session := q.Get("session_id")
-		result := diagnosticsResponse{SessionID: session}
-		result.Usage = readResource(readCtx, client, pluginapi.QueryUsage, session)
-		result.Metrics = readResource(readCtx, client, pluginapi.QueryExecutionMetrics, session)
-		result.Slots = readResource(readCtx, client, pluginapi.QueryContextSlots, session)
-		if lifetime.Err() != nil || readCtx.Err() != nil {
-			http.Error(w, "Diagnostics read canceled or timed out", http.StatusGatewayTimeout)
-			return
+		read := func(resource pluginapi.QueryResource) resourceResult {
+			readCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+			stop := context.AfterFunc(lifetime, cancel)
+			defer cancel()
+			defer stop()
+			return readResource(readCtx, client, resource, session)
+		}
+		var result any
+		if selected != "" {
+			result = singleResponse{SessionID: session, Resource: selected, Result: read(selected)}
+		} else {
+			combined := diagnosticsResponse{SessionID: session}
+			var wg sync.WaitGroup
+			for resource, target := range map[pluginapi.QueryResource]*resourceResult{
+				pluginapi.QueryUsage: &combined.Usage, pluginapi.QueryExecutionMetrics: &combined.Metrics, pluginapi.QueryContextSlots: &combined.Slots,
+			} {
+				wg.Go(func() { *target = read(resource) })
+			}
+			wg.Wait()
+			result = combined
 		}
 		raw, err := json.Marshal(result)
 		if err != nil {
@@ -94,7 +112,18 @@ func (p *diagnosticsPlugin) HTTPHandle(ctx context.Context, call subprocess.HTTP
 	return pluginapi.HandleHTTP(ctx, pluginID, mux, call)
 }
 
-func readResource(ctx context.Context, client *pluginapi.QueryClient, resource pluginapi.QueryResource, session string) resourceResult {
+func diagnosticsResource(resource pluginapi.QueryResource) bool {
+	return resource == pluginapi.QueryUsage || resource == pluginapi.QueryExecutionMetrics || resource == pluginapi.QueryContextSlots
+}
+
+type queryReader interface {
+	Query(context.Context, pluginapi.QueryRequest) (pluginapi.QueryResponse, error)
+}
+
+func readResource(ctx context.Context, client queryReader, resource pluginapi.QueryResource, session string) resourceResult {
+	if !diagnosticsResource(resource) {
+		return resourceResult{Code: "invalid", Error: "Unsupported diagnostics resource"}
+	}
 	query := pluginapi.QueryRequest{Resource: resource, SessionID: session}
 	if resource == pluginapi.QueryExecutionMetrics {
 		query.Limit = 50
@@ -114,7 +143,9 @@ func readResource(ctx context.Context, client *pluginapi.QueryClient, resource p
 	default:
 		return resourceResult{Code: "invalid", Error: "Unsupported diagnostics resource"}
 	}
-	if err := manifest.DecodeExtension(reply.Data, data); err != nil {
+	// QueryClient validates JSON syntax, duplicates, bounds and the envelope.
+	// The accounting projection tolerates additive fields, which are never forwarded.
+	if err := json.Unmarshal(reply.Data, data); err != nil {
 		return resourceResult{Code: "invalid_response", Error: "Host returned invalid accounting data"}
 	}
 	if !validData(reply.Data, data, session) {
@@ -133,7 +164,8 @@ func validData(raw json.RawMessage, data any, session string) bool {
 	case *pluginapi.QueryUsageData:
 		required = []string{"input_tokens", "output_tokens", "total_tokens", "tool_input_tokens", "cache_creation_tokens", "cache_read_tokens", "estimated_cost_usd", "message_count"}
 	case *pluginapi.QueryMetricsData:
-		required = []string{"metrics", "more"}
+		// The typed slice guard below checks presence and non-nullness of metrics.
+		required = []string{"more"}
 		if value.Metrics == nil || len(value.Metrics) > 50 {
 			return false
 		}
@@ -152,7 +184,8 @@ func validData(raw json.RawMessage, data any, session string) bool {
 			}
 		}
 	case *accountingSlots:
-		required = []string{"available", "slots"}
+		// The typed slice guard below checks presence and non-nullness of slots.
+		required = []string{"available"}
 		if value.Slots == nil || (!value.Available && (len(value.Slots) != 0 || value.TurnID != "" || value.StartedAt != "")) {
 			return false
 		}
@@ -169,6 +202,9 @@ func validData(raw json.RawMessage, data any, session string) bool {
 			return false
 		}
 		for _, row := range rows {
+			if _, content := row["content"]; content {
+				return false
+			}
 			if !hasFields(row, "name", "tokens", "cached", "sensitive", "traffic_light") {
 				return false
 			}
@@ -191,6 +227,9 @@ func hasFields(fields map[string]json.RawMessage, required ...string) bool {
 // QueryClient exposes no typed HTTP error. Match only its fixed public status
 // message; transport/decoder details (which can contain credentials) never leave here.
 func safeReadError(err error) resourceResult {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return resourceResult{Code: "canceled", Error: "Host accounting read timed out or was canceled"}
+	}
 	for status, message := range map[int]string{
 		401: "Host read grant was revoked or is invalid",
 		403: "Session or resource is outside the approved read scope",

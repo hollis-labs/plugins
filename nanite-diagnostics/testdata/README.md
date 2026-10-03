@@ -26,20 +26,25 @@ Reproduction:
    source, verify the scratch tree clean and remove the detached worktree.
 
 The initial capture passed (`internal/service`, 0.461s); the detached scratch
-worktree was removed immediately after capture on 2026-10-03.
+worktree was removed immediately after capture on 2026-10-03. The round-one
+variant capture passed (0.514s), and that detached worktree was also removed.
 
 Normalization is limited to `started_at` on captured slot DTOs: wall-clock
 capture times become `2026-10-03T10:00:00Z`. Synthetic persisted metric times
-are all seeded to `2026-10-03T09:00:00Z`, so actual SQL's descending secondary
-ID ordering is exercised. No values, metric order, capture availability,
+in the original metrics sample tie at `2026-10-03T09:00:00Z`, exercising
+SQL's descending secondary ID ordering. All synthetic metric costs are seeded
+to 0.005 USD; usage costs are separately seeded to 0.005 and 0.001 USD. The
+`metrics-time-order` variant changes ID 2 to noon and ID 3 to 11:00 UTC,
+leaving ID 51 at 09:00 UTC: its first IDs are 2, 3, 51. This genuine second
+core read exercises non-tied `created_at DESC` independently of `id DESC`. No values, metric order, capture availability,
 slot order, flags or errors are normalized.
 
 Cases include two persisted partial usage rows (E6 excludes completeness and
-reasoning fields), 51 metric rows with genuine limit=50/limit=2 `more` behavior,
+reasoning fields), 51 metric rows with genuine limit=50 `more` behavior,
 private metric payload exclusion, utility/failure/profile fields, latest of
 two inspector turns, cached/sensitive/zero-token slots without content,
-recorded zeros, empty metrics, missing capture, empty capture, disabled
-inspector, denied resource and missing session. The plugin tests replay host
+empty metrics, missing capture, empty capture and disabled inspector. Unused
+metrics-small, empty-usage, missing-session and denied samples were removed. The plugin tests replay host
 response fixtures through the real public QueryClient and plugin HTTP handler.
 Rendered tests consume the same core-derived accounting fixtures.
 

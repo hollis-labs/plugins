@@ -45,7 +45,7 @@ func goldens(t *testing.T) map[string]goldenSample {
 	return out
 }
 func grantFor(origin string) pluginapi.QueryGrant {
-	return pluginapi.QueryGrant{Protocol: 1, PluginID: pluginID, HostURL: origin, Token: base64.RawURLEncoding.EncodeToString(make([]byte, 32)), Scope: pluginapi.QueryScope{Resources: resources, AllSessions: true}}
+	return pluginapi.QueryGrant{Protocol: 1, PluginID: pluginID, HostURL: origin, Token: base64.RawURLEncoding.EncodeToString(make([]byte, 32)), Scope: pluginapi.QueryScope{Resources: []pluginapi.QueryResource{pluginapi.QueryUsage, pluginapi.QueryExecutionMetrics, pluginapi.QueryContextSlots}, AllSessions: true}}
 }
 func identity(t *testing.T, grant pluginapi.QueryGrant) json.RawMessage {
 	t.Helper()
@@ -154,7 +154,7 @@ func TestHTTPValidationStopsBeforeHostRead(t *testing.T) {
 	defer server.Close()
 	p := &diagnosticsPlugin{}
 	initialize(t, p, grantFor(server.URL))
-	for _, query := range []string{"", "session_id=", "session_id=a&session_id=b", "session_id=../a", "session_id=a&resource=usage", "session_id=a&limit=500", "session_id=" + strings.Repeat("a", 129)} {
+	for _, query := range []string{"", "session_id=", "session_id=a&session_id=b", "session_id=../a", "session_id=a&resource=sessions", "session_id=a&resource=message_refs", "session_id=a&resource=unknown", "session_id=a&resource=", "session_id=a&resource=usage&resource=usage", "session_id=a&limit=500", "session_id=" + strings.Repeat("a", 129)} {
 		if got := callHTTP(t, p, query); got.Status != 400 {
 			t.Fatalf("%q -> %d", query, got.Status)
 		}
@@ -335,7 +335,7 @@ func TestLifecycleCancelsInflightReads(t *testing.T) {
 	}
 	select {
 	case got := <-finished:
-		if got.Status != 504 {
+		if got.Status != 200 || !strings.Contains(string(got.Body), `"code":"canceled"`) {
 			t.Fatalf("canceled read status %d", got.Status)
 		}
 	case <-time.After(2 * time.Second):
