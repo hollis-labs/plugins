@@ -111,35 +111,33 @@ func TestContextBudgetDoesNotConsumePin(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	fetch := func(budget int) pluginapi.ContextResponse {
+	fetch := func(budget int) pluginapi.AlwaysShipResponse {
 		t.Helper()
-		body, err := json.Marshal(pluginapi.ContextRequest{Protocol: 1, SourceID: "pins", SessionID: "session-a", TokenBudget: budget})
+		body, err := json.Marshal(pluginapi.AlwaysShipRequest{Protocol: 1, SourceID: "pins", SessionID: "session-a", MaxBytes: budget})
 		if err != nil {
 			t.Fatal(err)
 		}
-		response, err := p.HTTPHandle(ctx, subprocess.HTTPRequest{Method: "POST", Path: pluginapi.ContextFetchPath, SessionID: "session-a", Body: body})
+		response, err := p.HTTPHandle(ctx, subprocess.HTTPRequest{Method: "POST", Path: pluginapi.AlwaysShipFetchPath, SessionID: "session-a", Body: body})
 		if err != nil || response.Status != 200 {
 			t.Fatal("fetch", response, err)
 		}
-		decoded, err := pluginapi.DecodeContextResponse(response.Body)
+		decoded, err := pluginapi.DecodeAlwaysShipResponse(response.Body, budget)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return decoded
 	}
-	if got := fetch(1); len(got.Items) != 0 {
-		t.Fatal("budget bypass")
-	}
-	if got := fetch(5000); len(got.Items) != 2 {
+
+	if got := fetch(5000); !strings.Contains(got.Body, "[pinned] retained pin") || !strings.Contains(got.Body, "[pinned:project] project pin") {
 		t.Fatal("due pins missing", got)
 	}
-	if got := fetch(5000); len(got.Items) != 2 {
+	if got := fetch(5000); !strings.Contains(got.Body, "[pinned] retained pin") || !strings.Contains(got.Body, "[pinned:project] project pin") {
 		t.Fatal("read consumed pins")
 	}
 	if _, err := p.MCPCallTool(ctx, subprocess.MCPCallRequest{ToolName: "pins_delete", SessionID: "session-a", Arguments: map[string]any{"id": "old-session"}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := fetch(5000); len(got.Items) != 1 || got.Items[0].Key != "old-project" {
+	if got := fetch(5000); got.Body != "[pinned:project] project pin" {
 		t.Fatal("deleted pin reappeared", got)
 	}
 }
@@ -261,6 +259,11 @@ func TestActualSDKProcessPersistsAcrossReconnect(t *testing.T) {
 		if !json.Valid(listResult.Content) || !bytes.Contains(listResult.Content, []byte("old-session")) {
 			t.Fatal("SDK list content missing", string(listRaw))
 		}
+		getRaw := call("mcp/call_tool", subprocess.MCPCallRequest{ToolName: "pins_get", SessionID: "session-a", Arguments: map[string]any{"id": "old-session"}})
+		var getResult subprocess.MCPCallResult
+		if err = json.Unmarshal(getRaw, &getResult); err != nil || !bytes.Contains(getResult.Content, []byte("retained pin")) || !bytes.Contains(getResult.Content, []byte("total_bytes")) {
+			t.Fatal("SDK get content missing", string(getRaw), err)
+		}
 		if save {
 			call("mcp/call_tool", subprocess.MCPCallRequest{ToolName: "pins_set", SessionID: "session-a", Arguments: map[string]any{"content": "wire pin"}})
 		}
@@ -272,14 +275,14 @@ func TestActualSDKProcessPersistsAcrossReconnect(t *testing.T) {
 		if response.Status != 200 || !bytes.Contains(response.Body, []byte("wire pin")) {
 			t.Fatalf("wire data missing: %s", raw)
 		}
-		body, _ := json.Marshal(pluginapi.ContextRequest{Protocol: 1, SourceID: "pins", SessionID: "session-a", TokenBudget: 5000})
-		contextRaw := call("http/handle", subprocess.HTTPRequest{Method: "POST", Path: pluginapi.ContextFetchPath, SessionID: "session-a", Body: body})
+		body, _ := json.Marshal(pluginapi.AlwaysShipRequest{Protocol: 1, SourceID: "pins", SessionID: "session-a", MaxBytes: 5000})
+		contextRaw := call("http/handle", subprocess.HTTPRequest{Method: "POST", Path: pluginapi.AlwaysShipFetchPath, SessionID: "session-a", Body: body})
 		var contextResponse subprocess.HTTPResponse
 		if err = json.Unmarshal(contextRaw, &contextResponse); err != nil {
 			t.Fatal(err)
 		}
-		decoded, decodeErr := pluginapi.DecodeContextResponse(contextResponse.Body)
-		if contextResponse.Status != 200 || decodeErr != nil || len(decoded.Items) != 3 {
+		decoded, decodeErr := pluginapi.DecodeAlwaysShipResponse(contextResponse.Body, 5000)
+		if contextResponse.Status != 200 || decodeErr != nil || !strings.Contains(decoded.Body, "[pinned] wire pin") || !strings.Contains(decoded.Body, "[pinned] retained pin") || !strings.Contains(decoded.Body, "[pinned:project] project pin") {
 			t.Fatal("SDK context failed", contextResponse, decodeErr)
 		}
 		if err = input.Close(); err != nil {
