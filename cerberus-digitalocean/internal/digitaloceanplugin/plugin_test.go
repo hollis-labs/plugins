@@ -27,6 +27,8 @@ type fakeBackend struct {
 	calls     []call
 
 	firewalls []Firewall
+	volumes   []Volume
+	snapshots []Snapshot
 }
 
 func (f *fakeBackend) record(method string, args ...any) {

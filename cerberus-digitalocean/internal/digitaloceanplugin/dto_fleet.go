@@ -121,3 +121,58 @@ func (p DryRunPreview) withWarnings(warnings ...string) DryRunPreview {
 // preview that opens the world. It is the same sentence as the operation
 // descriptions: invariant H2 in the Cerberus compute-hosting plan.
 const tailnetOnlyPosture = "Intended posture is tailnet-only (invariant H2, docs/plans/compute-hosting.md): the provider firewall denies all public inbound and services are reached over the tailnet. Proceed only if public exposure is deliberate."
+
+// Volume is the normalized view of a block storage volume.
+type Volume struct {
+	ID             string    `json:"id"`
+	Name           string    `json:"name" cerb:"untrusted"`
+	Region         string    `json:"region"`
+	SizeGigabytes  int64     `json:"size_gigabytes"`
+	Description    string    `json:"description,omitempty" cerb:"untrusted"`
+	DropletIDs     []int     `json:"droplet_ids"` // droplets it is attached to
+	FilesystemType string    `json:"filesystem_type,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	Tags           []string  `json:"tags" cerb:"untrusted"`
+}
+
+// VolumeList is list_volumes' result.
+type VolumeList struct {
+	Volumes   []Volume `json:"volumes"`
+	Truncated bool     `json:"truncated"`
+}
+
+// VolumeSpec is what create_volume sends.
+type VolumeSpec struct {
+	Name          string
+	Region        string
+	SizeGigabytes int64
+	Description   string
+	SnapshotID    string
+}
+
+// Snapshot is a volume or droplet snapshot.
+type Snapshot struct {
+	ID            string    `json:"id"`
+	Name          string    `json:"name" cerb:"untrusted"`
+	ResourceID    string    `json:"resource_id,omitempty"`
+	ResourceType  string    `json:"resource_type,omitempty"` // droplet, volume
+	Regions       []string  `json:"regions,omitempty"`
+	MinDiskSizeGB int       `json:"min_disk_size_gigabytes,omitempty"`
+	SizeGigabytes float64   `json:"size_gigabytes,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	Tags          []string  `json:"tags,omitempty" cerb:"untrusted"`
+}
+
+// SnapshotList is list_snapshots' result.
+type SnapshotList struct {
+	Snapshots []Snapshot `json:"snapshots"`
+	Truncated bool       `json:"truncated"`
+}
+
+// SnapshotStarted reports a droplet snapshot that was accepted. The snapshot
+// is taken asynchronously and shows up in list_snapshots when it finishes.
+type SnapshotStarted struct {
+	DropletID int    `json:"droplet_id"`
+	Name      string `json:"name" cerb:"untrusted"`
+	Action    string `json:"action"` // snapshot
+}

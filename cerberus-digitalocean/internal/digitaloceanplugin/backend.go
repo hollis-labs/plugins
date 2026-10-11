@@ -46,7 +46,23 @@ type CreateRequest struct {
 }
 
 // StorageBackend is block storage volumes and snapshots, volume and droplet.
-type StorageBackend interface{}
+type StorageBackend interface {
+	// ListVolumes filters by region slug and exact name when they are non-empty.
+	ListVolumes(ctx context.Context, region, name string) (VolumeList, error)
+	CreateVolume(ctx context.Context, req VolumeSpec) (*Volume, error)
+	AttachVolume(ctx context.Context, volumeID string, dropletID int) error
+	DetachVolume(ctx context.Context, volumeID string, dropletID int) error
+	ResizeVolume(ctx context.Context, volumeID string, sizeGigabytes int, region string) error
+	DeleteVolume(ctx context.Context, volumeID string) error
+
+	// ListSnapshots lists "volume" or "droplet" snapshots.
+	ListSnapshots(ctx context.Context, resourceType string) (SnapshotList, error)
+	CreateVolumeSnapshot(ctx context.Context, volumeID, name string) (*Snapshot, error)
+	// CreateDropletSnapshot starts the snapshot; DigitalOcean completes it
+	// asynchronously, so there is no snapshot to return yet.
+	CreateDropletSnapshot(ctx context.Context, dropletID int, name string) error
+	DeleteSnapshot(ctx context.Context, snapshotID string) error
+}
 
 // AccountBackend is the rest of the fleet surface: SSH keys, tags, projects,
 // reserved IPs and VPCs.

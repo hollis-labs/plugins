@@ -242,3 +242,37 @@ func validPorts(p string) bool {
 	}
 	return check(lo) && check(hi)
 }
+
+var volumeNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+
+// volumeName reads a volume name by DigitalOcean's rule: lowercase letters,
+// digits and hyphens, up to 64 characters.
+func (a *argMap) volumeName(key string) string {
+	v := a.required(key)
+	if v != "" && !volumeNamePattern.MatchString(v) {
+		a.problems = append(a.problems, key+" must be lowercase letters, digits and hyphens, at most 64 characters")
+		return ""
+	}
+	return v
+}
+
+// label reads a required free-text name (a snapshot name, a key name): bounded
+// and free of control characters, so it cannot smuggle a line break into a log
+// or a preview.
+func (a *argMap) label(key string, max int) string {
+	v := a.required(key)
+	if v == "" {
+		return ""
+	}
+	if len(v) > max {
+		a.problems = append(a.problems, fmt.Sprintf("%s must be at most %d characters", key, max))
+		return ""
+	}
+	for _, r := range v {
+		if r < 0x20 || r == 0x7f {
+			a.problems = append(a.problems, key+" must not contain control characters")
+			return ""
+		}
+	}
+	return v
+}
