@@ -7,7 +7,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -25,10 +26,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Rsync Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus Rsync Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -61,13 +63,13 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 		source, _ := args["source"].(string)
 		dest, _ := args["dest"].(string)
 		deleteFlag, _ := args["delete"].(bool)
-		
+
 		cmdArgs := []string{"-avz"}
 		if deleteFlag {
 			cmdArgs = append(cmdArgs, "--delete")
 		}
 		cmdArgs = append(cmdArgs, source, dest)
-		
+
 		return p.runRsync(ctx, cmdArgs)
 	default:
 		return subprocess.MCPCallResult{}, fmt.Errorf("unimplemented operation: %s", op.Name)
@@ -76,12 +78,12 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 
 func (p *Plugin) runRsync(ctx context.Context, args []string) (subprocess.MCPCallResult, error) {
 	out, err := exec.CommandContext(ctx, "rsync", args...).CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("rsync %v failed: %v\n%s", args, err, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
