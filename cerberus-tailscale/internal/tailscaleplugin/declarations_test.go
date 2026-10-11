@@ -115,9 +115,10 @@ func TestOperationSet(t *testing.T) {
 
 // The contract is the source of truth: the plugin gates exactly the API writes
 // the contract says need acknowledgment, and every one of them has a preview.
-// Minting, revoking and deleting are destructive.
+// Every API write is destructive: minting, revoking, deleting, and the two that
+// change what a device can reach (set_tags, authorize_device).
 func TestGatesMatchTheContract(t *testing.T) {
-	destructive := map[string]bool{"mint_auth_key": true, "revoke_key": true, "delete_device": true}
+	destructive := map[string]bool{"mint_auth_key": true, "revoke_key": true, "delete_device": true, "set_tags": true, "authorize_device": true}
 	for _, op := range Definition().Operations {
 		if localOps[op.Name] {
 			if op.Name != "status" && (!op.RequiresAck || op.SupportsDry) {

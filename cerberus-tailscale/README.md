@@ -27,8 +27,8 @@ ACL policy and DNS are not covered yet.
 | `list_devices` | read | no | no | |
 | `get_device` | read | no | no | `device_id`. |
 | `delete_device` | **destructive** | yes | yes | `device_id`. Removes the device from the tailnet. |
-| `set_tags` | write, reversible | yes | yes | `device_id`, `tags`. Replaces the whole set; empty clears. Tags decide which ACL rules apply. |
-| `authorize_device` | write, reversible | yes | yes | `device_id`. |
+| `set_tags` | destructive, reversible | yes | yes | `device_id`, `tags`. Replaces the whole set; empty clears. Tags decide which ACL rules apply. |
+| `authorize_device` | destructive, reversible | yes | yes | `device_id`. |
 
 Every API write is acknowledgment-gated and has a dry-run preview. The effects
 are declared in the operation contract; the host derives from them which

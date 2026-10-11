@@ -237,7 +237,7 @@ func Definition() contract.Definition {
 			{
 				Name:         "set_tags",
 				OutputSchema: contract.OutputSchemaOf[DeviceAction](),
-				Effect:       contract.EffectWrite,
+				Effect:       contract.EffectDestructive,
 				Reversible:   true,
 				Target:       deviceTarget,
 				Preview:      contract.PreviewPlugin,
@@ -257,7 +257,7 @@ func Definition() contract.Definition {
 			{
 				Name:         "authorize_device",
 				OutputSchema: contract.OutputSchemaOf[DeviceAction](),
-				Effect:       contract.EffectWrite,
+				Effect:       contract.EffectDestructive,
 				Reversible:   true,
 				Target:       deviceTarget,
 				Preview:      contract.PreviewPlugin,

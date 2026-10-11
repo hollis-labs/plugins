@@ -356,7 +356,7 @@ cerberus:
                 required:
                     - device_id
                 type: object
-              effect: write
+              effect: destructive
               reversible: true
               target:
                 kind: tailscale.device
@@ -385,7 +385,7 @@ cerberus:
                 required:
                     - device_id
                 type: object
-              effect: write
+              effect: destructive
               reversible: true
               target:
                 kind: tailscale.device
