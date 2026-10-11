@@ -32,7 +32,7 @@ func Definition() contract.Definition {
 				LocalFS:      contract.LocalFSNone,
 				Description:  "Check UFW firewall status.",
 				Examples:     []string{"cerberus connectors exec ufw status"},
-				InputSchema: contract.ObjectSchema(map[string]any{}),
+				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "allow",
