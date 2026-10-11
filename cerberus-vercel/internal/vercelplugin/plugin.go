@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Argument keys the host adds to a call itself, from --dry-run and --ack.
@@ -43,11 +44,12 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 	p.config = subprocess.NewConfigReader(params.Config)
 	def := Definition()
 	return subprocess.InitResult{
-		ID:          def.ID,
-		Name:        "Cerberus Vercel Connector",
-		Version:     def.Version,
-		Description: "Vercel deployments from operator-defined profiles, for Cerberus",
-		Protocol:    subprocess.ProtocolVersion,
+		ID:                 def.ID,
+		Name:               "Cerberus Vercel Connector",
+		Version:            def.Version,
+		Description:        "Vercel deployments from operator-defined profiles, for Cerberus",
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
