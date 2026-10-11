@@ -13,7 +13,7 @@ const BinaryName = "cerberus-sysmon-plugin"
 
 func declare(spec cerbplugin.PluginYAML) cerbplugin.PluginYAML {
 	spec.Cerberus.Host = cerbplugin.HostRange{MinContract: 1, MaxContract: 1}
-	spec.Cerberus.Surfaces = cerbplugin.Surfaces{MCP: []string{"cpu", "memory", "disk", "host"}}
+	spec.Cerberus.Surfaces = cerbplugin.Surfaces{MCP: []string{"cpu", "memory", "disk", "host", "host_report"}}
 	return spec
 }
 
@@ -24,13 +24,19 @@ func PluginYAML() cerbplugin.PluginYAML {
 }
 
 func WriteDist(dir string) error {
-	if dir == "" { return fmt.Errorf("dist directory is required") }
-	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil { return err }
+	if dir == "" {
+		return fmt.Errorf("dist directory is required")
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+		return err
+	}
 
 	spec := PluginYAML()
 	data, err := yaml.Marshal(spec)
-	if err != nil { return err }
-	
+	if err != nil {
+		return err
+	}
+
 	path := filepath.Join(dir, cerbplugin.PluginYAMLFilename)
 	return os.WriteFile(path, data, 0o644)
 }

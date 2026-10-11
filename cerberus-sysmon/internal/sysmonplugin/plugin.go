@@ -7,14 +7,11 @@ import (
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"github.com/hollis-labs/plugin-sdk/subprocess"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/disk"
-	"github.com/shirou/gopsutil/v3/host"
-	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type Plugin struct {
 	config map[string]string
+	env    Env
 }
 
 var (
@@ -23,7 +20,10 @@ var (
 	_ subprocess.MCPHandler    = (*Plugin)(nil)
 )
 
-func New() *Plugin { return &Plugin{} }
+func New() *Plugin { return &Plugin{env: RealEnv()} }
+
+// NewWithEnv serves from a substituted machine; tests use it.
+func NewWithEnv(e Env) *Plugin { return &Plugin{env: e} }
 
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
@@ -60,72 +60,29 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 
 	switch op.Name {
 	case "cpu":
-		result, err = getCPU()
+		result, err = CollectCPU(ctx, p.env)
 	case "memory":
-		result, err = getMemory()
+		result, err = CollectMemory(ctx, p.env)
 	case "disk":
 		path, _ := args["path"].(string)
 		if path == "" {
 			path = "/"
 		}
-		result, err = getDisk(path)
+		result, err = CollectDisk(ctx, p.env, path)
 	case "host":
-		result, err = getHost()
+		result, err = CollectHost(ctx, p.env)
+	case "host_report":
+		result, err = CollectReport(ctx, p.env)
 	default:
 		return subprocess.MCPCallResult{}, fmt.Errorf("unimplemented operation: %s", op.Name)
 	}
-
 	if err != nil {
 		return subprocess.MCPCallResult{}, err
 	}
 
-	content, err := json.MarshalIndent(result, "", "  ")
+	content, err := json.Marshal(result)
 	if err != nil {
 		return subprocess.MCPCallResult{}, err
 	}
-	
-	// returning as a JSON string to match schema
-	strContent, _ := json.Marshal(string(content))
-
-	return subprocess.MCPCallResult{Content: strContent}, nil
-}
-
-func getCPU() (any, error) {
-	percentages, err := cpu.Percent(0, false)
-	if err != nil {
-		return nil, err
-	}
-	info, err := cpu.Info()
-	if err != nil {
-		return nil, err
-	}
-	
-	return map[string]any{
-		"usage_percent": percentages,
-		"info":          info,
-	}, nil
-}
-
-func getMemory() (any, error) {
-	v, err := mem.VirtualMemory()
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
-}
-
-func getDisk(path string) (any, error) {
-	d, err := disk.Usage(path)
-	if err != nil {
-		return nil, err
-	}
-	return d, nil
-}
-
-func getHost() (any, error) {
-	h, err := host.Info()
-	if err != nil {
-		return nil, err
-	}
-	return h, nil
+	return subprocess.MCPCallResult{Content: content}, nil
 }
