@@ -236,7 +236,7 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 			return subprocess.MCPCallResult{}, err
 		}
 		if dryRun {
-			return marshalResult(newPreview(op.Name, "Would create a DigitalOcean droplet.",
+			return marshalResult(newPreview(op.Name, "Would create a DigitalOcean droplet. BILLABLE: it is charged from creation until it is destroyed.",
 				map[string]any{"name": req.Name, "region": req.Region, "size": req.Size, "image": req.Image},
 				map[string]any{"ssh_keys": req.SSHKeys, "user_data": userDataDigest(req.UserData)}), nil)
 		}
@@ -272,7 +272,7 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 		if err := invalid(args.err()); err != nil {
 			return subprocess.MCPCallResult{}, err
 		}
-		summary, action := "Would power off a DigitalOcean droplet.", "power_off"
+		summary, action := "Would power off a DigitalOcean droplet. A powered-off droplet STILL BILLS: its CPU, memory, disk and IP stay reserved. Only destroy stops the charge (snapshot first if the data matters).", "power_off"
 		if op.Name == "destroy" {
 			summary, action = "Would destroy a DigitalOcean droplet.", "destroy"
 		}
@@ -306,7 +306,11 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 		return marshalResult(string(dropletState(droplet.Status)), nil)
 
 	default:
-		return subprocess.MCPCallResult{}, fmt.Errorf("operation %q is declared but not served", op.Name)
+		result, served, err := p.callFleet(ctx, op.Name, args, dryRun)
+		if !served {
+			return subprocess.MCPCallResult{}, fmt.Errorf("operation %q is declared but not served", op.Name)
+		}
+		return marshalResult(result, err)
 	}
 }
 
