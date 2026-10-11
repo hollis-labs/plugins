@@ -13,7 +13,8 @@ import (
 	"syscall"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // errMissingCredential is what every Forge call returns when no token arrived.
@@ -64,11 +65,12 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 	p.config = subprocess.NewConfigReader(params.Config)
 	def := Definition()
 	return subprocess.InitResult{
-		ID:          def.ID,
-		Name:        "Cerberus Laravel Forge Connector",
-		Version:     def.Version,
-		Description: "Laravel Forge server and site administration for Cerberus",
-		Protocol:    subprocess.ProtocolVersion,
+		ID:                 def.ID,
+		Name:               "Cerberus Laravel Forge Connector",
+		Version:            def.Version,
+		Description:        "Laravel Forge server and site administration for Cerberus",
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
