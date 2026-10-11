@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -28,10 +29,11 @@ func NewWithEnv(e Env) *Plugin { return &Plugin{env: e} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Sysmon Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus Sysmon Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
