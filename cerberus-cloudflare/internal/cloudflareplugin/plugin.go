@@ -13,7 +13,8 @@ import (
 	"syscall"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // errMissingCredential is what every Cloudflare call returns when no token
@@ -71,6 +72,9 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 		Version:     def.Version,
 		Description: "Cloudflare zone and DNS record administration for Cerberus",
 		Protocol:    subprocess.ProtocolVersion,
+		// Protocol 2 requires the result to echo the capability contract the
+		// host offered; a host rejects the handshake as invalid_init without it.
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
