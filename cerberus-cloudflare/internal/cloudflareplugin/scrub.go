@@ -25,6 +25,7 @@ const minScrubLength = 4
 // small local copy of the one thing needed. The host's own redaction still runs
 // over everything afterwards; this is the part only the plugin can do.
 type scrubber struct {
+	raw    []string
 	values []string
 }
 
@@ -45,7 +46,7 @@ func newScrubber(secrets ...string) scrubber {
 	}
 	// Longest first, so an encoded form is not half-replaced by a shorter one.
 	sort.Slice(values, func(i, j int) bool { return len(values[i]) > len(values[j]) })
-	return scrubber{values: values}
+	return scrubber{raw: secrets, values: values}
 }
 
 func (s scrubber) text(text string) string {
@@ -63,4 +64,10 @@ func (s scrubber) err(err error) error {
 		return nil
 	}
 	return errors.New(s.text(err.Error()))
+}
+
+// with returns a scrubber that also removes secret, for a value learned after
+// the plugin loaded.
+func (s scrubber) with(secret string) scrubber {
+	return newScrubber(append(append([]string(nil), s.raw...), secret)...)
 }

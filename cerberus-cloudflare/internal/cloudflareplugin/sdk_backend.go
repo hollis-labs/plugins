@@ -20,7 +20,20 @@ type sdkBackend struct {
 // NewSDKBackend builds the live backend. The token is passed in rather than
 // read here: the host resolves it and hands it over at init.
 func NewSDKBackend(apiToken string) Backend {
-	return &sdkBackend{client: cf.NewClient(option.WithAPIToken(apiToken))}
+	return newLiveBackend(DefaultAPIBase, apiToken)
+}
+
+// liveBackend is the SDK for zones and DNS, and plain HTTP for the rest.
+type liveBackend struct {
+	*sdkBackend
+	*apiBackend
+}
+
+func newLiveBackend(base, apiToken string) *liveBackend {
+	return &liveBackend{
+		sdkBackend: &sdkBackend{client: cf.NewClient(option.WithAPIToken(apiToken))},
+		apiBackend: newAPIBackend(base, apiToken),
+	}
 }
 
 func (b *sdkBackend) ListZones(ctx context.Context) ([]Zone, error) {

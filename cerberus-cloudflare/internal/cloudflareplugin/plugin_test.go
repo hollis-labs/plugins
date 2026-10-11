@@ -20,6 +20,7 @@ type call struct {
 type fakeBackend struct {
 	zones   []Zone
 	records []DNSRecord
+	token   *TokenStatus
 	err     error
 	calls   []call
 }
@@ -58,6 +59,17 @@ func (f *fakeBackend) CreateDNSRecord(_ context.Context, zoneID string, rec DNSR
 func (f *fakeBackend) DeleteDNSRecord(_ context.Context, zoneID, recordID string) error {
 	f.record("DeleteDNSRecord", zoneID, recordID)
 	return f.err
+}
+
+func (f *fakeBackend) VerifyToken(_ context.Context, accountID string) (*TokenStatus, error) {
+	f.record("VerifyToken", accountID)
+	if f.err != nil {
+		return nil, f.err
+	}
+	if f.token != nil {
+		return f.token, nil
+	}
+	return &TokenStatus{ID: "tok", Status: "active", Scope: "user", Policies: []TokenPolicy{}}, nil
 }
 
 func loadedPlugin(t *testing.T, backend Backend) *Plugin {
@@ -112,6 +124,8 @@ func decode[T any](t *testing.T, result subprocess.MCPCallResult) T {
 // test can iterate the manifest without knowing each schema.
 func validArgs(operation string) map[string]any {
 	switch operation {
+	case "verify_token":
+		return map[string]any{}
 	case "create_zone":
 		return map[string]any{"account_id": "acct", "name": "example.com", argAcknowledged: true}
 	case "list_dns_records":
@@ -136,15 +150,15 @@ func TestEveryDeclaredOperationIsServed(t *testing.T) {
 	}
 }
 
-// The operation set must match the compiled-in connector's, so a caller sees
-// the same contract either side of the move. ListTunnels was implemented there
-// but never declared; it stays undeclared here.
+// The operation set is the compiled-in connector's five plus what this plugin
+// has added since. ListTunnels was implemented in the built-in but never
+// declared; it stays undeclared here.
 func TestOperationSetMatchesTheBuiltIn(t *testing.T) {
 	var got []string
 	for _, op := range Definition().Operations {
 		got = append(got, op.Name)
 	}
-	want := []string{"list_zones", "create_zone", "list_dns_records", "create_dns_record", "delete_dns_record"}
+	want := []string{"verify_token", "list_zones", "create_zone", "list_dns_records", "create_dns_record", "delete_dns_record"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("operations = %v, want %v", got, want)
 	}
@@ -455,5 +469,16 @@ func TestHealthReportsAConfiguredToken(t *testing.T) {
 	status, err := loadedPlugin(t, &fakeBackend{}).Health(context.Background())
 	if err != nil || !status.OK {
 		t.Fatalf("Health = %+v, %v", status, err)
+	}
+}
+
+func TestVerifyTokenIsAReadAndPassesTheAccount(t *testing.T) {
+	backend := &fakeBackend{token: &TokenStatus{ID: "tok", Status: "active", Scope: "account", Policies: []TokenPolicy{}}}
+	got := decode[TokenStatus](t, mustCall(t, loadedPlugin(t, backend), "verify_token", map[string]any{"account_id": "acct1"}))
+	if got.Status != "active" || backend.calls[0].args[0] != "acct1" {
+		t.Fatalf("got %+v, calls %+v", got, backend.calls)
+	}
+	if _, _, refused := failure(callTool(loadedPlugin(t, backend), "verify_token", map[string]any{"account_id": "../x"})); !refused {
+		t.Fatal("an account id that is not an id must be refused")
 	}
 }

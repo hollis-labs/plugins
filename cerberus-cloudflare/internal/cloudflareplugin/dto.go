@@ -64,3 +64,27 @@ func newPreview(operation, summary string, target, input map[string]any) DryRunP
 		Input:     input,
 	}
 }
+
+// TokenStatus is verify_token's result. Policies is what the token holds, by
+// permission group name; it is only present when Cloudflare let the token read
+// itself (PoliciesAvailable), which needs an API Tokens read permission that a
+// least-privilege token usually does not have. Group ids and request
+// conditions on the token are not returned.
+type TokenStatus struct {
+	ID                string        `json:"id"`
+	Status            string        `json:"status"`
+	Scope             string        `json:"scope"` // user or account
+	ExpiresOn         string        `json:"expires_on,omitempty"`
+	NotBefore         string        `json:"not_before,omitempty"`
+	PoliciesAvailable bool          `json:"policies_available"`
+	Policies          []TokenPolicy `json:"policies"`
+	Note              string        `json:"note,omitempty"`
+}
+
+// TokenPolicy is one policy on a token: an effect, the permission groups it
+// grants and the resources they apply to.
+type TokenPolicy struct {
+	Effect           string   `json:"effect"`
+	PermissionGroups []string `json:"permission_groups"`
+	Resources        []string `json:"resources"`
+}

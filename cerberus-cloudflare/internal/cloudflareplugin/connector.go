@@ -18,7 +18,7 @@ import (
 const ConnectorID = "cloudflare"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 // SecretAPIToken is the manifest secret name, and the key the host uses in the
 // init config it hands us. It must stay "api_token": that is the name existing
@@ -73,6 +73,24 @@ func Definition() contract.Definition {
 		// preview: here it is the plugin's claim, which the host cannot verify.
 		// Finalize derives destructive, requires_ack and supports_dry from it.
 		Operations: []contract.Operation{
+			{
+				Name:         "verify_token",
+				OutputSchema: contract.OutputSchemaOf[TokenStatus](),
+				Effect:       contract.EffectRead,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.token"},
+				Preview:      contract.PreviewNone,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Verify the API token this plugin holds: its status, expiry and, when Cloudflare lets the token read itself, the permission groups it grants. Use account_id for an account-owned token.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id": contract.StringSchema("Cloudflare account ID, for an account-owned token. Omit for a user-owned token."),
+				}),
+				Examples: []string{
+					"cerberus connectors exec cloudflare verify_token",
+					"cerberus connectors exec cloudflare verify_token --arg account_id=<account-id>",
+				},
+			},
 			{
 				Name:         "list_zones",
 				OutputSchema: contract.OutputSchemaOf[[]Zone](),

@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
+	"regexp"
+	"sync"
 	"syscall"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
@@ -33,7 +36,9 @@ type Plugin struct {
 	newBackend func(apiToken string) Backend
 	config     subprocess.ConfigReader
 	backend    Backend
-	scrub      scrubber
+
+	mu    sync.Mutex
+	scrub scrubber
 }
 
 var (
@@ -74,7 +79,9 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 // need no credential and keep working.
 func (p *Plugin) Load(context.Context) (subprocess.LoadResult, error) {
 	token := p.token()
+	p.mu.Lock()
 	p.scrub = newScrubber(token)
+	p.mu.Unlock()
 	if p.backend == nil && token != "" {
 		p.backend = p.newBackend(token)
 	}
@@ -121,12 +128,53 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 	if err == nil {
 		return withOperationTelemetry(req, result), nil
 	}
+	scrub := p.scrubber()
 	// The code is read before scrubbing, which drops the chain; the message
 	// that carries it is scrubbed like any other.
 	if code := errorCode(err); code != "" {
-		return cerbplugin.ErrorResult(code, p.scrub.text(err.Error())), nil
+		return cerbplugin.ErrorResult(code, scrub.text(err.Error())), nil
 	}
-	return result, p.scrub.err(err)
+	return result, scrub.err(err)
+}
+
+func (p *Plugin) scrubber() scrubber {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.scrub
+}
+
+// register adds a value minted during this process to what is scrubbed from
+// every later error, so a credential that came back once cannot surface again
+// in text composed from a later failure. Cerberus's own request scope cannot
+// learn it: a plugin has no channel to hand the host a value at call time, which
+// is why the result field is the only place it appears.
+func (p *Plugin) register(secret string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.scrub = p.scrub.with(secret)
+}
+
+var idPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
+
+// optionalID reads an identifier that may be absent, refusing one that could
+// not be a Cloudflare id (and so could not escape its path segment).
+func optionalID(a *argMap, key string) string {
+	v := a.str(key)
+	if v != "" && !idPattern.MatchString(v) {
+		a.problems = append(a.problems, key+" is not a valid Cloudflare id")
+		return ""
+	}
+	return v
+}
+
+// requiredID is optionalID for an identifier the call cannot do without.
+func requiredID(a *argMap, key string) string {
+	v := a.required(key)
+	if v != "" && !idPattern.MatchString(v) {
+		a.problems = append(a.problems, key+" is not a valid Cloudflare id")
+		return ""
+	}
+	return v
 }
 
 // errorCode is the Cerberus code for a failed call: a missing token is
@@ -134,11 +182,16 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 // unavailable. Anything the API answered stays uncoded.
 func errorCode(err error) cerbplugin.ErrorCode {
 	var coded *cerbplugin.CodedError
+	var apiErr *apiError
 	switch {
 	case errors.As(err, &coded):
 		return coded.Code
 	case errors.Is(err, errMissingCredential):
 		return cerbplugin.ErrorCredentialMissing
+	case errors.As(err, &apiErr) && apiErr.Status == http.StatusUnauthorized:
+		return cerbplugin.ErrorCredentialMissing
+	case errors.As(err, &apiErr) && (apiErr.Status == http.StatusNotFound || apiErr.Status == http.StatusBadRequest):
+		return cerbplugin.ErrorInvalidArgs
 	case isUnreachable(err):
 		return cerbplugin.ErrorUnavailable
 	}
@@ -179,6 +232,16 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 	}
 
 	switch op.Name {
+	case "verify_token":
+		accountID := optionalID(args, "account_id")
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(p.backend.VerifyToken(ctx, accountID))
+
 	case "list_zones":
 		if err := p.ready(); err != nil {
 			return subprocess.MCPCallResult{}, err
