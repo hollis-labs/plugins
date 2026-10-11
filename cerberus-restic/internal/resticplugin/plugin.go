@@ -8,7 +8,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -26,10 +27,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Restic Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus Restic Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -80,19 +82,19 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 
 func (p *Plugin) runRestic(ctx context.Context, args []string) (subprocess.MCPCallResult, error) {
 	cmd := exec.CommandContext(ctx, "restic", args...)
-	
+
 	// Inject password if provided in config
 	if pwd, ok := p.config["RESTIC_PASSWORD"]; ok && pwd != "" {
 		cmd.Env = append(os.Environ(), "RESTIC_PASSWORD="+pwd)
 	}
 
 	out, err := cmd.CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("restic %v failed: %v\n%s", args, err, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
