@@ -239,3 +239,74 @@ func policiesFromWire(t wireToken) []TokenPolicy {
 	}
 	return out
 }
+
+// wireBucket is an R2 bucket as the API returns it.
+type wireBucket struct {
+	Name         string `json:"name"`
+	CreationDate string `json:"creation_date"`
+	Location     string `json:"location"`
+	StorageClass string `json:"storage_class"`
+	Jurisdiction string `json:"jurisdiction"`
+}
+
+// bucketFromWire names every field that leaves.
+func bucketFromWire(w wireBucket) Bucket {
+	return Bucket{
+		Name:         w.Name,
+		CreatedAt:    w.CreationDate,
+		Location:     w.Location,
+		StorageClass: w.StorageClass,
+		Jurisdiction: w.Jurisdiction,
+	}
+}
+
+func r2Path(accountID string) string {
+	return "/accounts/" + url.PathEscape(accountID) + "/r2/buckets"
+}
+
+// jurisdictionHeader selects a non-default R2 jurisdiction. The default one is
+// addressed by sending nothing.
+func jurisdictionHeader(jurisdiction string) map[string]string {
+	if jurisdiction == "" || jurisdiction == "default" {
+		return nil
+	}
+	return map[string]string{"cf-r2-jurisdiction": jurisdiction}
+}
+
+func (b *apiBackend) ListBuckets(ctx context.Context, accountID, jurisdiction string) ([]Bucket, error) {
+	var out struct {
+		Buckets []wireBucket `json:"buckets"`
+	}
+	query := url.Values{"per_page": {"1000"}}
+	if err := b.do(ctx, http.MethodGet, r2Path(accountID), query, jurisdictionHeader(jurisdiction), nil, &out); err != nil {
+		return nil, fmt.Errorf("list r2 buckets in account %s: %w", accountID, err)
+	}
+	buckets := make([]Bucket, 0, len(out.Buckets))
+	for _, w := range out.Buckets {
+		buckets = append(buckets, bucketFromWire(w))
+	}
+	return buckets, nil
+}
+
+func (b *apiBackend) CreateBucket(ctx context.Context, accountID string, req BucketRequest) (*Bucket, error) {
+	body := map[string]any{"name": req.Name}
+	if req.LocationHint != "" {
+		body["locationHint"] = req.LocationHint
+	}
+	if req.StorageClass != "" {
+		body["storageClass"] = req.StorageClass
+	}
+	var out wireBucket
+	if err := b.do(ctx, http.MethodPost, r2Path(accountID), nil, jurisdictionHeader(req.Jurisdiction), body, &out); err != nil {
+		return nil, fmt.Errorf("create r2 bucket %s in account %s: %w", req.Name, accountID, err)
+	}
+	bucket := bucketFromWire(out)
+	return &bucket, nil
+}
+
+func (b *apiBackend) DeleteBucket(ctx context.Context, accountID, name, jurisdiction string) error {
+	if err := b.do(ctx, http.MethodDelete, r2Path(accountID)+"/"+url.PathEscape(name), nil, jurisdictionHeader(jurisdiction), nil, nil); err != nil {
+		return fmt.Errorf("delete r2 bucket %s in account %s: %w", name, accountID, err)
+	}
+	return nil
+}

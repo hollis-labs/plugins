@@ -36,6 +36,8 @@ const (
 	ZoneTypePartial = "partial"
 )
 
+var jurisdictionArg = contract.StringSchema("R2 jurisdiction: default (the default), eu or fedramp.")
+
 // Definition declares what this connector does. The operations, their input
 // schemas and their effects match the compiled-in connector
 // this plugin replaces, so a caller sees the same contract either side of the
@@ -183,6 +185,65 @@ func Definition() contract.Definition {
 					"zone_id":   contract.StringSchema("Cloudflare zone ID."),
 					"record_id": contract.StringSchema("Cloudflare DNS record ID."),
 				}, "zone_id", "record_id"),
+			},
+			{
+				Name:         "list_r2_buckets",
+				OutputSchema: contract.OutputSchemaOf[[]Bucket](),
+				Effect:       contract.EffectRead,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.account", From: []string{"account_id"}},
+				Preview:      contract.PreviewNone,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "List the R2 buckets in an account.",
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id":   contract.StringSchema("Cloudflare account ID."),
+					"jurisdiction": jurisdictionArg,
+				}, "account_id"),
+				Examples: []string{"cerberus connectors exec cloudflare list_r2_buckets --arg account_id=<account-id>"},
+			},
+			{
+				Name:         "create_r2_bucket",
+				OutputSchema: contract.OutputSchemaOf[Bucket](),
+				Effect:       contract.EffectWrite,
+				Reversible:   true,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.r2_bucket", From: []string{"account_id", "name"}},
+				Preview:      contract.PreviewPlugin,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Create an R2 bucket. R2 storage and operations are billed by use.",
+				Examples: []string{
+					"cerberus connectors exec cloudflare create_r2_bucket --arg account_id=<account-id> --arg name=example-backups --dry-run",
+					"cerberus connectors exec cloudflare create_r2_bucket --arg account_id=<account-id> --arg name=example-backups --ack",
+				},
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id":    contract.StringSchema("Cloudflare account ID."),
+					"name":          contract.StringSchema("Bucket name: 3 to 63 characters, lowercase letters, digits and hyphens, starting and ending with a letter or digit."),
+					"jurisdiction":  jurisdictionArg,
+					"location_hint": contract.StringSchema("Where to place the bucket: apac, eeur, enam, weur, wnam or oc. Optional; Cloudflare chooses without one."),
+					"storage_class": contract.StringSchema("Standard (the default) or InfrequentAccess."),
+				}, "account_id", "name"),
+			},
+			{
+				Name:         "delete_r2_bucket",
+				OutputSchema: contract.OutputSchemaOf[BucketDeleted](),
+				Effect:       contract.EffectDestructive,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.r2_bucket", From: []string{"account_id", "name"}},
+				Preview:      contract.PreviewPlugin,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Delete an R2 bucket. Cloudflare refuses while the bucket still holds objects; this plugin cannot list objects, so it relies on that refusal and never empties a bucket.",
+				Examples: []string{
+					"cerberus connectors exec cloudflare delete_r2_bucket --arg account_id=<account-id> --arg name=example-backups --dry-run",
+					"cerberus connectors exec cloudflare delete_r2_bucket --arg account_id=<account-id> --arg name=example-backups --ack",
+				},
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id":   contract.StringSchema("Cloudflare account ID."),
+					"name":         contract.StringSchema("Bucket name."),
+					"jurisdiction": jurisdictionArg,
+				}, "account_id", "name"),
 			},
 		},
 	})

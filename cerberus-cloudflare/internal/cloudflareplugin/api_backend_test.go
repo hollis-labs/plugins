@@ -145,3 +145,49 @@ func TestEnvelopeFailureOnA200IsAnError(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestBucketsMapToDTOsAndCarryTheJurisdiction(t *testing.T) {
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		switch {
+		case r.Method == "GET":
+			ok(w, `{"buckets":[{"name":"example-backups","creation_date":"2026-10-01T00:00:00Z","location":"WEUR","storage_class":"Standard","jurisdiction":"eu","somethingNew":"x"}]}`)
+		case r.Method == "POST":
+			ok(w, `{"name":"example-backups","creation_date":"2026-10-01T00:00:00Z","storage_class":"Standard"}`)
+		default:
+			ok(w, `{}`)
+		}
+	})
+	list, err := api.ListBuckets(t.Context(), "acct1", "eu")
+	if err != nil || len(list) != 1 || list[0].Location != "WEUR" || list[0].Jurisdiction != "eu" {
+		t.Fatalf("list = %+v, %v", list, err)
+	}
+	if fake.requests[0].Jurisdiction != "eu" || !strings.Contains(fake.requests[0].Path, "/accounts/acct1/r2/buckets") {
+		t.Errorf("request = %+v", fake.requests[0])
+	}
+	if data, _ := json.Marshal(list); strings.Contains(string(data), "somethingNew") {
+		t.Errorf("DTO leaked an unnamed field: %s", data)
+	}
+
+	if _, err := api.CreateBucket(t.Context(), "acct1", BucketRequest{Name: "example-backups", LocationHint: "weur", StorageClass: "Standard"}); err != nil {
+		t.Fatal(err)
+	}
+	if body := fake.requests[1].Body; !strings.Contains(body, `"locationHint":"weur"`) || !strings.Contains(body, `"storageClass":"Standard"`) || fake.requests[1].Jurisdiction != "" {
+		t.Errorf("create request = %+v", fake.requests[1])
+	}
+	if err := api.DeleteBucket(t.Context(), "acct1", "example-backups", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.paths()[2]; got != "DELETE /accounts/acct1/r2/buckets/example-backups" {
+		t.Errorf("delete request = %q", got)
+	}
+}
+
+func TestDeleteOfANonEmptyBucketSurfacesCloudflaresRefusal(t *testing.T) {
+	_, api := newFakeCloudflare(t, func(w http.ResponseWriter, _ *http.Request, _ []byte) {
+		fail(w, 409, 10008, "The bucket you tried to delete is not empty.")
+	})
+	err := api.DeleteBucket(t.Context(), "acct1", "example-backups", "")
+	if err == nil || !strings.Contains(err.Error(), "not empty") || !strings.Contains(err.Error(), "409") {
+		t.Fatalf("err = %v", err)
+	}
+}

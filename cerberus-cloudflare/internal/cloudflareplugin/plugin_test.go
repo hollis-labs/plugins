@@ -21,6 +21,7 @@ type fakeBackend struct {
 	zones   []Zone
 	records []DNSRecord
 	token   *TokenStatus
+	buckets []Bucket
 	err     error
 	calls   []call
 }
@@ -70,6 +71,24 @@ func (f *fakeBackend) VerifyToken(_ context.Context, accountID string) (*TokenSt
 		return f.token, nil
 	}
 	return &TokenStatus{ID: "tok", Status: "active", Scope: "user", Policies: []TokenPolicy{}}, nil
+}
+
+func (f *fakeBackend) ListBuckets(_ context.Context, accountID, jurisdiction string) ([]Bucket, error) {
+	f.record("ListBuckets", accountID, jurisdiction)
+	return f.buckets, f.err
+}
+
+func (f *fakeBackend) CreateBucket(_ context.Context, accountID string, req BucketRequest) (*Bucket, error) {
+	f.record("CreateBucket", accountID, req)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &Bucket{Name: req.Name, Jurisdiction: req.Jurisdiction}, nil
+}
+
+func (f *fakeBackend) DeleteBucket(_ context.Context, accountID, name, jurisdiction string) error {
+	f.record("DeleteBucket", accountID, name, jurisdiction)
+	return f.err
 }
 
 func loadedPlugin(t *testing.T, backend Backend) *Plugin {
@@ -126,6 +145,10 @@ func validArgs(operation string) map[string]any {
 	switch operation {
 	case "verify_token":
 		return map[string]any{}
+	case "list_r2_buckets":
+		return map[string]any{"account_id": "acct"}
+	case "create_r2_bucket", "delete_r2_bucket":
+		return map[string]any{"account_id": "acct", "name": "example-backups", argAcknowledged: true}
 	case "create_zone":
 		return map[string]any{"account_id": "acct", "name": "example.com", argAcknowledged: true}
 	case "list_dns_records":
@@ -158,14 +181,22 @@ func TestOperationSetMatchesTheBuiltIn(t *testing.T) {
 	for _, op := range Definition().Operations {
 		got = append(got, op.Name)
 	}
-	want := []string{"verify_token", "list_zones", "create_zone", "list_dns_records", "create_dns_record", "delete_dns_record"}
+	want := []string{"verify_token", "list_zones", "create_zone", "list_dns_records", "create_dns_record", "delete_dns_record",
+		"list_r2_buckets", "create_r2_bucket", "delete_r2_bucket"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("operations = %v, want %v", got, want)
 	}
 }
 
-// A write is ack-gated and previews; a read is neither. Only delete_dns_record
-// is destructive by effect, the creates are writes.
+// A write is ack-gated and previews; a read is neither. The deletes are
+// destructive by effect, the creates are writes.
+// destructiveOperations is every operation that removes something or mints a
+// credential, and so is Destructive by effect rather than a plain write.
+var destructiveOperations = map[string]bool{
+	"delete_dns_record": true,
+	"delete_r2_bucket":  true,
+}
+
 func TestWriteOperationsAreExactlyTheAckGatedOnes(t *testing.T) {
 	for _, op := range Definition().Operations {
 		write := writeOperations[op.Name]
@@ -173,8 +204,8 @@ func TestWriteOperationsAreExactlyTheAckGatedOnes(t *testing.T) {
 			t.Errorf("%s: effect=%s requires_ack=%v supports_dry=%v, but writeOperations says write=%v",
 				op.Name, op.Effect, op.RequiresAck, op.SupportsDry, write)
 		}
-		if op.Destructive != (op.Name == "delete_dns_record") {
-			t.Errorf("%s: Destructive=%v; only delete_dns_record is destructive", op.Name, op.Destructive)
+		if op.Destructive != destructiveOperations[op.Name] {
+			t.Errorf("%s: Destructive=%v, want %v", op.Name, op.Destructive, destructiveOperations[op.Name])
 		}
 	}
 }
@@ -480,5 +511,100 @@ func TestVerifyTokenIsAReadAndPassesTheAccount(t *testing.T) {
 	}
 	if _, _, refused := failure(callTool(loadedPlugin(t, backend), "verify_token", map[string]any{"account_id": "../x"})); !refused {
 		t.Fatal("an account id that is not an id must be refused")
+	}
+}
+
+func TestListR2BucketsReturnsDTOs(t *testing.T) {
+	backend := &fakeBackend{buckets: []Bucket{{Name: "example-backups", Location: "WEUR"}}}
+	got := decode[[]Bucket](t, mustCall(t, loadedPlugin(t, backend), "list_r2_buckets", map[string]any{"account_id": "acct", "jurisdiction": "eu"}))
+	if len(got) != 1 || got[0].Name != "example-backups" {
+		t.Fatalf("buckets = %+v", got)
+	}
+	if !reflect.DeepEqual(backend.calls[0].args, []any{"acct", "eu"}) {
+		t.Fatalf("args = %v", backend.calls[0].args)
+	}
+}
+
+func TestBucketArgumentsAreValidated(t *testing.T) {
+	p := loadedPlugin(t, &fakeBackend{})
+	for name, args := range map[string]map[string]any{
+		"upper case":    {"account_id": "acct", "name": "Example", argAcknowledged: true},
+		"too short":     {"account_id": "acct", "name": "ab", argAcknowledged: true},
+		"edge hyphen":   {"account_id": "acct", "name": "-example", argAcknowledged: true},
+		"path":          {"account_id": "acct", "name": "a/../b", argAcknowledged: true},
+		"bad account":   {"account_id": "../x", "name": "example", argAcknowledged: true},
+		"bad hint":      {"account_id": "acct", "name": "example", "location_hint": "moon", argAcknowledged: true},
+		"bad class":     {"account_id": "acct", "name": "example", "storage_class": "Glacier", argAcknowledged: true},
+		"bad jurisdict": {"account_id": "acct", "name": "example", "jurisdiction": "mars", argAcknowledged: true},
+	} {
+		for _, op := range []string{"create_r2_bucket", "delete_r2_bucket"} {
+			if op == "delete_r2_bucket" && (name == "bad hint" || name == "bad class") {
+				continue
+			}
+			code, _, refused := failure(callTool(p, op, args))
+			if !refused || code != cerbplugin.ErrorInvalidArgs {
+				t.Errorf("%s with %s: refused=%v code=%q", op, name, refused, code)
+			}
+		}
+	}
+}
+
+func TestCreateAndDeleteBucketReachTheBackend(t *testing.T) {
+	backend := &fakeBackend{}
+	p := loadedPlugin(t, backend)
+	created := decode[Bucket](t, mustCall(t, p, "create_r2_bucket", map[string]any{
+		"account_id": "acct", "name": "example-backups", "storage_class": "Standard", "location_hint": "weur", argAcknowledged: true}))
+	if created.Name != "example-backups" {
+		t.Fatalf("created = %+v", created)
+	}
+	want := BucketRequest{Name: "example-backups", LocationHint: "weur", StorageClass: "Standard"}
+	if !reflect.DeepEqual(backend.calls[0].args, []any{"acct", want}) {
+		t.Fatalf("CreateBucket args = %v", backend.calls[0].args)
+	}
+	deleted := decode[BucketDeleted](t, mustCall(t, p, "delete_r2_bucket", validArgs("delete_r2_bucket")))
+	if !deleted.Deleted || deleted.Name != "example-backups" {
+		t.Fatalf("deleted = %+v", deleted)
+	}
+}
+
+// Cloudflare refuses a non-empty bucket; the plugin must surface that refusal
+// and never try to empty the bucket itself.
+func TestDeleteOfANonEmptyBucketIsTheAPIRefusalAndNothingElse(t *testing.T) {
+	backend := &fakeBackend{err: errors.New("delete r2 bucket example-backups: Cloudflare API answered 409 Conflict: The bucket you tried to delete is not empty")}
+	_, message, refused := failure(callTool(loadedPlugin(t, backend), "delete_r2_bucket", validArgs("delete_r2_bucket")))
+	if !refused || !strings.Contains(message, "not empty") {
+		t.Fatalf("refused=%v message=%q", refused, message)
+	}
+	if len(backend.calls) != 1 || backend.calls[0].method != "DeleteBucket" {
+		t.Fatalf("calls = %+v; only the one delete is allowed", backend.calls)
+	}
+}
+
+func TestBucketPreviewsReadTheAccountButChangeNothing(t *testing.T) {
+	backend := &fakeBackend{buckets: []Bucket{{Name: "example-backups", Location: "WEUR"}}}
+	p := loadedPlugin(t, backend)
+
+	del := decode[DryRunPreview](t, mustCall(t, p, "delete_r2_bucket", map[string]any{"account_id": "acct", "name": "example-backups", argDryRun: true}))
+	if !del.DryRun || del.Input["bucket"] == nil || !strings.Contains(strings.Join(del.Warnings, " "), "refuses to delete a bucket that still holds objects") {
+		t.Fatalf("delete preview = %+v", del)
+	}
+	create := decode[DryRunPreview](t, mustCall(t, p, "create_r2_bucket", map[string]any{"account_id": "acct", "name": "example-backups", argDryRun: true}))
+	if !strings.Contains(strings.Join(create.Warnings, " "), "already exists") || !strings.Contains(strings.Join(create.Warnings, " "), "billed") {
+		t.Fatalf("create preview = %+v", create)
+	}
+	for _, c := range backend.calls {
+		if c.method != "ListBuckets" {
+			t.Errorf("a preview called %s", c.method)
+		}
+	}
+
+	// Without a token the preview is the request alone, and says so.
+	bare := New()
+	if _, err := bare.Load(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	noCred := decode[DryRunPreview](t, mustCall(t, bare, "delete_r2_bucket", map[string]any{"account_id": "acct", "name": "example-backups", argDryRun: true}))
+	if !strings.Contains(strings.Join(noCred.Warnings, " "), "not checked") {
+		t.Fatalf("credential-free preview = %+v", noCred)
 	}
 }

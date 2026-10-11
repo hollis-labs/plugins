@@ -16,4 +16,18 @@ type Backend interface {
 	// VerifyToken verifies the plugin's own token. With an account id it asks
 	// the account-owned token endpoint, without one the user-owned one.
 	VerifyToken(ctx context.Context, accountID string) (*TokenStatus, error)
+
+	// R2 buckets. An empty jurisdiction is the default one.
+	ListBuckets(ctx context.Context, accountID, jurisdiction string) ([]Bucket, error)
+	CreateBucket(ctx context.Context, accountID string, req BucketRequest) (*Bucket, error)
+	// DeleteBucket is refused by Cloudflare while the bucket holds objects.
+	DeleteBucket(ctx context.Context, accountID, name, jurisdiction string) error
+}
+
+// BucketRequest is what create_r2_bucket sends. It is ours, not the wire body.
+type BucketRequest struct {
+	Name         string
+	Jurisdiction string
+	LocationHint string
+	StorageClass string
 }

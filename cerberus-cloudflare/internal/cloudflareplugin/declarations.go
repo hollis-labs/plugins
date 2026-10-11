@@ -13,6 +13,8 @@ import (
 // host never applies it on the plugin's word.
 var suggestedPolicy = []cerbplugin.SuggestedRule{
 	{Operation: "create_zone", Require: cerbplugin.RequireApprovalForAgents, Reason: "adds a zone to the account"},
+	{Operation: "create_r2_bucket", Require: cerbplugin.RequireApprovalForAgents, Reason: "adds a billable R2 bucket to the account"},
+	{Operation: "delete_r2_bucket", Require: cerbplugin.RequireApproval, Reason: "deletes an R2 bucket (Cloudflare refuses while it holds objects); anything that addresses the bucket by name stops working"},
 	{Operation: "delete_dns_record", Require: cerbplugin.RequireApproval, Reason: "deletes a DNS record; traffic to that name stops resolving"},
 }
 

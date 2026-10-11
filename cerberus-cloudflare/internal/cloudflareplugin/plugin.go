@@ -118,6 +118,8 @@ func (p *Plugin) token() string {
 // contract declares each a non-read effect with a preview, and
 // TestWriteOperationsAreExactlyTheAckGatedOnes holds the two in step.
 var writeOperations = map[string]bool{
+	"create_r2_bucket":  true,
+	"delete_r2_bucket":  true,
 	"create_zone":       true,
 	"create_dns_record": true,
 	"delete_dns_record": true,
@@ -316,6 +318,54 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 			return subprocess.MCPCallResult{}, err
 		}
 		return marshalResult(DeletedRecord{Deleted: true, ZoneID: zoneID, RecordID: recordID}, nil)
+
+	case "list_r2_buckets":
+		accountID := requiredID(args, "account_id")
+		jurisdiction := args.oneOf("jurisdiction", jurisdictions)
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(p.backend.ListBuckets(ctx, accountID, jurisdiction))
+
+	case "create_r2_bucket":
+		accountID := requiredID(args, "account_id")
+		req := BucketRequest{
+			Name:         bucketName(args, "name"),
+			Jurisdiction: args.oneOf("jurisdiction", jurisdictions),
+			LocationHint: args.oneOf("location_hint", locationHints),
+			StorageClass: args.oneOf("storage_class", storageClasses),
+		}
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if dryRun {
+			return marshalResult(p.createBucketPreview(ctx, accountID, req), nil)
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(p.backend.CreateBucket(ctx, accountID, req))
+
+	case "delete_r2_bucket":
+		accountID := requiredID(args, "account_id")
+		name := bucketName(args, "name")
+		jurisdiction := args.oneOf("jurisdiction", jurisdictions)
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if dryRun {
+			return marshalResult(p.deleteBucketPreview(ctx, accountID, name, jurisdiction), nil)
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if err := p.backend.DeleteBucket(ctx, accountID, name, jurisdiction); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(BucketDeleted{Deleted: true, AccountID: accountID, Name: name, Jurisdiction: jurisdiction}, nil)
 
 	default:
 		return subprocess.MCPCallResult{}, fmt.Errorf("operation %q is declared but not served", op.Name)

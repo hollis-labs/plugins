@@ -138,3 +138,19 @@ func (a *argMap) boolean(key string) bool {
 		return false
 	}
 }
+
+// oneOf reads an optional argument that must be one of allowed. Absent is the
+// empty string.
+func (a *argMap) oneOf(key string, allowed []string) string {
+	v := a.str(key)
+	if v == "" {
+		return ""
+	}
+	for _, want := range allowed {
+		if v == want {
+			return v
+		}
+	}
+	a.problems = append(a.problems, fmt.Sprintf("%s must be one of %s, got %q", key, strings.Join(allowed, ", "), v))
+	return ""
+}

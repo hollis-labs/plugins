@@ -54,7 +54,7 @@ type DryRunPreview struct {
 	Warnings  []string       `json:"warnings,omitempty"`
 }
 
-func newPreview(operation, summary string, target, input map[string]any) DryRunPreview {
+func newPreview(operation, summary string, target, input map[string]any, warnings ...string) DryRunPreview {
 	return DryRunPreview{
 		DryRun:    true,
 		Connector: ConnectorID,
@@ -62,6 +62,7 @@ func newPreview(operation, summary string, target, input map[string]any) DryRunP
 		Summary:   summary,
 		Target:    target,
 		Input:     input,
+		Warnings:  warnings,
 	}
 }
 
@@ -87,4 +88,22 @@ type TokenPolicy struct {
 	Effect           string   `json:"effect"`
 	PermissionGroups []string `json:"permission_groups"`
 	Resources        []string `json:"resources"`
+}
+
+// Bucket is an R2 bucket. Names are chosen by whoever created the bucket, so
+// the name is labelled untrusted.
+type Bucket struct {
+	Name         string `json:"name" cerb:"untrusted"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	Location     string `json:"location,omitempty"`
+	StorageClass string `json:"storage_class,omitempty"`
+	Jurisdiction string `json:"jurisdiction,omitempty"`
+}
+
+// BucketDeleted reports a completed delete_r2_bucket.
+type BucketDeleted struct {
+	Deleted      bool   `json:"deleted"`
+	AccountID    string `json:"account_id"`
+	Name         string `json:"name"`
+	Jurisdiction string `json:"jurisdiction,omitempty"`
 }
