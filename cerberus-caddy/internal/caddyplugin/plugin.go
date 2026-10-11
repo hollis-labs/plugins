@@ -6,7 +6,8 @@ import (
 	"fmt"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Plugin serves the Caddy connector over the plugin-sdk subprocess protocol.
@@ -34,7 +35,10 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 	p.config = subprocess.NewConfigReader(params.Config)
 	p.token = p.config.Secret(SecretCloudflareToken)
 	p.scrub = newScrubber(p.token)
-	return subprocess.InitResult{ID: ConnectorID, Name: "Cerberus Caddy Connector", Version: Version, Protocol: subprocess.ProtocolVersion}, nil
+	return subprocess.InitResult{ID: ConnectorID, Name: "Cerberus Caddy Connector", Version: Version, Protocol: subprocess.ProtocolVersion,
+		// Protocol 2 requires the result to echo the capability contract the
+		// host offered; a host rejects the handshake as invalid_init without it.
+		CapabilityContract: capability.ContractVersion}, nil
 }
 
 func (p *Plugin) Load(context.Context) (subprocess.LoadResult, error) {

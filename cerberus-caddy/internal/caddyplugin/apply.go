@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Argument keys the host adds to a call itself, from --dry-run and --ack.
