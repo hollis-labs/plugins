@@ -7,7 +7,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -25,10 +26,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus APT Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus APT Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -72,14 +74,14 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 func (p *Plugin) runAPT(ctx context.Context, args []string) (subprocess.MCPCallResult, error) {
 	cmdArgs := append([]string{"apt-get"}, args...)
 	out, err := exec.CommandContext(ctx, "sudo", cmdArgs...).CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("apt-get %v failed: %v\n%s", args, err, string(out))
 	} else {
 		respText = fmt.Sprintf("apt-get %v successful.\n%s", args, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
