@@ -148,3 +148,11 @@ type CredentialRevoked struct {
 	AccountID   string `json:"account_id"`
 	AccessKeyID string `json:"access_key_id"`
 }
+
+// UpsertResult reports a completed upsert_a_record: what was done, the record
+// as it now stands and, for an update, as it stood.
+type UpsertResult struct {
+	Action   string     `json:"action"` // created, updated or unchanged
+	Record   DNSRecord  `json:"record"`
+	Previous *DNSRecord `json:"previous,omitempty"`
+}

@@ -17,6 +17,7 @@ var suggestedPolicy = []cerbplugin.SuggestedRule{
 	{Operation: "delete_r2_bucket", Require: cerbplugin.RequireApproval, Reason: "deletes an R2 bucket (Cloudflare refuses while it holds objects); anything that addresses the bucket by name stops working"},
 	{Operation: "create_r2_credential", Require: cerbplugin.RequireApproval, Reason: "mints an S3 credential for a bucket and hands its secret to the caller"},
 	{Operation: "revoke_r2_credential", Require: cerbplugin.RequireApprovalForAgents, Reason: "disables a key that a backup job may be using"},
+	{Operation: "upsert_a_record", Require: cerbplugin.RequireApprovalForAgents, Reason: "repoints a host name; anything that resolves it follows the new address"},
 	{Operation: "delete_dns_record", Require: cerbplugin.RequireApproval, Reason: "deletes a DNS record; traffic to that name stops resolving"},
 }
 

@@ -118,6 +118,7 @@ func (p *Plugin) token() string {
 // contract declares each a non-read effect with a preview, and
 // TestWriteOperationsAreExactlyTheAckGatedOnes holds the two in step.
 var writeOperations = map[string]bool{
+	"upsert_a_record":      true,
 	"create_r2_credential": true,
 	"revoke_r2_credential": true,
 	"create_r2_bucket":     true,
@@ -432,6 +433,35 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 			return subprocess.MCPCallResult{}, err
 		}
 		return marshalResult(CredentialRevoked{Revoked: true, AccountID: accountID, AccessKeyID: accessKeyID}, nil)
+
+	case "upsert_a_record":
+		zoneID := requiredID(args, "zone_id")
+		name := args.required("name")
+		if name != "" && !recordNamePattern.MatchString(name) {
+			args.problems = append(args.problems, "name must be a host name such as app, app.example.com or @")
+		}
+		content := args.required("content")
+		ttl := args.intPtr("ttl")
+		if ttl != nil && *ttl != 1 && (*ttl < 60 || *ttl > 86400) {
+			args.problems = append(args.problems, "ttl must be 1 (automatic) or between 60 and 86400 seconds")
+		}
+		if args.boolean("proxied") {
+			args.problems = append(args.problems, "upsert_a_record is always DNS-only; proxied cannot be turned on")
+		}
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if err := requireTailscaleAddress(content); err != nil {
+			return subprocess.MCPCallResult{}, cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs, err)
+		}
+		if dryRun {
+			preview, err := p.upsertPreview(ctx, zoneID, name, content, ttl)
+			return marshalResult(preview, err)
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(p.upsert(ctx, zoneID, name, content, ttl))
 
 	default:
 		return subprocess.MCPCallResult{}, fmt.Errorf("operation %q is declared but not served", op.Name)

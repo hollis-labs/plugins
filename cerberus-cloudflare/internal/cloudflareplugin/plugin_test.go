@@ -23,6 +23,8 @@ type fakeBackend struct {
 	token   *TokenStatus
 	buckets []Bucket
 	creds   map[string]CredentialInfo
+	zone    Zone
+	aRecs   []DNSRecord
 	err     error
 	calls   []call
 }
@@ -90,6 +92,32 @@ func (f *fakeBackend) CreateBucket(_ context.Context, accountID string, req Buck
 func (f *fakeBackend) DeleteBucket(_ context.Context, accountID, name, jurisdiction string) error {
 	f.record("DeleteBucket", accountID, name, jurisdiction)
 	return f.err
+}
+
+func (f *fakeBackend) GetZone(_ context.Context, zoneID string) (*Zone, error) {
+	f.record("GetZone", zoneID)
+	if f.err != nil {
+		return nil, f.err
+	}
+	z := f.zone
+	if z.Name == "" {
+		z.Name = "example.com"
+	}
+	z.ID = zoneID
+	return &z, nil
+}
+
+func (f *fakeBackend) FindARecords(_ context.Context, zoneID, fqdn string) ([]DNSRecord, error) {
+	f.record("FindARecords", zoneID, fqdn)
+	return f.aRecs, f.err
+}
+
+func (f *fakeBackend) UpdateDNSRecord(_ context.Context, zoneID, recordID string, rec DNSRecord) (*DNSRecord, error) {
+	f.record("UpdateDNSRecord", zoneID, recordID, rec)
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &rec, nil
 }
 
 // mintedValue is the placeholder secret half the fake mints.
@@ -176,6 +204,8 @@ func validArgs(operation string) map[string]any {
 		return map[string]any{}
 	case "list_r2_buckets":
 		return map[string]any{"account_id": "acct"}
+	case "upsert_a_record":
+		return map[string]any{"zone_id": "zone", "name": "app", "content": "100.64.0.10", argAcknowledged: true}
 	case "create_r2_credential":
 		return map[string]any{"account_id": "acct", "bucket": "example-backups", argAcknowledged: true}
 	case "revoke_r2_credential":
@@ -215,7 +245,7 @@ func TestOperationSetMatchesTheBuiltIn(t *testing.T) {
 		got = append(got, op.Name)
 	}
 	want := []string{"verify_token", "list_zones", "create_zone", "list_dns_records", "create_dns_record", "delete_dns_record",
-		"list_r2_buckets", "create_r2_bucket", "delete_r2_bucket", "create_r2_credential", "revoke_r2_credential"}
+		"list_r2_buckets", "create_r2_bucket", "delete_r2_bucket", "create_r2_credential", "revoke_r2_credential", "upsert_a_record"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("operations = %v, want %v", got, want)
 	}
@@ -231,6 +261,7 @@ var destructiveOperations = map[string]bool{
 	// Both are credential operations, so destructive rather than plain writes.
 	"create_r2_credential": true,
 	"revoke_r2_credential": true,
+	"upsert_a_record":      true,
 }
 
 func TestWriteOperationsAreExactlyTheAckGatedOnes(t *testing.T) {
@@ -807,5 +838,189 @@ func TestRevokePreviewReadsTheKeyAndFlagsAForeignToken(t *testing.T) {
 		if c.method == "RevokeR2Credential" {
 			t.Fatal("a preview revoked a key")
 		}
+	}
+}
+
+func methods(b *fakeBackend) []string {
+	var out []string
+	for _, c := range b.calls {
+		out = append(out, c.method)
+	}
+	return out
+}
+
+func TestUpsertCreatesAnUnproxiedRecordWhenNoneExists(t *testing.T) {
+	backend := &fakeBackend{}
+	got := decode[UpsertResult](t, mustCall(t, loadedPlugin(t, backend), "upsert_a_record", validArgs("upsert_a_record")))
+	if got.Action != "created" || got.Record.Name != "app.example.com" || got.Record.Content != "100.64.0.10" || got.Record.Proxied || got.Record.TTL != 1 {
+		t.Fatalf("result = %+v", got)
+	}
+	if !reflect.DeepEqual(methods(backend), []string{"GetZone", "FindARecords", "CreateDNSRecord"}) {
+		t.Fatalf("calls = %v", methods(backend))
+	}
+}
+
+func TestUpsertUpdatesInPlaceKeepsTheTTLAndTurnsTheProxyOff(t *testing.T) {
+	backend := &fakeBackend{aRecs: []DNSRecord{{ID: "r1", Type: "A", Name: "app.example.com", Content: "100.64.0.9", TTL: 300, Proxied: true}}}
+	got := decode[UpsertResult](t, mustCall(t, loadedPlugin(t, backend), "upsert_a_record", validArgs("upsert_a_record")))
+	if got.Action != "updated" || got.Previous == nil || got.Previous.Content != "100.64.0.9" || got.Record.Content != "100.64.0.10" ||
+		got.Record.TTL != 300 || got.Record.Proxied {
+		t.Fatalf("result = %+v", got)
+	}
+	last := backend.calls[len(backend.calls)-1]
+	if last.method != "UpdateDNSRecord" || last.args[1] != "r1" {
+		t.Fatalf("last call = %+v", last)
+	}
+}
+
+func TestUpsertOfAMatchingRecordChangesNothing(t *testing.T) {
+	backend := &fakeBackend{aRecs: []DNSRecord{{ID: "r1", Type: "A", Name: "app.example.com", Content: "100.64.0.10", TTL: 1}}}
+	got := decode[UpsertResult](t, mustCall(t, loadedPlugin(t, backend), "upsert_a_record", validArgs("upsert_a_record")))
+	if got.Action != "unchanged" {
+		t.Fatalf("result = %+v", got)
+	}
+	for _, m := range methods(backend) {
+		if m == "UpdateDNSRecord" || m == "CreateDNSRecord" {
+			t.Fatalf("a no-op wrote: %v", methods(backend))
+		}
+	}
+}
+
+func TestUpsertRefusesAmbiguousRecords(t *testing.T) {
+	backend := &fakeBackend{aRecs: []DNSRecord{{ID: "r1"}, {ID: "r2"}}}
+	code, message, refused := failure(callTool(loadedPlugin(t, backend), "upsert_a_record", validArgs("upsert_a_record")))
+	if !refused || code != cerbplugin.ErrorInvalidArgs || !strings.Contains(message, "will not choose") {
+		t.Fatalf("refused=%v code=%q message=%q", refused, code, message)
+	}
+}
+
+// A host record must never point at a public address. Every refusal happens
+// before any call to Cloudflare, so there is nothing to undo.
+func TestUpsertRefusesAnythingButATailscaleAddress(t *testing.T) {
+	for _, content := range []string{
+		"203.0.113.10",   // public
+		"100.63.255.255", // just below the range
+		"100.128.0.0",    // just above it
+		"10.0.0.1",       // private, not tailnet
+		"127.0.0.1",
+		"0.0.0.0",
+		"fd7a:115c:a1e0::1",  // tailnet IPv6; an A record cannot hold it
+		"::ffff:100.64.0.10", // v4-mapped v6
+		"100.64.0.10/32",     // not an address
+		"app.example.com",    // a name
+		"100.64.0.256",
+		"1e2.64.0.10",
+		"",
+	} {
+		backend := &fakeBackend{}
+		args := validArgs("upsert_a_record")
+		args["content"] = content
+		code, _, refused := failure(callTool(loadedPlugin(t, backend), "upsert_a_record", args))
+		if !refused || code != cerbplugin.ErrorInvalidArgs {
+			t.Errorf("content %q: refused=%v code=%q", content, refused, code)
+		}
+		if len(backend.calls) != 0 {
+			t.Errorf("content %q reached Cloudflare: %v", content, methods(backend))
+		}
+	}
+	// The edges of the range are inside it.
+	for _, content := range []string{"100.64.0.0", "100.127.255.255"} {
+		args := validArgs("upsert_a_record")
+		args["content"] = content
+		if _, _, refused := failure(callTool(loadedPlugin(t, &fakeBackend{}), "upsert_a_record", args)); refused {
+			t.Errorf("%s is a Tailscale address and was refused", content)
+		}
+	}
+}
+
+func TestUpsertCanNeverBeProxied(t *testing.T) {
+	for _, v := range []any{true, "true", "yes", "1"} {
+		backend := &fakeBackend{}
+		args := validArgs("upsert_a_record")
+		args["proxied"] = v
+		code, message, refused := failure(callTool(loadedPlugin(t, backend), "upsert_a_record", args))
+		if !refused || code != cerbplugin.ErrorInvalidArgs || !strings.Contains(message, "DNS-only") || len(backend.calls) != 0 {
+			t.Errorf("proxied=%v: refused=%v code=%q calls=%v", v, refused, code, methods(backend))
+		}
+	}
+}
+
+func TestUpsertRefusesBadNamesAndTTLs(t *testing.T) {
+	p := loadedPlugin(t, &fakeBackend{})
+	for name, change := range map[string]map[string]any{
+		"wildcard":   {"name": "*.app"},
+		"slash":      {"name": "a/b"},
+		"space":      {"name": "a b"},
+		"low ttl":    {"ttl": 5},
+		"high ttl":   {"ttl": 100000},
+		"bad zone":   {"zone_id": "../z"},
+		"no content": {"content": ""},
+	} {
+		args := validArgs("upsert_a_record")
+		for k, v := range change {
+			args[k] = v
+		}
+		if code, _, refused := failure(callTool(p, "upsert_a_record", args)); !refused || code != cerbplugin.ErrorInvalidArgs {
+			t.Errorf("%s: refused=%v code=%q", name, refused, code)
+		}
+	}
+}
+
+func TestUpsertQualifiesNames(t *testing.T) {
+	for in, want := range map[string]string{
+		"app":              "app.example.com",
+		"App":              "app.example.com",
+		"app.example.com":  "app.example.com",
+		"app.example.com.": "app.example.com",
+		"@":                "example.com",
+		"example.com":      "example.com",
+		"a.b":              "a.b.example.com",
+	} {
+		if got := qualifiedName(in, "example.com"); got != want {
+			t.Errorf("qualifiedName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestUpsertPreviewShowsBeforeAndAfterAndWritesNothing(t *testing.T) {
+	backend := &fakeBackend{aRecs: []DNSRecord{{ID: "r1", Type: "A", Name: "app.example.com", Content: "100.64.0.9", TTL: 300, Proxied: true}}}
+	args := validArgs("upsert_a_record")
+	delete(args, argAcknowledged)
+	args[argDryRun] = true
+	preview := decode[struct {
+		DryRunPreview
+		Input struct {
+			Action string    `json:"action"`
+			Before DNSRecord `json:"before"`
+			After  DNSRecord `json:"after"`
+		} `json:"input"`
+	}](t, mustCall(t, loadedPlugin(t, backend), "upsert_a_record", args))
+	if !preview.DryRun || preview.Input.Action != "updated" || preview.Input.Before.Content != "100.64.0.9" ||
+		preview.Input.After.Content != "100.64.0.10" || preview.Input.After.Proxied || preview.Input.After.TTL != 300 {
+		t.Fatalf("preview = %+v", preview)
+	}
+	if !strings.Contains(strings.Join(preview.Warnings, " "), "turns the proxy off") {
+		t.Errorf("warnings = %v", preview.Warnings)
+	}
+	for _, m := range methods(backend) {
+		if m == "UpdateDNSRecord" || m == "CreateDNSRecord" {
+			t.Fatalf("a preview wrote: %v", methods(backend))
+		}
+	}
+	// A refused address is refused in a preview too.
+	args["content"] = "203.0.113.10"
+	if _, _, refused := failure(callTool(loadedPlugin(t, &fakeBackend{}), "upsert_a_record", args)); !refused {
+		t.Error("a preview of a public address must be refused")
+	}
+}
+
+func TestUpsertPreviewWithoutACredentialIsTheRequestAlone(t *testing.T) {
+	bare := New()
+	if _, err := bare.Load(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	preview := decode[DryRunPreview](t, mustCall(t, bare, "upsert_a_record", map[string]any{"zone_id": "z", "name": "app", "content": "100.64.0.10", argDryRun: true}))
+	if !preview.DryRun || !strings.Contains(strings.Join(preview.Warnings, " "), "no before to compare") {
+		t.Fatalf("preview = %+v", preview)
 	}
 }

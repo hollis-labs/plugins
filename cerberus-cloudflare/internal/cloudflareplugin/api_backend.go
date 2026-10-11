@@ -398,3 +398,66 @@ func (b *apiBackend) RevokeR2Credential(ctx context.Context, accountID, accessKe
 	}
 	return nil
 }
+
+// wireRecord is a DNS record as the API returns it. Comments, tags and
+// metadata on the wire record are not read.
+type wireRecord struct {
+	ID      string  `json:"id"`
+	Type    string  `json:"type"`
+	Name    string  `json:"name"`
+	Content string  `json:"content"`
+	TTL     int     `json:"ttl"`
+	Proxied bool    `json:"proxied"`
+	Prio    float64 `json:"priority"`
+}
+
+// recordFromWire names every field that leaves.
+func recordFromWire(w wireRecord) DNSRecord {
+	rec := DNSRecord{ID: w.ID, Type: w.Type, Name: w.Name, Content: w.Content, TTL: w.TTL, Proxied: w.Proxied}
+	if w.Prio != 0 {
+		p := int(w.Prio)
+		rec.Priority = &p
+	}
+	return rec
+}
+
+func (b *apiBackend) GetZone(ctx context.Context, zoneID string) (*Zone, error) {
+	var w struct {
+		ID          string   `json:"id"`
+		Name        string   `json:"name"`
+		Status      string   `json:"status"`
+		Paused      bool     `json:"paused"`
+		NameServers []string `json:"name_servers"`
+		Plan        struct {
+			Name string `json:"name"`
+		} `json:"plan"`
+	}
+	if err := b.do(ctx, http.MethodGet, "/zones/"+url.PathEscape(zoneID), nil, nil, nil, &w); err != nil {
+		return nil, fmt.Errorf("read zone %s: %w", zoneID, err)
+	}
+	return &Zone{ID: w.ID, Name: w.Name, Status: w.Status, Paused: w.Paused, NameServers: w.NameServers, Plan: w.Plan.Name}, nil
+}
+
+func (b *apiBackend) FindARecords(ctx context.Context, zoneID, fqdn string) ([]DNSRecord, error) {
+	var out []wireRecord
+	query := url.Values{"type": {"A"}, "name": {fqdn}, "per_page": {"100"}}
+	if err := b.do(ctx, http.MethodGet, "/zones/"+url.PathEscape(zoneID)+"/dns_records", query, nil, nil, &out); err != nil {
+		return nil, fmt.Errorf("look up A records for %s in zone %s: %w", fqdn, zoneID, err)
+	}
+	records := make([]DNSRecord, 0, len(out))
+	for _, w := range out {
+		records = append(records, recordFromWire(w))
+	}
+	return records, nil
+}
+
+func (b *apiBackend) UpdateDNSRecord(ctx context.Context, zoneID, recordID string, rec DNSRecord) (*DNSRecord, error) {
+	body := map[string]any{"type": rec.Type, "name": rec.Name, "content": rec.Content, "ttl": rec.TTL, "proxied": rec.Proxied}
+	var out wireRecord
+	path := "/zones/" + url.PathEscape(zoneID) + "/dns_records/" + url.PathEscape(recordID)
+	if err := b.do(ctx, http.MethodPatch, path, nil, nil, body, &out); err != nil {
+		return nil, fmt.Errorf("update dns record %s in zone %s: %w", recordID, zoneID, err)
+	}
+	updated := recordFromWire(out)
+	return &updated, nil
+}

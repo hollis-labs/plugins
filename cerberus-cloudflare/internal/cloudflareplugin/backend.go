@@ -13,6 +13,12 @@ type Backend interface {
 	CreateDNSRecord(ctx context.Context, zoneID string, rec DNSRecord) (*DNSRecord, error)
 	DeleteDNSRecord(ctx context.Context, zoneID, recordID string) error
 
+	// GetZone reads one zone, for its name.
+	GetZone(ctx context.Context, zoneID string) (*Zone, error)
+	// FindARecords returns the A records at one fully qualified name.
+	FindARecords(ctx context.Context, zoneID, fqdn string) ([]DNSRecord, error)
+	UpdateDNSRecord(ctx context.Context, zoneID, recordID string, rec DNSRecord) (*DNSRecord, error)
+
 	// VerifyToken verifies the plugin's own token. With an account id it asks
 	// the account-owned token endpoint, without one the user-owned one.
 	VerifyToken(ctx context.Context, accountID string) (*TokenStatus, error)

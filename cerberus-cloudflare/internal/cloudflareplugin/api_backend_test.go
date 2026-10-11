@@ -315,3 +315,37 @@ func TestGetAndRevokeCredentialUseTheAccountTokenEndpoint(t *testing.T) {
 		t.Errorf("requests = %v", got)
 	}
 }
+
+func TestDNSLookupAndUpdateUseTheZoneEndpoints(t *testing.T) {
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		switch {
+		case r.URL.Path == "/zones/zone1":
+			ok(w, `{"id":"zone1","name":"example.com","status":"active","paused":false,"name_servers":["a.ns.example"],"plan":{"name":"Free"},"account":{"id":"x"}}`)
+		case r.Method == "GET":
+			ok(w, `[{"id":"r1","type":"A","name":"app.example.com","content":"100.64.0.10","ttl":300,"proxied":true,"comment":"private note","tags":["t"]}]`)
+		case r.Method == "PATCH":
+			ok(w, `{"id":"r1","type":"A","name":"app.example.com","content":"100.64.0.11","ttl":300,"proxied":false}`)
+		}
+	})
+	zone, err := api.GetZone(t.Context(), "zone1")
+	if err != nil || zone.Name != "example.com" || zone.Plan != "Free" {
+		t.Fatalf("zone = %+v, %v", zone, err)
+	}
+	recs, err := api.FindARecords(t.Context(), "zone1", "app.example.com")
+	if err != nil || len(recs) != 1 || !recs[0].Proxied {
+		t.Fatalf("records = %+v, %v", recs, err)
+	}
+	if data, _ := json.Marshal(recs); strings.Contains(string(data), "private note") {
+		t.Errorf("DTO leaked a comment: %s", data)
+	}
+	if got := fake.requests[1].Path; !strings.Contains(got, "type=A") || !strings.Contains(got, "name=app.example.com") {
+		t.Errorf("lookup path = %q", got)
+	}
+	updated, err := api.UpdateDNSRecord(t.Context(), "zone1", "r1", DNSRecord{Type: "A", Name: "app.example.com", Content: "100.64.0.11", TTL: 300})
+	if err != nil || updated.Content != "100.64.0.11" || updated.Proxied {
+		t.Fatalf("updated = %+v, %v", updated, err)
+	}
+	if body := fake.requests[2].Body; !strings.Contains(body, `"proxied":false`) || fake.requests[2].Method != "PATCH" {
+		t.Errorf("update request = %+v", fake.requests[2])
+	}
+}

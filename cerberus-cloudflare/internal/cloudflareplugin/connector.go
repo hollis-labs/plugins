@@ -285,6 +285,27 @@ func Definition() contract.Definition {
 					"access_key_id": contract.StringSchema("The key's access key id, as create_r2_credential returned it."),
 				}, "account_id", "access_key_id"),
 			},
+			{
+				Name:         "upsert_a_record",
+				OutputSchema: contract.OutputSchemaOf[UpsertResult](),
+				Effect:       contract.EffectDestructive,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.dns_record", From: []string{"zone_id", "name"}},
+				Preview:      contract.PreviewPlugin,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Create or update a DNS-only A record for a host, pointing at a Tailscale address (100.64.0.0/10). Always unproxied. Refuses any other address, so a host record cannot point at a public IP. The preview reads the current record and shows before and after.",
+				Examples: []string{
+					"cerberus connectors exec cloudflare upsert_a_record --arg zone_id=<zone-id> --arg name=app --arg content=100.64.0.10 --dry-run",
+					"cerberus connectors exec cloudflare upsert_a_record --arg zone_id=<zone-id> --arg name=app --arg content=100.64.0.10 --ack",
+				},
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"zone_id": contract.StringSchema("Cloudflare zone ID."),
+					"name":    contract.StringSchema("Host name: relative to the zone (app), fully qualified inside it (app.example.com) or @ for the apex."),
+					"content": contract.StringSchema("The Tailscale IPv4 address the name should resolve to, inside 100.64.0.0/10."),
+					"ttl":     contract.IntegerSchema("TTL in seconds: 1 (automatic) or 60 to 86400. An update keeps the current TTL when this is omitted; a create uses automatic."),
+				}, "zone_id", "name", "content"),
+			},
 		},
 	})
 }
