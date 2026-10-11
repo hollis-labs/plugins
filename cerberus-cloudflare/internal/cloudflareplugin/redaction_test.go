@@ -71,3 +71,36 @@ func TestRefusalsSurviveRedaction(t *testing.T) {
 	status, _ := (&Plugin{}).Health(context.Background())
 	assertSurvivesRedaction(t, "health", status.Message)
 }
+
+// The guidance the newer operations give an operator must reach them intact:
+// the mint note says where the secret is, and the refusals say what to do.
+func TestNewOperationGuidanceSurvivesRedaction(t *testing.T) {
+	assertSurvivesRedaction(t, "credential note", credentialNote)
+
+	p := loadedPlugin(t, existingBackend())
+	for label, call := range map[string]struct {
+		op   string
+		args map[string]any
+	}{
+		"public address":  {"upsert_a_record", map[string]any{"zone_id": "z", "name": "app", "content": "203.0.113.10", argAcknowledged: true}},
+		"proxied":         {"upsert_a_record", map[string]any{"zone_id": "z", "name": "app", "content": "100.64.0.10", "proxied": true, argAcknowledged: true}},
+		"unminted revoke": {"revoke_r2_credential", map[string]any{"account_id": "acct", "access_key_id": "admin", argAcknowledged: true}},
+		"missing bucket":  {"create_r2_credential", map[string]any{"account_id": "acct", "bucket": "typo-bucket", argAcknowledged: true}},
+	} {
+		_, message, failed := failure(callTool(p, call.op, call.args))
+		if !failed {
+			t.Fatalf("%s: want a refusal", label)
+		}
+		assertSurvivesRedaction(t, label+" refusal", message)
+	}
+
+	for _, preview := range []DryRunPreview{
+		p.createCredentialPreview(t.Context(), "acct", CredentialRequest{Bucket: "typo-bucket", Permission: PermissionReadWrite}),
+		p.revokeCredentialPreview(t.Context(), "acct", "admin"),
+		p.deleteBucketPreview(t.Context(), "acct", "example-backups", ""),
+	} {
+		for _, w := range preview.Warnings {
+			assertSurvivesRedaction(t, preview.Operation+" warning", w)
+		}
+	}
+}

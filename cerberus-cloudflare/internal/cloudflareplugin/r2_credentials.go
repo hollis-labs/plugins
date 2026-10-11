@@ -46,7 +46,7 @@ const credentialNote = "access_key_value is shown this once and cannot be read a
 
 func (p *Plugin) createCredentialPreview(ctx context.Context, accountID string, req CredentialRequest) DryRunPreview {
 	warnings := []string{
-		"this mints a credential: the secret half is returned once by the real call, is not stored or logged by this plugin, and cannot be read again",
+		"this mints a credential. The secret half is returned once by the real call, is not stored or logged by this plugin, and cannot be read again",
 		"the key reaches only this bucket and only object " + permissionWords(req.Permission) + "; it cannot list or change other buckets, or the account",
 		"minting needs a token that can create account API tokens, which is more than R2 administration alone",
 	}
