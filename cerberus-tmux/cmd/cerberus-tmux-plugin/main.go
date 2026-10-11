@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/hollis-labs/cerberus-plugins/tmux/internal/tmuxplugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func main() {

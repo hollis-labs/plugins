@@ -7,7 +7,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -25,10 +26,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Tmux Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus Tmux Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -84,12 +86,12 @@ func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest)
 
 func (p *Plugin) runTmux(ctx context.Context, args []string) (subprocess.MCPCallResult, error) {
 	out, err := exec.CommandContext(ctx, "tmux", args...).CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("tmux %v failed: %v\n%s", args, err, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
