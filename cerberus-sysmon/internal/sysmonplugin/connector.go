@@ -5,7 +5,7 @@ import (
 )
 
 const ConnectorID = "sysmon"
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 func Definition() contract.Definition {
 	return contract.Finalize(contract.Definition{
@@ -23,56 +23,69 @@ func Definition() contract.Definition {
 		Operations: []contract.Operation{
 			{
 				Name:         "cpu",
-				OutputSchema: contract.OutputSchemaOf[string](),
+				OutputSchema: contract.OutputSchemaOf[CPU](),
 				Effect:       contract.EffectRead,
 				Target:       contract.TargetDescriptor{Kind: "sysmon.host"},
 				Preview:      contract.PreviewNone,
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Get CPU usage metrics.",
+				Description:  "CPU model, logical cores, load averages and usage.",
 				Examples:     []string{"cerberus connectors exec sysmon cpu"},
 				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "memory",
-				OutputSchema: contract.OutputSchemaOf[string](),
+				OutputSchema: contract.OutputSchemaOf[Memory](),
 				Effect:       contract.EffectRead,
 				Target:       contract.TargetDescriptor{Kind: "sysmon.host"},
 				Preview:      contract.PreviewNone,
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Get memory usage metrics.",
+				Description:  "Memory and swap in bytes: total, free, available, used.",
 				Examples:     []string{"cerberus connectors exec sysmon memory"},
 				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "disk",
-				OutputSchema: contract.OutputSchemaOf[string](),
+				OutputSchema: contract.OutputSchemaOf[Disk](),
 				Effect:       contract.EffectRead,
 				Target:       contract.TargetDescriptor{Kind: "sysmon.host"},
 				Preview:      contract.PreviewNone,
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Get disk usage metrics.",
+				Description:  "Filesystem usage in bytes for the mount holding a path.",
 				Examples:     []string{"cerberus connectors exec sysmon disk --arg path=/"},
-				InputSchema:  contract.ObjectSchema(map[string]any{
+				InputSchema: contract.ObjectSchema(map[string]any{
 					"path": contract.StringSchema("Path to get disk usage for (default: /)."),
 				}),
 			},
 			{
 				Name:         "host",
-				OutputSchema: contract.OutputSchemaOf[string](),
+				OutputSchema: contract.OutputSchemaOf[Host](),
 				Effect:       contract.EffectRead,
 				Target:       contract.TargetDescriptor{Kind: "sysmon.host"},
 				Preview:      contract.PreviewNone,
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Get host OS information.",
+				Description:  "Hostname, OS, architecture, kernel and uptime.",
 				Examples:     []string{"cerberus connectors exec sysmon host"},
+				InputSchema:  contract.ObjectSchema(map[string]any{}),
+			},
+			{
+				Name:         "host_report",
+				OutputSchema: contract.OutputSchemaOf[HostReport](),
+				Effect:       contract.EffectRead,
+				Target:       contract.TargetDescriptor{Kind: "sysmon.host"},
+				Preview:      contract.PreviewNone,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "One report: host identity, CPU, memory, every real mount, GPUs (empty list when none) and warnings for sections that could not be read.",
+				Examples:     []string{"cerberus connectors exec sysmon host_report"},
 				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 		},
