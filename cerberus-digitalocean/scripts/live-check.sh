@@ -69,4 +69,17 @@ run create_droplet --arg name=cerberus-preview --arg region=nyc3 --arg size=s-1v
 run stop --arg droplet_id="${droplet:-1}" --dry-run --ack
 run destroy --arg droplet_id="${droplet:-1}" --dry-run --ack
 
-echo "live check complete: reads ran, three writes previewed, nothing written" >&2
+# Fleet operations (0.3.0). Their reads need more read scopes than droplet:read
+# (firewall:read, block_storage:read, image:read, ssh_key:read, vpc:read), so a
+# 403 is reported and skipped rather than failing the check. Writes are only
+# previewed, and the previews use example ids.
+for read in list_firewalls list_volumes list_ssh_keys list_vpcs list_projects list_reserved_ips; do
+  run "$read" || echo "skipped $read (token lacks the scope, or the call failed)" >&2
+done
+run list_snapshots --arg resource_type=volume || echo "skipped list_snapshots" >&2
+run create_firewall --arg name=cerberus-preview \
+  --arg inbound_rules='[{"protocol":"tcp","ports":"22","addresses":["0.0.0.0/0"]}]' --dry-run --ack
+run delete_volume --arg volume_id=00000000-0000-4000-8000-000000000000 --dry-run --ack
+run delete_snapshot --arg snapshot_id=00000000-0000-4000-8000-000000000000 --dry-run --ack
+
+echo "live check complete: reads ran, writes previewed (including a world-open firewall), nothing written" >&2

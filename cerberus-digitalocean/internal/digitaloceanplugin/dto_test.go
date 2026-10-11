@@ -53,21 +53,23 @@ func fullyPopulatedDroplet() *godo.Droplet {
 }
 
 // The DTO is an allow-list (ADR 0003). A droplet carries its private network,
-// tags, volumes and VPC; none of that may reach CLI output, MCP results or an
-// agent's context.
+// private network and more; none of that may reach CLI output, MCP results or an
+// agent's context. Tags, volume ids and the VPC are the named exceptions.
 func TestDropletDTOOmitsEverythingNotNamed(t *testing.T) {
 	encoded, err := json.Marshal(dropletFromSDK(fullyPopulatedDroplet()))
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
 	got := string(encoded)
-	for _, leak := range []string{sentinelPrivateIP, sentinelIPv6, sentinelTag, sentinelVolume, sentinelVPC,
+	for _, leak := range []string{sentinelPrivateIP, sentinelIPv6,
 		sentinelKernel, sentinelFeature, sentinelImageName, sentinelRegion, "880011", "880022", "memory", "vcpus"} {
 		if strings.Contains(got, leak) {
 			t.Fatalf("serialized droplet leaked %q:\n%s", leak, got)
 		}
 	}
-	want := `{"id":42,"name":"web","status":"active","region":"nyc3","size":"s-1vcpu-1gb","image":"ubuntu-24-04-x64","ipv4":"192.0.2.8","created_at":"2026-09-01T12:00:00Z"}`
+	// vpc_uuid, volume_ids and tags are named on purpose (0.3.0).
+	want := `{"id":42,"name":"web","status":"active","region":"nyc3","size":"s-1vcpu-1gb","image":"ubuntu-24-04-x64","ipv4":"192.0.2.8","created_at":"2026-09-01T12:00:00Z",` +
+		`"vpc_uuid":"` + sentinelVPC + `","volume_ids":["` + sentinelVolume + `"],"tags":["` + sentinelTag + `"]}`
 	if got != want {
 		t.Fatalf("droplet =\n %s\nwant (the built-in's field names)\n %s", got, want)
 	}

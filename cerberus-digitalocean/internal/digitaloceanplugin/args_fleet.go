@@ -276,3 +276,68 @@ func (a *argMap) label(key string, max int) string {
 	}
 	return v
 }
+
+// ipAddress reads a required IP address. It is parsed, not pattern-matched, and
+// returned in canonical form, which is also what goes in the URL path.
+func (a *argMap) ipAddress(key string) string {
+	v := a.required(key)
+	if v == "" {
+		return ""
+	}
+	addr, err := netip.ParseAddr(v)
+	if err != nil || addr.Zone() != "" {
+		a.problems = append(a.problems, key+" is not an IP address")
+		return ""
+	}
+	return addr.String()
+}
+
+var (
+	tagPattern = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,255}$`)
+	urnPattern = regexp.MustCompile(`^do:[a-z_]+:[A-Za-z0-9._-]{1,128}$`)
+)
+
+func (a *argMap) tagName(key string) string {
+	v := a.required(key)
+	if v != "" && !tagPattern.MatchString(v) {
+		a.problems = append(a.problems, key+" may contain only letters, digits, colons, dashes and underscores (255 at most)")
+		return ""
+	}
+	return v
+}
+
+func (a *argMap) urns(key string) []string {
+	list := a.requiredList(key)
+	for _, urn := range list {
+		if !urnPattern.MatchString(urn) {
+			a.problems = append(a.problems, fmt.Sprintf("%s entry %q is not a resource URN such as do:droplet:123456", key, urn))
+			return nil
+		}
+	}
+	return list
+}
+
+// publicKeyPrefixes are the OpenSSH public key types.
+var publicKeyPrefixes = []string{"ssh-rsa", "ssh-ed25519", "ssh-dss", "ecdsa-sha2-", "sk-ssh-ed25519@", "sk-ecdsa-sha2-"}
+
+// publicKey reads an OpenSSH public key and refuses anything else. A private
+// key pasted here by mistake must not be sent anywhere, and the refusal does
+// not echo the value.
+func (a *argMap) publicKey(key string) (value, keyType string) {
+	v := a.required(key)
+	if v == "" {
+		return "", ""
+	}
+	if strings.Contains(v, "PRIVATE KEY") {
+		a.problems = append(a.problems, key+" looks like a PRIVATE key. Supply the public half (.pub) only")
+		return "", ""
+	}
+	fields := strings.Fields(v)
+	for _, prefix := range publicKeyPrefixes {
+		if strings.HasPrefix(fields[0], prefix) && len(fields) >= 2 {
+			return strings.Join(fields, " "), fields[0]
+		}
+	}
+	a.problems = append(a.problems, key+" is not an OpenSSH public key (expected e.g. ssh-ed25519 AAAA...)")
+	return "", ""
+}

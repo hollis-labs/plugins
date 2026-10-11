@@ -9,7 +9,7 @@ import (
 
 // The fleet operations (firewalls, volumes, snapshots, keys, tags, projects,
 // reserved IPs, VPCs) are served from a table rather than plugin.go's switch.
-// Each file registers its handlers and its contract in init, and registering a
+// Each file registers its handlers and its contract, and registering a
 // write puts it in ackOperations and previewOperations, so the acknowledgment
 // and dry-run gates in call() cover it without a second list to keep in step.
 
@@ -22,6 +22,15 @@ var (
 	fleetHandlers = map[string]fleetHandler{}
 	fleetContract []contract.Operation
 )
+
+// init registers the groups in a fixed order, which is the order their
+// operations appear in the contract. (Go runs init functions in file name
+// order, which would put account before firewalls.)
+func init() {
+	registerFirewalls()
+	registerStorage()
+	registerAccount()
+}
 
 // registerFleet adds an operation. A write is acknowledgment-gated and has a
 // preview; a read has neither.
@@ -37,9 +46,7 @@ func registerFleet(op contract.Operation, write bool, h fleetHandler) {
 	}
 }
 
-// fleetOperations returns the registered contracts in a stable order: the
-// order the files register them, which is the order their init functions run
-// (file name order), then registration order within a file.
+// fleetOperations returns the registered contracts in registration order.
 func fleetOperations() []contract.Operation {
 	return append([]contract.Operation(nil), fleetContract...)
 }

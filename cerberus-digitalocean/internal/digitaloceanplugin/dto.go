@@ -23,17 +23,24 @@ type DropletList struct {
 }
 
 // DropletStatus is the normalized view of a droplet. The SDK type also carries
-// private and IPv6 networks, tags, volume ids, the VPC, kernel, backup and
-// snapshot ids and feature flags; none of them is returned.
+// private and IPv6 networks, kernel, backup and snapshot ids and feature
+// flags; none of them is returned. The VPC, volume ids and tags are.
 type DropletStatus struct {
 	ID        int       `json:"id"`
-	Name      string    `json:"name"`
+	Name      string    `json:"name" cerb:"untrusted"`
 	Status    string    `json:"status"` // new, active, off, archive
 	Region    string    `json:"region"`
 	Size      string    `json:"size"`
 	Image     string    `json:"image"`
 	IPv4      string    `json:"ipv4,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
+	// VPCUUID, VolumeIDs and Tags are the fleet fields (0.3.0). They were
+	// withheld before; each is named here on purpose and nothing else beside
+	// them is: the private and IPv6 addresses, kernel, backup and snapshot ids
+	// and feature flags still stay out.
+	VPCUUID   string   `json:"vpc_uuid,omitempty"`
+	VolumeIDs []string `json:"volume_ids,omitempty"`
+	Tags      []string `json:"tags,omitempty" cerb:"untrusted"`
 }
 
 // CreatedReference is what create_droplet returns when the droplet was

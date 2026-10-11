@@ -66,4 +66,23 @@ type StorageBackend interface {
 
 // AccountBackend is the rest of the fleet surface: SSH keys, tags, projects,
 // reserved IPs and VPCs.
-type AccountBackend interface{}
+type AccountBackend interface {
+	ListSSHKeys(ctx context.Context) (SSHKeyList, error)
+	AddSSHKey(ctx context.Context, name, publicKey string) (*SSHKey, error)
+	// DeleteSSHKey takes a numeric id or a fingerprint.
+	DeleteSSHKey(ctx context.Context, key string) error
+
+	// TagResources applies a tag (creating it if needed) to resources of one
+	// type: droplet, volume, volume_snapshot or image.
+	TagResources(ctx context.Context, tag, resourceType string, ids []string) error
+
+	ListProjects(ctx context.Context) (ProjectList, error)
+	AssignProjectResources(ctx context.Context, projectID string, urns []string) error
+
+	ListReservedIPs(ctx context.Context) (ReservedIPList, error)
+	AssignReservedIP(ctx context.Context, ip string, dropletID int) error
+	UnassignReservedIP(ctx context.Context, ip string) error
+
+	ListVPCs(ctx context.Context) (VPCList, error)
+	GetVPC(ctx context.Context, id string) (*VPC, error)
+}

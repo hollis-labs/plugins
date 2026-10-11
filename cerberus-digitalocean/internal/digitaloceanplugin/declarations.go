@@ -14,7 +14,22 @@ import (
 var suggestedPolicy = []cerbplugin.SuggestedRule{
 	{Operation: "create_droplet", Require: cerbplugin.RequireApprovalForAgents, Reason: "creates billable infrastructure"},
 	{Operation: "destroy", Require: cerbplugin.RequireApproval, Reason: "destroys a droplet and its disk; it cannot be undone"},
-	{Operation: "stop", Require: cerbplugin.RequireApprovalForAgents, Reason: "takes a running droplet offline"},
+	{Operation: "stop", Require: cerbplugin.RequireApprovalForAgents, Reason: "takes a running droplet offline; a stopped droplet still bills"},
+	{Operation: "create_firewall", Require: cerbplugin.RequireApprovalForAgents, Reason: "sets what the internet can reach; a rule admitting 0.0.0.0/0 or ::/0 breaks the tailnet-only posture"},
+	{Operation: "update_firewall", Require: cerbplugin.RequireApprovalForAgents, Reason: "replaces firewall rules; a rule admitting 0.0.0.0/0 or ::/0 breaks the tailnet-only posture"},
+	{Operation: "delete_firewall", Require: cerbplugin.RequireApproval, Reason: "removes the protection from every droplet it covers"},
+	{Operation: "unassign_firewall_droplets", Require: cerbplugin.RequireApprovalForAgents, Reason: "removes a droplet's firewall protection"},
+	{Operation: "assign_tag", Require: cerbplugin.RequireApprovalForAgents, Reason: "a tag can pull a droplet under, or out of, a tag-targeted firewall"},
+	{Operation: "create_volume", Require: cerbplugin.RequireApprovalForAgents, Reason: "creates billable storage"},
+	{Operation: "resize_volume", Require: cerbplugin.RequireApprovalForAgents, Reason: "raises a volume's cost and cannot be shrunk"},
+	{Operation: "create_volume_snapshot", Require: cerbplugin.RequireApprovalForAgents, Reason: "creates billable storage"},
+	{Operation: "create_droplet_snapshot", Require: cerbplugin.RequireApprovalForAgents, Reason: "creates billable storage"},
+	{Operation: "detach_volume", Require: cerbplugin.RequireApprovalForAgents, Reason: "detaching a mounted volume can corrupt it"},
+	{Operation: "delete_volume", Require: cerbplugin.RequireApproval, Reason: "destroys the data on the volume; it cannot be undone"},
+	{Operation: "delete_snapshot", Require: cerbplugin.RequireApproval, Reason: "destroys a backup; it cannot be undone"},
+	{Operation: "delete_ssh_key", Require: cerbplugin.RequireApproval, Reason: "removes an account SSH key"},
+	{Operation: "assign_reserved_ip", Require: cerbplugin.RequireApprovalForAgents, Reason: "moves live traffic to another droplet"},
+	{Operation: "unassign_reserved_ip", Require: cerbplugin.RequireApprovalForAgents, Reason: "stops traffic to the IP"},
 }
 
 // cliOnly operations never reach MCP, whatever connector-config.yaml says.

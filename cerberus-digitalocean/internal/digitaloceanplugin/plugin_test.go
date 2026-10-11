@@ -29,6 +29,7 @@ type fakeBackend struct {
 	firewalls []Firewall
 	volumes   []Volume
 	snapshots []Snapshot
+	keys      []SSHKey
 }
 
 func (f *fakeBackend) record(method string, args ...any) {

@@ -33,7 +33,7 @@ const (
 	createFWExample = `--arg name=tailnet-only --arg inbound_rules='[{"protocol":"udp","ports":"41641","addresses":["198.51.100.0/24"]}]'`
 )
 
-func init() {
+func registerFirewalls() {
 	fwTarget := []string{"firewall_id"}
 	registerFleet(readOp("list_firewalls", "digitalocean.account", nil,
 		"List cloud firewalls, with a computed world_open flag on any that admit 0.0.0.0/0 or ::/0.",

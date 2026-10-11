@@ -176,3 +176,63 @@ type SnapshotStarted struct {
 	Name      string `json:"name" cerb:"untrusted"`
 	Action    string `json:"action"` // snapshot
 }
+
+// SSHKey is an account SSH key. The public key itself is not returned: the
+// fingerprint identifies it, and the key is long text nobody needs in context.
+type SSHKey struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name" cerb:"untrusted"`
+	Fingerprint string `json:"fingerprint"`
+}
+
+// SSHKeyList is list_ssh_keys' result.
+type SSHKeyList struct {
+	Keys      []SSHKey `json:"keys"`
+	Truncated bool     `json:"truncated"`
+}
+
+// Project is a DigitalOcean project. Its owner ids are not returned.
+type Project struct {
+	ID          string `json:"id"`
+	Name        string `json:"name" cerb:"untrusted"`
+	Purpose     string `json:"purpose,omitempty" cerb:"untrusted"`
+	Environment string `json:"environment,omitempty"`
+	IsDefault   bool   `json:"is_default"`
+}
+
+// ProjectList is list_projects' result.
+type ProjectList struct {
+	Projects  []Project `json:"projects"`
+	Truncated bool      `json:"truncated"`
+}
+
+// ReservedIP is a reserved IP and the droplet it points at, if any.
+type ReservedIP struct {
+	IP        string `json:"ip"`
+	Region    string `json:"region"`
+	DropletID int    `json:"droplet_id,omitempty"`
+	Locked    bool   `json:"locked"`
+}
+
+// ReservedIPList is list_reserved_ips' result.
+type ReservedIPList struct {
+	ReservedIPs []ReservedIP `json:"reserved_ips"`
+	Truncated   bool         `json:"truncated"`
+}
+
+// VPC is a private network.
+type VPC struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name" cerb:"untrusted"`
+	Description string    `json:"description,omitempty" cerb:"untrusted"`
+	Region      string    `json:"region"`
+	IPRange     string    `json:"ip_range"`
+	Default     bool      `json:"default"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// VPCList is list_vpcs' result.
+type VPCList struct {
+	VPCs      []VPC `json:"vpcs"`
+	Truncated bool  `json:"truncated"`
+}

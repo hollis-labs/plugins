@@ -9,7 +9,7 @@ import (
 
 const maxVolumeGB = 16384
 
-func init() {
+func registerStorage() {
 	volTarget := []string{"volume_id"}
 	volumeInput := func(extra map[string]any, required ...string) map[string]any {
 		props := map[string]any{"volume_id": strProp("Volume id.")}
