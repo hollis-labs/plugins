@@ -1,6 +1,6 @@
 schema_version: "1"
 id: tailscale
-version: 0.1.0
+version: 0.2.0
 protocol: plugin-sdk/subprocess
 runtime: subprocess
 entrypoint:
@@ -10,7 +10,7 @@ cerberus:
         api_version: cerberus.connector/v1
         kind: Connector
         id: tailscale
-        version: 0.1.0
+        version: 0.2.0
         resource_types:
             - tailscale.tailnet
         capabilities:
@@ -18,7 +18,22 @@ cerberus:
             can_destroy: false
             can_build: false
             can_logs: false
-            can_health: false
+            can_health: true
+        config:
+            fields:
+                - name: tailnet
+                  type: string
+                  description: 'Tailnet the API operations act on: its name (for example example.com) or id. The default, a hyphen, is the tailnet the credential belongs to.'
+            secrets:
+                - name: api_key
+                  description: Tailscale API access token. Alternative to an OAuth client; it acts as the user who created it and expires within 90 days.
+                  env: CERBERUS_TAILSCALE_API_KEY
+                - name: oauth_client_id
+                  description: Tailscale OAuth client id. Used with the client secret; preferred to an API key.
+                  env: CERBERUS_TAILSCALE_OAUTH_CLIENT_ID
+                - name: oauth_client_secret
+                  description: Tailscale OAuth client secret.
+                  env: CERBERUS_TAILSCALE_OAUTH_CLIENT_SECRET
         operations:
             - name: status
               description: Check Tailscale connection status.
@@ -105,12 +120,341 @@ cerberus:
                 type: string
               destructive: true
               requires_ack: true
+            - name: list_auth_keys
+              description: List the tailnet's keys (ids, kind, expiry, capabilities). Key values are never returned.
+              examples:
+                - cerberus connectors exec tailscale list_auth_keys
+              input_schema:
+                additionalProperties: false
+                properties:
+                    tailnet:
+                        description: 'Tailnet to act on, overriding the configured one. Default: the configured tailnet.'
+                        type: string
+                type: object
+              effect: read
+              target:
+                kind: tailscale.tailnet
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                properties:
+                    keys:
+                        items:
+                            properties:
+                                description:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
+                        type: array
+                type: object
+            - name: mint_auth_key
+              description: Mint a tailnet auth key, a credential that lets a machine join the tailnet. Ephemeral, single-use and pre-authorized by default, tagged, one hour. The key value is returned once and cannot be read again.
+              examples:
+                - cerberus connectors exec tailscale mint_auth_key --arg tags=tag:ci --dry-run
+                - cerberus connectors exec tailscale mint_auth_key --arg tags=tag:ci --arg description=ci-runner --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    description:
+                        description: What the key is for (50 characters at most).
+                        type: string
+                    ephemeral:
+                        description: Devices that join are removed when they go offline. Default true.
+                        type: boolean
+                    preauthorized:
+                        description: Devices join without manual approval. Default true.
+                        type: boolean
+                    reusable:
+                        description: Allow more than one device to join with the key. Default false (single use).
+                        type: boolean
+                    tags:
+                        description: 'Tags the joining device gets (each tag:name). Required: a tagged device is not tied to a person.'
+                        items:
+                            type: string
+                        type: array
+                    tailnet:
+                        description: 'Tailnet to act on, overriding the configured one. Default: the configured tailnet.'
+                        type: string
+                    ttl_seconds:
+                        description: Key lifetime in seconds, 60 to 7776000 (90 days). Default 3600.
+                        type: integer
+                required:
+                    - tags
+                type: object
+              effect: destructive
+              target:
+                kind: tailscale.tailnet
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                properties:
+                    description:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: revoke_key
+              description: Revoke a key. It stops working at once; devices that already joined with it stay.
+              examples:
+                - cerberus connectors exec tailscale revoke_key --arg key_id=kExample123 --dry-run
+                - cerberus connectors exec tailscale revoke_key --arg key_id=kExample123 --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    key_id:
+                        description: Key id, as list_auth_keys shows it.
+                        type: string
+                    tailnet:
+                        description: 'Tailnet to act on, overriding the configured one. Default: the configured tailnet.'
+                        type: string
+                required:
+                    - key_id
+                type: object
+              effect: destructive
+              target:
+                kind: tailscale.key
+                from:
+                    - key_id
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: list_devices
+              description: List the tailnet's devices.
+              examples:
+                - cerberus connectors exec tailscale list_devices
+              input_schema:
+                additionalProperties: false
+                properties:
+                    tailnet:
+                        description: 'Tailnet to act on, overriding the configured one. Default: the configured tailnet.'
+                        type: string
+                type: object
+              effect: read
+              target:
+                kind: tailscale.tailnet
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                properties:
+                    devices:
+                        items:
+                            properties:
+                                hostname:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                name:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                user:
+                                    type: string
+                                    x-cerberus-label:
+                                        - personal
+                                        - untrusted
+                            type: object
+                        type: array
+                type: object
+            - name: get_device
+              description: Get one device.
+              examples:
+                - cerberus connectors exec tailscale get_device --arg device_id=nExample123
+              input_schema:
+                additionalProperties: false
+                properties:
+                    device_id:
+                        description: Device id (nodeId or numeric id), as list_devices shows it.
+                        type: string
+                required:
+                    - device_id
+                type: object
+              effect: read
+              target:
+                kind: tailscale.device
+                from:
+                    - device_id
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                properties:
+                    hostname:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                    name:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                    user:
+                        type: string
+                        x-cerberus-label:
+                            - personal
+                            - untrusted
+                type: object
+            - name: delete_device
+              description: Remove a device from the tailnet. It must rejoin to come back, and a tagged or ephemeral node may need a new key.
+              examples:
+                - cerberus connectors exec tailscale delete_device --arg device_id=nExample123 --dry-run
+                - cerberus connectors exec tailscale delete_device --arg device_id=nExample123 --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    device_id:
+                        description: Device id (nodeId or numeric id), as list_devices shows it.
+                        type: string
+                required:
+                    - device_id
+                type: object
+              effect: destructive
+              target:
+                kind: tailscale.device
+                from:
+                    - device_id
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: set_tags
+              description: Replace a device's tags. Tags decide which ACL rules apply to it, so this can widen or cut its access. An empty list clears them.
+              examples:
+                - cerberus connectors exec tailscale set_tags --arg device_id=nExample123 --arg tags=tag:server --dry-run
+                - cerberus connectors exec tailscale set_tags --arg device_id=nExample123 --arg tags=tag:server --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    device_id:
+                        description: Device id (nodeId or numeric id), as list_devices shows it.
+                        type: string
+                    tags:
+                        description: The complete new tag set (each tag:name). Empty clears.
+                        items:
+                            type: string
+                        type: array
+                required:
+                    - device_id
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: tailscale.device
+                from:
+                    - device_id
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: authorize_device
+              description: Authorize a device that is waiting for approval, which admits it to the tailnet.
+              examples:
+                - cerberus connectors exec tailscale authorize_device --arg device_id=nExample123 --dry-run
+                - cerberus connectors exec tailscale authorize_device --arg device_id=nExample123 --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    device_id:
+                        description: Device id (nodeId or numeric id), as list_devices shows it.
+                        type: string
+                required:
+                    - device_id
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: tailscale.device
+                from:
+                    - device_id
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
     host:
         min_contract: 1
         max_contract: 1
+    suggested_policy:
+        - operation: mint_auth_key
+          require: approval
+          reason: mints a credential that joins a machine to the tailnet, and hands its value to the caller
+        - operation: revoke_key
+          require: approval_for_agents
+          reason: disables a key that machines may be using to join
+        - operation: delete_device
+          require: approval
+          reason: removes a device from the tailnet; it may not be able to rejoin without a new key
+        - operation: set_tags
+          require: approval_for_agents
+          reason: tags decide which ACL rules apply to a device, so this can widen its access
+        - operation: authorize_device
+          require: approval_for_agents
+          reason: admits a device to the tailnet
+        - operation: up
+          require: approval_for_agents
+          reason: changes this host's tailnet connection
+        - operation: down
+          require: approval_for_agents
+          reason: drops this host's tailnet connection, which may be the one carrying the session
+        - operation: serve
+          require: approval_for_agents
+          reason: exposes a local port to the tailnet or, with funnel, the internet
     surfaces:
         mcp:
             - status
             - up
             - down
             - serve
+            - list_auth_keys
+            - list_devices
+            - get_device
+    telemetry:
+        - operation: mint_auth_key
+          events:
+            - change
+            - preview
+        - operation: revoke_key
+          events:
+            - change
+            - preview
+        - operation: delete_device
+          events:
+            - change
+            - preview
+        - operation: set_tags
+          events:
+            - change
+            - preview
+        - operation: authorize_device
+          events:
+            - change
+            - preview

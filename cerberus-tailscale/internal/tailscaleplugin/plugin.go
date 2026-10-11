@@ -1,102 +1,103 @@
 package tailscaleplugin
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"os/exec"
+	"os"
+	"path/filepath"
 
+	contract "github.com/hollis-labs/cerberus/pkg/connector"
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"gopkg.in/yaml.v3"
 )
 
-type Plugin struct {
-	config map[string]string
+const BinaryName = "cerberus-tailscale-plugin"
+
+// suggestedPolicy is what this plugin suggests the operator require. The host
+// never applies it on the plugin's word.
+var suggestedPolicy = []cerbplugin.SuggestedRule{
+	{Operation: "mint_auth_key", Require: cerbplugin.RequireApproval, Reason: "mints a credential that joins a machine to the tailnet, and hands its value to the caller"},
+	{Operation: "revoke_key", Require: cerbplugin.RequireApprovalForAgents, Reason: "disables a key that machines may be using to join"},
+	{Operation: "delete_device", Require: cerbplugin.RequireApproval, Reason: "removes a device from the tailnet; it may not be able to rejoin without a new key"},
+	{Operation: "set_tags", Require: cerbplugin.RequireApprovalForAgents, Reason: "tags decide which ACL rules apply to a device, so this can widen its access"},
+	{Operation: "authorize_device", Require: cerbplugin.RequireApprovalForAgents, Reason: "admits a device to the tailnet"},
+	{Operation: "up", Require: cerbplugin.RequireApprovalForAgents, Reason: "changes this host's tailnet connection"},
+	{Operation: "down", Require: cerbplugin.RequireApprovalForAgents, Reason: "drops this host's tailnet connection, which may be the one carrying the session"},
+	{Operation: "serve", Require: cerbplugin.RequireApprovalForAgents, Reason: "exposes a local port to the tailnet or, with funnel, the internet"},
 }
 
-var (
-	_ subprocess.Plugin        = (*Plugin)(nil)
-	_ subprocess.HealthChecker = (*Plugin)(nil)
-	_ subprocess.MCPHandler    = (*Plugin)(nil)
-)
+// cliOnly operations never reach MCP, whatever connector-config.yaml says.
+var cliOnly = []string{}
 
-func New() *Plugin { return &Plugin{} }
-
-func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
-	p.config = params.Config
-	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Tailscale Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
-	}, nil
+// declare adds the install review declarations to the generated plugin.yaml.
+func declare(spec cerbplugin.PluginYAML) cerbplugin.PluginYAML {
+	spec.Cerberus.Host = cerbplugin.HostRange{MinContract: 1, MaxContract: 1}
+	spec.Cerberus.SuggestedPolicy = suggestedPolicy
+	spec.Cerberus.Surfaces = cerbplugin.Surfaces{MCP: suggestedMCP(spec.Cerberus.Connector), CLIOnly: cliOnly}
+	spec.Cerberus.Telemetry = telemetryDeclarations(spec.Cerberus.Connector)
+	return spec
 }
 
-func (p *Plugin) Load(context.Context) (subprocess.LoadResult, error) {
-	return subprocess.LoadResult{}, nil
-}
-
-func (p *Plugin) Unload(context.Context) error {
-	return nil
-}
-
-func (p *Plugin) Health(context.Context) (subprocess.HealthStatus, error) {
-	_, err := exec.LookPath("tailscale")
-	if err != nil {
-		return subprocess.HealthStatus{OK: false, Message: "tailscale binary not found in PATH"}, nil
-	}
-	return subprocess.HealthStatus{OK: true}, nil
-}
-
-func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
-	op, ok := cerbplugin.OperationFromToolName(ConnectorID, req.ToolName, Manifest())
-	if !ok {
-		return subprocess.MCPCallResult{}, fmt.Errorf("unknown tool %q", req.ToolName)
-	}
-
-	args := req.Arguments
-
-	switch op.Name {
-	case "status":
-		return p.runTailscale(ctx, []string{"status"})
-	case "up":
-		return p.runTailscale(ctx, []string{"up"})
-	case "down":
-		return p.runTailscale(ctx, []string{"down"})
-	case "serve":
-		port, _ := args["port"].(string)
-		funnel, _ := args["funnel"].(bool)
-		
-		if funnel {
-			return p.runTailscale(ctx, []string{"funnel", "--bg", port})
+// suggestedMCP is the exposure this plugin suggests: its plain reads, plus the
+// local-CLI operations it has always listed. Minting, revoking and deleting are
+// left to the operator to expose deliberately.
+func suggestedMCP(m contract.Manifest) []string {
+	var out []string
+	for _, op := range m.Operations {
+		switch op.Name {
+		case "up", "down", "serve":
+			out = append(out, op.Name)
+		default:
+			if op.EffectiveEffect() == contract.EffectRead {
+				out = append(out, op.Name)
+			}
 		}
-		return p.runTailscale(ctx, []string{"serve", "--bg", port})
-	default:
-		return subprocess.MCPCallResult{}, fmt.Errorf("unimplemented operation: %s", op.Name)
 	}
+	return out
 }
 
-func (p *Plugin) runTailscale(ctx context.Context, args []string) (subprocess.MCPCallResult, error) {
-	cmdArgs := append([]string{"tailscale"}, args...)
-	// tailscale might need sudo for `up` and `down`, but usually CLI runs them via tailscaled which runs as root.
-	// We use `sudo` here for commands other than status.
-	var out []byte
-	var err error
-	
-	// 'status' rarely needs sudo
-	if args[0] == "status" {
-		out, err = exec.CommandContext(ctx, "tailscale", args...).CombinedOutput()
-	} else {
-		out, err = exec.CommandContext(ctx, "sudo", cmdArgs...).CombinedOutput()
+// telemetryDeclarations names the events every non-read operation reports
+// (withOperationTelemetry): a change, and a preview for one with a dry run.
+func telemetryDeclarations(m contract.Manifest) []cerbplugin.TelemetryDeclaration {
+	var out []cerbplugin.TelemetryDeclaration
+	for _, op := range m.Operations {
+		// The local-CLI operations answer with plain text, which has nowhere
+		// to carry telemetry, so they declare none: their audit record is the
+		// host's view only.
+		if op.EffectiveEffect().ReadOnly() || localOps[op.Name] {
+			continue
+		}
+		events := []string{eventChange}
+		if op.EffectivePreview() != contract.PreviewNone {
+			events = append(events, eventPreview)
+		}
+		out = append(out, cerbplugin.TelemetryDeclaration{Operation: op.Name, Events: events})
 	}
-	
-	respText := string(out)
+	return out
+}
+
+func PluginYAML() cerbplugin.PluginYAML {
+	return declare(cerbplugin.PluginYAMLFromManifest(Manifest(), cerbplugin.Entrypoint{
+		Command: filepath.ToSlash(filepath.Join("bin", BinaryName)),
+	}))
+}
+
+func WriteDist(dir string) error {
+	if dir == "" {
+		return fmt.Errorf("dist directory is required")
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+		return err
+	}
+
+	spec := PluginYAML()
+	if err := spec.Validate(dir); err != nil {
+		return fmt.Errorf("generated plugin.yaml is invalid: %w", err)
+	}
+	data, err := yaml.Marshal(spec)
 	if err != nil {
-		respText = fmt.Sprintf("tailscale %v failed: %v\n%s", args, err, string(out))
-	} else {
-		respText = fmt.Sprintf("tailscale %v successful.\n%s", args, string(out))
+		return err
 	}
-	
-	content, _ := json.Marshal(respText)
-	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
+
+	path := filepath.Join(dir, cerbplugin.PluginYAMLFilename)
+	return os.WriteFile(path, data, 0o644)
 }
