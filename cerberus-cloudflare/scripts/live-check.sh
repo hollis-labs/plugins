@@ -6,7 +6,7 @@
 #
 # Why this matters: the script runs the two reads for real, and previews each
 # write (create_zone, create_dns_record, delete_dns_record) with --dry-run
-# against the real host. A plugin dry run is the plugin's own claim; Cerberus
+# against the real host. verify_token reads the token's own status. A plugin dry run is the plugin's own claim; Cerberus
 # forwards it and cannot verify that the plugin honours it. With a read-only
 # token, a dry-run bug that reached the API would get a harmless 403 instead of
 # creating a zone or changing DNS. Do not run this with a token that can write.
@@ -48,6 +48,7 @@ run() {
   HOME="$scratch" "$cerberus" connectors plugin exec "$dist" "$@"
 }
 
+run verify_token
 run list_zones | tee "$scratch/zones.json"
 
 if [[ -z "$zone" ]]; then
@@ -66,4 +67,4 @@ run create_dns_record --arg zone_id="${zone:-preview-zone}" --arg type=TXT --arg
   --arg content=preview --arg ttl=300 --dry-run --ack
 run delete_dns_record --arg zone_id="${zone:-preview-zone}" --arg record_id=preview-record --dry-run --ack
 
-echo "live check complete: two reads ran, three writes previewed, nothing written" >&2
+echo "live check complete: three reads ran, three writes previewed, nothing written" >&2
