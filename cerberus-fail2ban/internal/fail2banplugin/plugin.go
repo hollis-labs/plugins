@@ -7,7 +7,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -25,10 +26,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus Fail2ban Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus Fail2ban Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -84,14 +86,14 @@ func (p *Plugin) runFail2ban(ctx context.Context, args []string) (subprocess.MCP
 	// fail2ban-client requires sudo for most operations (especially set)
 	cmdArgs := append([]string{"fail2ban-client"}, args...)
 	out, err := exec.CommandContext(ctx, "sudo", cmdArgs...).CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("fail2ban-client %v failed: %v\n%s", args, err, string(out))
 	} else {
 		respText = fmt.Sprintf("fail2ban-client %v successful.\n%s", args, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
