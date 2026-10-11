@@ -1,0 +1,55 @@
+# Managed by Cerberus (caddy plugin). Edits are overwritten by `apply`.
+{
+	default_bind 100.64.0.10
+	email ops@example.com
+}
+
+*.example.test {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	@docs host docs.example.test
+	handle @docs {
+		reverse_proxy 127.0.0.1:4000
+	}
+
+	handle {
+		abort
+	}
+}
+
+*.hub.example.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	@api host api.hub.example.com
+	handle @api {
+		reverse_proxy 127.0.0.1:8090
+	}
+
+	@web host web.hub.example.com
+	handle @web {
+		reverse_proxy 127.0.0.1:8990
+	}
+
+	handle {
+		abort
+	}
+}
+
+*.old.example.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	@app host app.old.example.com
+	handle @app {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		abort
+	}
+}

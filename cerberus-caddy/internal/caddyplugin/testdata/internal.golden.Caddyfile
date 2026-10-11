@@ -1,0 +1,17 @@
+# Managed by Cerberus (caddy plugin). Edits are overwritten by `apply`.
+{
+	default_bind fd7a:115c:a1e0::1
+}
+
+*.hub.example.test {
+	tls internal
+
+	@app host app.hub.example.test
+	handle @app {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle {
+		abort
+	}
+}
