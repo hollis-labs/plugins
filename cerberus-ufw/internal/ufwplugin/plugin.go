@@ -7,7 +7,8 @@ import (
 	"os/exec"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type Plugin struct {
@@ -25,10 +26,11 @@ func New() *Plugin { return &Plugin{} }
 func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subprocess.InitResult, error) {
 	p.config = params.Config
 	return subprocess.InitResult{
-		ID:       ConnectorID,
-		Name:     "Cerberus UFW Connector",
-		Version:  Version,
-		Protocol: subprocess.ProtocolVersion,
+		ID:                 ConnectorID,
+		Name:               "Cerberus UFW Connector",
+		Version:            Version,
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
@@ -74,14 +76,14 @@ func (p *Plugin) runUFW(ctx context.Context, args []string) (subprocess.MCPCallR
 	// Need sudo for ufw, we assume Cerberus is run with sufficient privileges or sudo without password is setup.
 	cmdArgs := append([]string{"ufw"}, args...)
 	out, err := exec.CommandContext(ctx, "sudo", cmdArgs...).CombinedOutput()
-	
+
 	respText := string(out)
 	if err != nil {
 		respText = fmt.Sprintf("ufw %v failed: %v\n%s", args, err, string(out))
 	} else {
 		respText = fmt.Sprintf("ufw %v successful.\n%s", args, string(out))
 	}
-	
+
 	content, _ := json.Marshal(respText)
 	return subprocess.MCPCallResult{IsError: err != nil, Content: content}, nil
 }
