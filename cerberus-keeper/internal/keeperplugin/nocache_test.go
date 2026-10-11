@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 	ksm "github.com/keeper-security/secrets-manager-go/core"
 	klog "github.com/keeper-security/secrets-manager-go/core/logger"
 )

@@ -10,7 +10,8 @@ import (
 	"sync"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 	klog "github.com/keeper-security/secrets-manager-go/core/logger"
 )
 
@@ -90,6 +91,9 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 		Version:     def.Version,
 		Description: "Resolves keeper:// references through Keeper Secrets Manager",
 		Protocol:    subprocess.ProtocolVersion,
+		// Protocol 2 requires the result to echo the capability contract the
+		// host offered; a host rejects the handshake as invalid_init without it.
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
