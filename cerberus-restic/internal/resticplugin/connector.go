@@ -17,7 +17,7 @@ func Definition() contract.Definition {
 			CanDestroy: false,
 		},
 		Config: contract.ConfigSchema{
-			Fields:  []contract.ConfigField{},
+			Fields: []contract.ConfigField{},
 			Secrets: []contract.SecretRequirement{
 				{
 					Name:        "RESTIC_PASSWORD",
