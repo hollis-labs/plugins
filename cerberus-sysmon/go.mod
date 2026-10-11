@@ -3,8 +3,8 @@ module github.com/hollis-labs/cerberus-plugins/sysmon
 go 1.26.8
 
 require (
-	github.com/hollis-labs/cerberus v0.4.0-beta.2.0.20260930163828-3f344a532321
-	github.com/hollis-labs/plugin-sdk v0.5.0
+	github.com/hollis-labs/cerberus v0.5.0-beta.1.0.20261009054531-02ac61b86b4e
+	github.com/hollis-labs/libs/plugin-mcp v0.1.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
