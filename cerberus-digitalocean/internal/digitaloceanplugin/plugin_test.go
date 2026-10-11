@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 type call struct {
