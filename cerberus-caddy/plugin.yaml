@@ -1,6 +1,6 @@
 schema_version: "1"
 id: caddy
-version: 0.1.0
+version: 0.2.0
 protocol: plugin-sdk/subprocess
 runtime: subprocess
 entrypoint:
@@ -10,7 +10,7 @@ cerberus:
         api_version: cerberus.connector/v1
         kind: Connector
         id: caddy
-        version: 0.1.0
+        version: 0.2.0
         resource_types:
             - caddy.server
         capabilities:
@@ -19,6 +19,15 @@ cerberus:
             can_build: false
             can_logs: false
             can_health: false
+        config:
+            fields:
+                - name: caddy_path
+                  type: string
+                  description: 'Absolute path of the caddy binary. Optional: without it the plugin searches /usr/bin, /usr/local/bin, /opt/homebrew/bin, the snap paths, then PATH, on every call.'
+            secrets:
+                - name: cloudflare_api_token
+                  description: Cloudflare token for Caddy's DNS-01 challenge, scoped to Zone:DNS:Edit on one zone. Used only to validate a candidate configuration; it is never written to the Caddyfile.
+                  env: CADDY_CLOUDFLARE_DNS_TOKEN
         operations:
             - name: reload
               description: Reloads the Caddy server configuration without downtime.
@@ -63,10 +72,152 @@ cerberus:
               local_fs: none
               output_schema:
                 type: string
+            - name: render
+              description: Renders a Caddyfile from declared routes, bound only to the supplied address, and diffs it against the current file. Changes nothing.
+              examples:
+                - cerberus connectors exec caddy render --arg bind=100.64.0.10 --arg 'routes=[{"name":"app","host":"hub","domain":"example.com","port":8080}]'
+              input_schema:
+                additionalProperties: false
+                properties:
+                    bind:
+                        description: The tailnet IP Caddy listens on (100.64.0.0/10 or fd7a:115c:a1e0::/48; loopback is accepted for testing). Rendered as default_bind. Wildcard and public addresses are refused.
+                        type: string
+                    config_path:
+                        description: Caddyfile to compare with and, for apply, replace (default /etc/caddy/Caddyfile).
+                        type: string
+                    email:
+                        description: Optional ACME account email.
+                        type: string
+                    routes:
+                        description: 'Declared routes. Each becomes <name>.<host>.<domain> (or <name>.<domain> without host) proxied to 127.0.0.1:<port>. From the CLI pass JSON text: --arg ''routes=[{"name":"app","host":"hub","domain":"example.com","port":8080}]''.'
+                        items:
+                            additionalProperties: false
+                            properties:
+                                domain:
+                                    description: Domain, e.g. example.com.
+                                    type: string
+                                host:
+                                    description: Optional host label(s) between name and domain, e.g. hub.
+                                    type: string
+                                name:
+                                    description: Service label, e.g. app.
+                                    type: string
+                                port:
+                                    description: Loopback port the service listens on (1-65535).
+                                    type: integer
+                            required:
+                                - name
+                                - domain
+                                - port
+                            type: object
+                        minItems: 1
+                        type: array
+                    tls:
+                        description: 'TLS mode: cloudflare-dns (wildcard certificates by DNS-01, the default) or internal (Caddy''s local CA).'
+                        type: string
+                    token_env:
+                        description: Name of the environment variable the running caddy reads the DNS-01 token from, referenced as {env.NAME} (default CLOUDFLARE_API_TOKEN).
+                        type: string
+                required:
+                    - routes
+                    - bind
+                type: object
+              effect: read
+              target:
+                kind: caddy.server
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                properties:
+                    diff:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                type: object
+            - name: apply
+              description: Renders the Caddyfile from declared routes, validates it, writes it and reloads Caddy; restores the previous file if validate or reload fails. --dry-run returns the diff only.
+              examples:
+                - cerberus connectors exec caddy apply --arg bind=100.64.0.10 --arg 'routes=[{"name":"app","host":"hub","domain":"example.com","port":8080}]' --dry-run
+                - cerberus connectors exec caddy apply --arg bind=100.64.0.10 --arg 'routes=[{"name":"app","host":"hub","domain":"example.com","port":8080}]' --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    bind:
+                        description: The tailnet IP Caddy listens on (100.64.0.0/10 or fd7a:115c:a1e0::/48; loopback is accepted for testing). Rendered as default_bind. Wildcard and public addresses are refused.
+                        type: string
+                    config_path:
+                        description: Caddyfile to compare with and, for apply, replace (default /etc/caddy/Caddyfile).
+                        type: string
+                    email:
+                        description: Optional ACME account email.
+                        type: string
+                    routes:
+                        description: 'Declared routes. Each becomes <name>.<host>.<domain> (or <name>.<domain> without host) proxied to 127.0.0.1:<port>. From the CLI pass JSON text: --arg ''routes=[{"name":"app","host":"hub","domain":"example.com","port":8080}]''.'
+                        items:
+                            additionalProperties: false
+                            properties:
+                                domain:
+                                    description: Domain, e.g. example.com.
+                                    type: string
+                                host:
+                                    description: Optional host label(s) between name and domain, e.g. hub.
+                                    type: string
+                                name:
+                                    description: Service label, e.g. app.
+                                    type: string
+                                port:
+                                    description: Loopback port the service listens on (1-65535).
+                                    type: integer
+                            required:
+                                - name
+                                - domain
+                                - port
+                            type: object
+                        minItems: 1
+                        type: array
+                    tls:
+                        description: 'TLS mode: cloudflare-dns (wildcard certificates by DNS-01, the default) or internal (Caddy''s local CA).'
+                        type: string
+                    token_env:
+                        description: Name of the environment variable the running caddy reads the DNS-01 token from, referenced as {env.NAME} (default CLOUDFLARE_API_TOKEN).
+                        type: string
+                required:
+                    - routes
+                    - bind
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: caddy.server
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: writes
+              output_schema:
+                properties:
+                    caddy_output:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                    diff:
+                        type: string
+                        x-cerberus-label:
+                            - untrusted
+                type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
     host:
         min_contract: 1
         max_contract: 1
+    suggested_policy:
+        - operation: apply
+          require: approval_for_agents
+          reason: replaces the Caddyfile and reloads the proxy in front of every routed service
     surfaces:
         mcp:
             - reload
             - validate
+            - render
