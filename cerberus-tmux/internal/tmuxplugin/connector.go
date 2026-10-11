@@ -32,7 +32,7 @@ func Definition() contract.Definition {
 				LocalFS:      contract.LocalFSNone,
 				Description:  "List all tmux sessions.",
 				Examples:     []string{"cerberus connectors exec tmux list"},
-				InputSchema: contract.ObjectSchema(map[string]any{}),
+				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "new",
