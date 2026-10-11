@@ -6,7 +6,7 @@ import (
 
 	contract "github.com/hollis-labs/cerberus/pkg/connector"
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Telemetry event kinds this plugin reports, declared in plugin.yaml so the
