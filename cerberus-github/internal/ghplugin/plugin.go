@@ -11,7 +11,8 @@ import (
 	"syscall"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // errMissingCredential is what every GitHub call returns when no token
@@ -66,11 +67,12 @@ func (p *Plugin) Init(_ context.Context, params subprocess.InitParams) (subproce
 	p.config = subprocess.NewConfigReader(params.Config)
 	def := Definition()
 	return subprocess.InitResult{
-		ID:          def.ID,
-		Name:        "Cerberus GitHub Connector",
-		Version:     def.Version,
-		Description: "GitHub repository status, releases and Actions runs for Cerberus",
-		Protocol:    subprocess.ProtocolVersion,
+		ID:                 def.ID,
+		Name:               "Cerberus GitHub Connector",
+		Version:            def.Version,
+		Description:        "GitHub repository status, releases and Actions runs for Cerberus",
+		Protocol:           subprocess.ProtocolVersion,
+		CapabilityContract: capability.ContractVersion,
 	}, nil
 }
 
