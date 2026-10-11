@@ -33,7 +33,7 @@ func Definition() contract.Definition {
 				LocalFS:      contract.LocalFSNone,
 				Description:  "Update the local package index.",
 				Examples:     []string{"cerberus connectors exec apt update --ack"},
-				InputSchema: contract.ObjectSchema(map[string]any{}),
+				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "upgrade",
@@ -47,7 +47,7 @@ func Definition() contract.Definition {
 				LocalFS:      contract.LocalFSNone,
 				Description:  "Upgrade installed packages.",
 				Examples:     []string{"cerberus connectors exec apt upgrade --ack"},
-				InputSchema: contract.ObjectSchema(map[string]any{}),
+				InputSchema:  contract.ObjectSchema(map[string]any{}),
 			},
 			{
 				Name:         "install",
