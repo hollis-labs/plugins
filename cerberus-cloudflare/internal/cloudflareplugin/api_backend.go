@@ -3,6 +3,8 @@ package cloudflareplugin
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -307,6 +309,92 @@ func (b *apiBackend) CreateBucket(ctx context.Context, accountID string, req Buc
 func (b *apiBackend) DeleteBucket(ctx context.Context, accountID, name, jurisdiction string) error {
 	if err := b.do(ctx, http.MethodDelete, r2Path(accountID)+"/"+url.PathEscape(name), nil, jurisdictionHeader(jurisdiction), nil, nil); err != nil {
 		return fmt.Errorf("delete r2 bucket %s in account %s: %w", name, accountID, err)
+	}
+	return nil
+}
+
+// wirePermissionGroup is one entry of the permission group listing.
+type wirePermissionGroup struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// r2BucketResource is the key a token policy uses to name one R2 bucket.
+func r2BucketResource(accountID, jurisdiction, bucket string) string {
+	if jurisdiction == "" {
+		jurisdiction = "default"
+	}
+	return "com.cloudflare.edge.r2.bucket." + accountID + "_" + jurisdiction + "_" + bucket
+}
+
+// CreateR2Credential mints an account API token whose one policy grants object
+// access to one bucket, and derives the S3 key pair from it: the access key id
+// is the token's id and the secret is the SHA-256 of the token value, which is
+// how R2 defines S3 credentials for an API token. The token value itself is
+// not returned and not kept.
+func (b *apiBackend) CreateR2Credential(ctx context.Context, accountID string, req CredentialRequest) (*R2Credential, error) {
+	groupName, known := r2PermissionGroup[req.Permission]
+	if !known {
+		return nil, fmt.Errorf("unknown R2 permission %q", req.Permission)
+	}
+	var groups []wirePermissionGroup
+	if err := b.do(ctx, http.MethodGet, tokenBase(accountID)+"/permission_groups", nil, nil, nil, &groups); err != nil {
+		return nil, fmt.Errorf("list permission groups: %w", err)
+	}
+	groupID := ""
+	for _, g := range groups {
+		if g.Name == groupName {
+			groupID = g.ID
+		}
+	}
+	if groupID == "" {
+		return nil, fmt.Errorf("Cloudflare has no permission group named %q for this account", groupName)
+	}
+
+	body := map[string]any{
+		"name": credentialName(req, time.Now()),
+		"policies": []map[string]any{{
+			"effect":            "allow",
+			"resources":         map[string]string{r2BucketResource(accountID, req.Jurisdiction, req.Bucket): "*"},
+			"permission_groups": []map[string]string{{"id": groupID}},
+		}},
+	}
+	var created struct {
+		ID    string `json:"id"`
+		Value string `json:"value"`
+	}
+	if err := b.do(ctx, http.MethodPost, tokenBase(accountID), nil, nil, body, &created); err != nil {
+		return nil, fmt.Errorf("create r2 credential for bucket %s: %w", req.Bucket, err)
+	}
+	if created.ID == "" || created.Value == "" {
+		if created.ID != "" {
+			// A token that came back without its value can never be used, and
+			// would sit in the account unexplained.
+			_ = b.RevokeR2Credential(ctx, accountID, created.ID)
+		}
+		return nil, errors.New("Cloudflare created the token but returned no value for it; it was revoked and no credential was minted")
+	}
+	sum := sha256.Sum256([]byte(created.Value))
+	return &R2Credential{
+		AccessKeyID:    created.ID,
+		AccessKeyValue: hex.EncodeToString(sum[:]),
+		Bucket:         req.Bucket,
+		Permission:     req.Permission,
+		Endpoint:       r2Endpoint(accountID, req.Jurisdiction),
+	}, nil
+}
+
+func (b *apiBackend) GetR2Credential(ctx context.Context, accountID, accessKeyID string) (*CredentialInfo, error) {
+	var tok wireToken
+	if err := b.do(ctx, http.MethodGet, tokenBase(accountID)+"/"+url.PathEscape(accessKeyID), nil, nil, nil, &tok); err != nil {
+		return nil, fmt.Errorf("read token %s: %w", accessKeyID, err)
+	}
+	return &CredentialInfo{AccessKeyID: tok.ID, Name: tok.Name, Status: tok.Status}, nil
+}
+
+func (b *apiBackend) RevokeR2Credential(ctx context.Context, accountID, accessKeyID string) error {
+	if err := b.do(ctx, http.MethodDelete, tokenBase(accountID)+"/"+url.PathEscape(accessKeyID), nil, nil, nil, nil); err != nil {
+		return fmt.Errorf("revoke token %s: %w", accessKeyID, err)
 	}
 	return nil
 }

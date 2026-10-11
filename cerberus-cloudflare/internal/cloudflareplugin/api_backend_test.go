@@ -1,6 +1,8 @@
 package cloudflareplugin
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -189,5 +191,127 @@ func TestDeleteOfANonEmptyBucketSurfacesCloudflaresRefusal(t *testing.T) {
 	err := api.DeleteBucket(t.Context(), "acct1", "example-backups", "")
 	if err == nil || !strings.Contains(err.Error(), "not empty") || !strings.Contains(err.Error(), "409") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The S3 key pair is derived the way R2 defines it for an API token: the
+// access key id is the token's id and the secret is the SHA-256 of its value.
+// The token value itself is never returned.
+func TestMintCreatesABucketScopedTokenAndDerivesTheKeyPair(t *testing.T) {
+	const tokenValue = "placeholder-api-token-value-0002"
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		switch {
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/permission_groups"):
+			ok(w, `[{"id":"g-read","name":"Workers R2 Storage Bucket Item Read"},{"id":"g-write","name":"Workers R2 Storage Bucket Item Write"},{"id":"g-other","name":"DNS Write"}]`)
+		case r.Method == "POST" && r.URL.Path == "/accounts/acct1/tokens":
+			ok(w, `{"id":"key-id-1","name":"x","value":"`+tokenValue+`","status":"active"}`)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	})
+	got, err := api.CreateR2Credential(t.Context(), "acct1", CredentialRequest{Bucket: "example-backups", Permission: PermissionReadWrite})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(tokenValue))
+	if got.AccessKeyID != "key-id-1" || got.AccessKeyValue != hex.EncodeToString(sum[:]) {
+		t.Fatalf("credential = %+v", got)
+	}
+	if data, _ := json.Marshal(got); strings.Contains(string(data), tokenValue) {
+		t.Errorf("the API token value was returned: %s", data)
+	}
+
+	var body struct {
+		Name     string `json:"name"`
+		Policies []struct {
+			Effect    string            `json:"effect"`
+			Resources map[string]string `json:"resources"`
+			Groups    []struct {
+				ID string `json:"id"`
+			} `json:"permission_groups"`
+		} `json:"policies"`
+	}
+	if err := json.Unmarshal([]byte(fake.requests[1].Body), &body); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(body.Name, credentialNamePrefix+"example-backups:") || len(body.Policies) != 1 {
+		t.Fatalf("token request = %s", fake.requests[1].Body)
+	}
+	pol := body.Policies[0]
+	if pol.Effect != "allow" || len(pol.Groups) != 1 || pol.Groups[0].ID != "g-write" ||
+		len(pol.Resources) != 1 || pol.Resources["com.cloudflare.edge.r2.bucket.acct1_default_example-backups"] != "*" {
+		t.Fatalf("policy = %+v", pol)
+	}
+}
+
+func TestReadOnlyMintUsesTheReadGroupAndEuJurisdictionNamesIt(t *testing.T) {
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		if r.Method == "GET" {
+			ok(w, `[{"id":"g-read","name":"Workers R2 Storage Bucket Item Read"}]`)
+			return
+		}
+		ok(w, `{"id":"k","value":"placeholder-value-0003"}`)
+	})
+	got, err := api.CreateR2Credential(t.Context(), "acct1", CredentialRequest{Bucket: "example-backups", Jurisdiction: "eu", Permission: PermissionRead})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Endpoint != "https://acct1.eu.r2.cloudflarestorage.com" {
+		t.Errorf("endpoint = %q", got.Endpoint)
+	}
+	if body := fake.requests[1].Body; !strings.Contains(body, "acct1_eu_example-backups") || !strings.Contains(body, "g-read") {
+		t.Errorf("token request = %s", body)
+	}
+}
+
+// If Cloudflare creates the token but omits its value, the key pair cannot be
+// derived; the orphaned token is revoked rather than left in the account.
+func TestMintWithoutAValueRevokesTheOrphan(t *testing.T) {
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		switch r.Method {
+		case "GET":
+			ok(w, `[{"id":"g-write","name":"Workers R2 Storage Bucket Item Write"}]`)
+		case "POST":
+			ok(w, `{"id":"orphan"}`)
+		default:
+			ok(w, `{}`)
+		}
+	})
+	_, err := api.CreateR2Credential(t.Context(), "acct1", CredentialRequest{Bucket: "example-backups", Permission: PermissionReadWrite})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if got := fake.paths(); got[len(got)-1] != "DELETE /accounts/acct1/tokens/orphan" {
+		t.Errorf("requests = %v", got)
+	}
+}
+
+func TestMintFailsClearlyWhenTheMintingTokenLacksThePermission(t *testing.T) {
+	_, api := newFakeCloudflare(t, func(w http.ResponseWriter, _ *http.Request, _ []byte) {
+		fail(w, 403, 9109, "Unauthorized to access requested resource")
+	})
+	_, err := api.CreateR2Credential(t.Context(), "acct1", CredentialRequest{Bucket: "example-backups", Permission: PermissionReadWrite})
+	if err == nil || !strings.Contains(err.Error(), "403") || !strings.Contains(err.Error(), "lacks the permission") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGetAndRevokeCredentialUseTheAccountTokenEndpoint(t *testing.T) {
+	fake, api := newFakeCloudflare(t, func(w http.ResponseWriter, r *http.Request, _ []byte) {
+		if r.Method == "GET" {
+			ok(w, `{"id":"key1","name":"cerberus-r2:example-backups:read_write:1","status":"active","policies":[{"effect":"allow"}],"issued_on":"x"}`)
+			return
+		}
+		ok(w, `{"id":"key1"}`)
+	})
+	info, err := api.GetR2Credential(t.Context(), "acct1", "key1")
+	if err != nil || info.Name != "cerberus-r2:example-backups:read_write:1" || info.Status != "active" {
+		t.Fatalf("info = %+v, %v", info, err)
+	}
+	if err := api.RevokeR2Credential(t.Context(), "acct1", "key1"); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.paths(); got[0] != "GET /accounts/acct1/tokens/key1" || got[1] != "DELETE /accounts/acct1/tokens/key1" {
+		t.Errorf("requests = %v", got)
 	}
 }

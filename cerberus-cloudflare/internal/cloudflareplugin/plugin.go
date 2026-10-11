@@ -118,11 +118,13 @@ func (p *Plugin) token() string {
 // contract declares each a non-read effect with a preview, and
 // TestWriteOperationsAreExactlyTheAckGatedOnes holds the two in step.
 var writeOperations = map[string]bool{
-	"create_r2_bucket":  true,
-	"delete_r2_bucket":  true,
-	"create_zone":       true,
-	"create_dns_record": true,
-	"delete_dns_record": true,
+	"create_r2_credential": true,
+	"revoke_r2_credential": true,
+	"create_r2_bucket":     true,
+	"delete_r2_bucket":     true,
+	"create_zone":          true,
+	"create_dns_record":    true,
+	"delete_dns_record":    true,
 }
 
 func (p *Plugin) MCPCallTool(ctx context.Context, req subprocess.MCPCallRequest) (subprocess.MCPCallResult, error) {
@@ -366,6 +368,70 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (subpr
 			return subprocess.MCPCallResult{}, err
 		}
 		return marshalResult(BucketDeleted{Deleted: true, AccountID: accountID, Name: name, Jurisdiction: jurisdiction}, nil)
+
+	case "create_r2_credential":
+		accountID := requiredID(args, "account_id")
+		req := CredentialRequest{
+			Bucket:       bucketName(args, "bucket"),
+			Jurisdiction: args.oneOf("jurisdiction", jurisdictions),
+			Permission:   args.oneOf("permission", permissions),
+		}
+		if req.Permission == "" {
+			req.Permission = PermissionReadWrite
+		}
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if dryRun {
+			return marshalResult(p.createCredentialPreview(ctx, accountID, req), nil)
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		// A typo in the bucket name must not mint a key for a bucket that
+		// does not exist, or for a different one made later under that name.
+		buckets, err := p.backend.ListBuckets(ctx, accountID, req.Jurisdiction)
+		if err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if !hasBucket(buckets, req.Bucket) {
+			return subprocess.MCPCallResult{}, cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs,
+				fmt.Errorf("no R2 bucket named %s exists in this account and jurisdiction; no credential was minted", req.Bucket))
+		}
+		minted, err := p.backend.CreateR2Credential(ctx, accountID, req)
+		if err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		// Registered before the result is built, so nothing composed after
+		// this point can carry the value into an error.
+		p.register(minted.AccessKeyValue)
+		minted.Note = credentialNote
+		return marshalResult(minted, nil)
+
+	case "revoke_r2_credential":
+		accountID := requiredID(args, "account_id")
+		accessKeyID := requiredID(args, "access_key_id")
+		if err := args.err(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if dryRun {
+			return marshalResult(p.revokeCredentialPreview(ctx, accountID, accessKeyID), nil)
+		}
+		if err := p.ready(); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		info, err := p.backend.GetR2Credential(ctx, accountID, accessKeyID)
+		if err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		if !mintedByThisPlugin(info) {
+			return subprocess.MCPCallResult{}, cerbplugin.WithCode(cerbplugin.ErrorInvalidArgs,
+				fmt.Errorf("token %s was not minted by create_r2_credential, so revoke_r2_credential will not touch it; revoke it in the Cloudflare dashboard if that is intended", accessKeyID))
+		}
+		if err := p.backend.RevokeR2Credential(ctx, accountID, accessKeyID); err != nil {
+			return subprocess.MCPCallResult{}, err
+		}
+		return marshalResult(CredentialRevoked{Revoked: true, AccountID: accountID, AccessKeyID: accessKeyID}, nil)
 
 	default:
 		return subprocess.MCPCallResult{}, fmt.Errorf("operation %q is declared but not served", op.Name)

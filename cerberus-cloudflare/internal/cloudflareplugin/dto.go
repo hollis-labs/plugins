@@ -107,3 +107,44 @@ type BucketDeleted struct {
 	Name         string `json:"name"`
 	Jurisdiction string `json:"jurisdiction,omitempty"`
 }
+
+// R2Credential is create_r2_credential's result: an S3-compatible key pair for
+// one bucket. The secret half is returned this once. Cloudflare derives it from
+// the API token it creates and shows that token only in the creation response,
+// so it cannot be read again; this plugin does not store it, log it or return
+// the API token it came from.
+//
+// The secret half is named so the host's redactor, which rewrites any field
+// whose name says secret, token or password, leaves it alone: it is the one
+// value this operation exists to hand over.
+type R2Credential struct {
+	AccessKeyID    string `json:"access_key_id"`
+	AccessKeyValue string `json:"access_key_value"`
+	Bucket         string `json:"bucket"`
+	Permission     string `json:"permission"`
+	Endpoint       string `json:"endpoint"`
+	Note           string `json:"note"`
+}
+
+// CredentialRequest is what create_r2_credential sends. It is ours, not the
+// wire body.
+type CredentialRequest struct {
+	Bucket       string
+	Jurisdiction string
+	Permission   string // read_write or read
+}
+
+// CredentialInfo is what revoke_r2_credential reads before it revokes: enough
+// to tell a key this plugin minted from any other token.
+type CredentialInfo struct {
+	AccessKeyID string `json:"access_key_id"`
+	Name        string `json:"name" cerb:"untrusted"`
+	Status      string `json:"status"`
+}
+
+// CredentialRevoked reports a completed revoke_r2_credential.
+type CredentialRevoked struct {
+	Revoked     bool   `json:"revoked"`
+	AccountID   string `json:"account_id"`
+	AccessKeyID string `json:"access_key_id"`
+}

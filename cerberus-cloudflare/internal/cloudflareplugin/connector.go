@@ -245,6 +245,46 @@ func Definition() contract.Definition {
 					"jurisdiction": jurisdictionArg,
 				}, "account_id", "name"),
 			},
+			{
+				Name:         "create_r2_credential",
+				OutputSchema: contract.OutputSchemaOf[R2Credential](),
+				Effect:       contract.EffectDestructive,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.r2_bucket", From: []string{"account_id", "bucket"}},
+				Preview:      contract.PreviewPlugin,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Mint an S3 key pair limited to one R2 bucket and to object read and write (or read only). This is a credential mint: the secret half is returned once and cannot be read again, and this plugin does not store or log it. Needs a token that can create account API tokens.",
+				Examples: []string{
+					"cerberus connectors exec cloudflare create_r2_credential --arg account_id=<account-id> --arg bucket=example-backups --dry-run",
+					"cerberus connectors exec cloudflare create_r2_credential --arg account_id=<account-id> --arg bucket=example-backups --ack",
+				},
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id":   contract.StringSchema("Cloudflare account ID."),
+					"bucket":       contract.StringSchema("The one bucket the key may reach. It must exist."),
+					"permission":   contract.StringSchema("Object access: read_write (the default) or read."),
+					"jurisdiction": jurisdictionArg,
+				}, "account_id", "bucket"),
+			},
+			{
+				Name:         "revoke_r2_credential",
+				OutputSchema: contract.OutputSchemaOf[CredentialRevoked](),
+				Effect:       contract.EffectDestructive,
+				Target:       contract.TargetDescriptor{Kind: "cloudflare.r2_credential", From: []string{"account_id", "access_key_id"}},
+				Preview:      contract.PreviewPlugin,
+				Output:       contract.OutputStructured,
+				Cost:         contract.CostNone,
+				LocalFS:      contract.LocalFSNone,
+				Description:  "Revoke an R2 S3 key that create_r2_credential minted. It stops working at once. Refuses any token this plugin did not mint.",
+				Examples: []string{
+					"cerberus connectors exec cloudflare revoke_r2_credential --arg account_id=<account-id> --arg access_key_id=<access-key-id> --dry-run",
+					"cerberus connectors exec cloudflare revoke_r2_credential --arg account_id=<account-id> --arg access_key_id=<access-key-id> --ack",
+				},
+				InputSchema: contract.ObjectSchema(map[string]any{
+					"account_id":    contract.StringSchema("Cloudflare account ID."),
+					"access_key_id": contract.StringSchema("The key's access key id, as create_r2_credential returned it."),
+				}, "account_id", "access_key_id"),
+			},
 		},
 	})
 }

@@ -22,6 +22,19 @@ type Backend interface {
 	CreateBucket(ctx context.Context, accountID string, req BucketRequest) (*Bucket, error)
 	// DeleteBucket is refused by Cloudflare while the bucket holds objects.
 	DeleteBucket(ctx context.Context, accountID, name, jurisdiction string) error
+
+	credentialBackend
+}
+
+// R2 credentials are bucket-scoped S3 key pairs. Cloudflare issues them as
+// account API tokens, so the access key id is the token's id, and revoking the
+// key is deleting that token.
+type credentialBackend interface {
+	// CreateR2Credential mints the key pair. The secret half is in the
+	// returned value only; it is never stored.
+	CreateR2Credential(ctx context.Context, accountID string, req CredentialRequest) (*R2Credential, error)
+	GetR2Credential(ctx context.Context, accountID, accessKeyID string) (*CredentialInfo, error)
+	RevokeR2Credential(ctx context.Context, accountID, accessKeyID string) error
 }
 
 // BucketRequest is what create_r2_bucket sends. It is ours, not the wire body.
