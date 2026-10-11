@@ -85,3 +85,17 @@ func TestOperationsReportTheirDeclaredTelemetry(t *testing.T) {
 		}
 	}
 }
+
+// Every destructive operation suggests that the operator require approval, so
+// a new delete cannot ship with no suggested policy.
+func TestEveryDestructiveOperationSuggestsApproval(t *testing.T) {
+	suggested := map[string]cerbplugin.Requirement{}
+	for _, rule := range suggestedPolicy {
+		suggested[rule.Operation] = rule.Require
+	}
+	for _, op := range Manifest().Operations {
+		if op.IsDestructive() && suggested[op.Name] != cerbplugin.RequireApproval {
+			t.Errorf("%s is destructive but suggests %q", op.Name, suggested[op.Name])
+		}
+	}
+}

@@ -18,7 +18,7 @@ import (
 const ConnectorID = "digitalocean"
 
 // Version is the plugin version, stamped into plugin.yaml.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 // SecretAPIToken is the manifest secret name, and the key the host uses in the
 // init config it hands us. It must stay "api_token": that is the name existing
@@ -63,7 +63,7 @@ func Definition() contract.Definition {
 		// The contract matches the compiled-in connector's, except the
 		// preview: here it is the plugin's claim, which the host cannot verify.
 		// Finalize derives destructive, requires_ack and supports_dry from it.
-		Operations: []contract.Operation{
+		Operations: append([]contract.Operation{
 			{
 				Name:         "list_droplets",
 				OutputSchema: contract.OutputSchemaOf[DropletList](),
@@ -142,7 +142,7 @@ func Definition() contract.Definition {
 				Output:       contract.OutputStructured,
 				Cost:         contract.CostNone,
 				LocalFS:      contract.LocalFSNone,
-				Description:  "Power off a droplet. A hard power-off takes down whatever it serves.",
+				Description:  "Power off a droplet. A hard power-off takes down whatever it serves, and a stopped droplet STILL BILLS (its resources stay reserved); only destroy ends the charge.",
 				Examples: []string{
 					"cerberus connectors exec digitalocean stop --arg droplet_id=123456 --dry-run",
 					"cerberus connectors exec digitalocean stop --arg droplet_id=123456 --ack",
@@ -184,7 +184,7 @@ func Definition() contract.Definition {
 				}, "droplet_id"),
 				Examples: []string{"cerberus connectors exec digitalocean status --arg droplet_id=123456"},
 			},
-		},
+		}, fleetOperations()...),
 	})
 }
 

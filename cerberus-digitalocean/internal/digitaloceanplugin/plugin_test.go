@@ -25,6 +25,11 @@ type fakeBackend struct {
 	getErr    error
 	createdID int
 	calls     []call
+
+	firewalls []Firewall
+	volumes   []Volume
+	snapshots []Snapshot
+	keys      []SSHKey
 }
 
 func (f *fakeBackend) record(method string, args ...any) {
@@ -129,6 +134,9 @@ func decode[T any](t *testing.T, result subprocess.MCPCallResult) T {
 // validArgs is a complete, acknowledged argument set for every operation, so a
 // test can iterate the manifest without knowing each schema.
 func validArgs(operation string) map[string]any {
+	if args, ok := fleetValidArgs(operation); ok {
+		return args
+	}
 	switch operation {
 	case "list_droplets":
 		return map[string]any{}
@@ -157,7 +165,7 @@ func TestOperationSetMatchesTheBuiltIn(t *testing.T) {
 	for _, op := range Definition().Operations {
 		got = append(got, op.Name)
 	}
-	want := []string{"list_droplets", "get_droplet", "create_droplet", "start", "stop", "destroy", "status"}
+	want := append([]string{"list_droplets", "get_droplet", "create_droplet", "start", "stop", "destroy", "status"}, fleetOperationNames...)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("operations = %v, want %v", got, want)
 	}
@@ -172,6 +180,9 @@ func TestGatesMatchTheContract(t *testing.T) {
 		"list_droplets": "read", "get_droplet": "read", "status": "read",
 		"create_droplet": "write", "start": "lifecycle", "stop": "lifecycle", "destroy": "destructive",
 	}
+	for name, effect := range fleetEffects {
+		wantEffect[name] = effect
+	}
 	for _, op := range Definition().Operations {
 		if string(op.Effect) != wantEffect[op.Name] {
 			t.Errorf("%s: effect = %s, want %s (the built-in's)", op.Name, op.Effect, wantEffect[op.Name])
@@ -182,8 +193,8 @@ func TestGatesMatchTheContract(t *testing.T) {
 		if op.SupportsDry != previewOperations[op.Name] {
 			t.Errorf("%s: supports_dry=%v, but previewOperations says %v", op.Name, op.SupportsDry, previewOperations[op.Name])
 		}
-		if op.Destructive != (op.Name == "destroy") {
-			t.Errorf("%s: Destructive=%v; only destroy is destructive", op.Name, op.Destructive)
+		if op.Destructive != destructiveOperations[op.Name] {
+			t.Errorf("%s: Destructive=%v, want %v", op.Name, op.Destructive, destructiveOperations[op.Name])
 		}
 	}
 	for op := range previewOperations {
@@ -338,7 +349,7 @@ func TestDryRunPreviewsWithoutCallingDigitalOcean(t *testing.T) {
 			op: "create_droplet",
 			args: map[string]any{"name": "web-1", "region": "nyc3", "size": "s-1vcpu-1gb", "image": "ubuntu-24-04-x64",
 				"ssh_keys": []any{"aa:bb"}, "user_data": userData},
-			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "create_droplet", Summary: "Would create a DigitalOcean droplet.",
+			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "create_droplet", Summary: "Would create a DigitalOcean droplet. BILLABLE: it is charged from creation until it is destroyed.",
 				Target: map[string]any{"name": "web-1", "region": "nyc3", "size": "s-1vcpu-1gb", "image": "ubuntu-24-04-x64"},
 				Input: map[string]any{"ssh_keys": []any{"aa:bb"}, "user_data": map[string]any{
 					"bytes":  float64(len(userData)),
@@ -348,14 +359,14 @@ func TestDryRunPreviewsWithoutCallingDigitalOcean(t *testing.T) {
 		{
 			op:   "create_droplet",
 			args: map[string]any{"name": "web-1", "region": "nyc3", "size": "s-1vcpu-1gb", "image": "ubuntu-24-04-x64"},
-			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "create_droplet", Summary: "Would create a DigitalOcean droplet.",
+			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "create_droplet", Summary: "Would create a DigitalOcean droplet. BILLABLE: it is charged from creation until it is destroyed.",
 				Target: map[string]any{"name": "web-1", "region": "nyc3", "size": "s-1vcpu-1gb", "image": "ubuntu-24-04-x64"},
 				Input:  map[string]any{"ssh_keys": nil, "user_data": map[string]any{"bytes": float64(0)}}},
 		},
 		{
 			op:   "stop",
 			args: map[string]any{"droplet_id": "42"},
-			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "stop", Summary: "Would power off a DigitalOcean droplet.",
+			want: DryRunPreview{DryRun: true, Connector: "digitalocean", Operation: "stop", Summary: "Would power off a DigitalOcean droplet. A powered-off droplet STILL BILLS: its CPU, memory, disk and IP stay reserved. Only destroy stops the charge (snapshot first if the data matters).",
 				Target: map[string]any{"droplet_id": float64(42)}},
 		},
 		{

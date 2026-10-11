@@ -118,8 +118,8 @@ func (b *sdkBackend) Delete(ctx context.Context, id int) error {
 }
 
 // dropletFromSDK names every field that leaves. Private and IPv6 networks,
-// tags, volume ids, the VPC, kernel, backup and snapshot ids and feature flags
-// are not copied.
+// kernel, backup and snapshot ids and feature flags are not copied. The VPC
+// uuid, attached volume ids and tags are.
 func dropletFromSDK(d *godo.Droplet) DropletStatus {
 	created, _ := time.Parse(time.RFC3339, d.Created)
 	status := DropletStatus{
@@ -127,6 +127,9 @@ func dropletFromSDK(d *godo.Droplet) DropletStatus {
 		Name:      d.Name,
 		Status:    d.Status,
 		CreatedAt: created.UTC(),
+		VPCUUID:   d.VPCUUID,
+		VolumeIDs: append([]string(nil), d.VolumeIDs...),
+		Tags:      append([]string(nil), d.Tags...),
 	}
 	if d.Region != nil {
 		status.Region = d.Region.Slug
