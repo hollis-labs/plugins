@@ -1,0 +1,5 @@
+{
+  "name": "station-atlas-server",
+  "kind": "module",
+  "hosts": ["station"]
+}
