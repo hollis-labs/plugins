@@ -30,3 +30,4 @@ tangent-portfolio tangent host application has not adopted the current libs (mod
 nanite-bookmarks nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-diagnostics nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-documents nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+nanite-example nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
