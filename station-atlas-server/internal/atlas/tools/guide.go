@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	gmcpserver "github.com/hollis-labs/go-mcp/server"
+	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/audit"
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"

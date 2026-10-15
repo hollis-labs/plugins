@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	gmcpserver "github.com/hollis-labs/go-mcp/server"
+	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"

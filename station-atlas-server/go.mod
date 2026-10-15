@@ -2,7 +2,7 @@ module github.com/hollis-labs/plugins/station-atlas-server
 
 go 1.26.8
 
-require github.com/hollis-labs/go-mcp v0.7.0
+require github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp v0.7.0
 
 require (
 	github.com/google/jsonschema-go v0.4.3 // indirect

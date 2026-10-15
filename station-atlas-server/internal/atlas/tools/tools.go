@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hollis-labs/go-mcp/budget"
-	gmcpserver "github.com/hollis-labs/go-mcp/server"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/budget"
+	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
 	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
