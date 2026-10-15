@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/kubernetes/internal/k8splugin"
+	"github.com/hollis-labs/plugins/cerberus-kubernetes/internal/k8splugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

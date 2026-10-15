@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/kubernetes
+module github.com/hollis-labs/plugins/cerberus-kubernetes
 
 go 1.26.8
 
