@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/pins
+module github.com/hollis-labs/plugins/nanite-pins
 
 go 1.26.7
 
