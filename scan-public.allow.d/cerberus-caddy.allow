@@ -1,0 +1,11 @@
+# Owner-reviewed scan-public allowlist for cerberus-caddy (paths prefixed cerberus-caddy/).
+internal-ip cerberus-caddy/README.md Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/apply_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/connector.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/helpers_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/render.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/render_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/internal/caddyplugin/testdata/cloudflare_dns.golden.Caddyfile Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-caddy/plugin.yaml Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-caddy/internal/caddyplugin/connector.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-caddy/internal/caddyplugin/helpers_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
