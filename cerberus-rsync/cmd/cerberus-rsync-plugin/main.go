@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/rsync/internal/rsyncplugin"
+	"github.com/hollis-labs/plugins/cerberus-rsync/internal/rsyncplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

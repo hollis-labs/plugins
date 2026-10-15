@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/rsync
+module github.com/hollis-labs/plugins/cerberus-rsync
 
 go 1.26.8
 
