@@ -1,0 +1,5 @@
+# Owner-reviewed scan-public allowlist for cerberus-forge (paths prefixed cerberus-forge/).
+home-path-linux cerberus-forge/internal/forgeplugin/client_test.go Developer home directory path in a test, doc or local config; reviewed by the owner 2026-10-15, no credential.
+home-path-linux cerberus-forge/internal/forgeplugin/plugin_test.go Developer home directory path in a test, doc or local config; reviewed by the owner 2026-10-15, no credential.
+internal-ip cerberus-forge/internal/forgeplugin/dto_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-forge/internal/forgeplugin/scrub_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
