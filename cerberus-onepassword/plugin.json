@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-onepassword",
+  "kind": "provider",
+  "hosts": ["cerberus"]
+}
