@@ -4,4 +4,4 @@ go 1.26.8
 
 require github.com/hollis-labs/go-runtime-events v0.2.2
 
-require github.com/hollis-labs/libs/mcp/plugin-mcp v0.1.1
+require github.com/hollis-labs/libs/mcp/plugin-mcp v0.2.0
