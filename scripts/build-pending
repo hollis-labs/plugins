@@ -14,3 +14,4 @@ cerberus-digitalocean cerberus host application has not adopted the current libs
 cerberus-restic cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-rsync cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-sysmon cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+cerberus-tailscale cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
