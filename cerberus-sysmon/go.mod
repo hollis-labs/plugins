@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/sysmon
+module github.com/hollis-labs/plugins/cerberus-sysmon
 
 go 1.26.8
 

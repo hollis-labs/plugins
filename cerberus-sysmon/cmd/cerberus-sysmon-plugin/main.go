@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/sysmon/internal/sysmonplugin"
+	"github.com/hollis-labs/plugins/cerberus-sysmon/internal/sysmonplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
