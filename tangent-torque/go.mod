@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/torque
+module github.com/hollis-labs/plugins/tangent-torque
 
 go 1.26.8
 

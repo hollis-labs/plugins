@@ -31,7 +31,7 @@ import (
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 
-	"github.com/hollis-labs/tangent-plugins/torque/internal/torque"
+	"github.com/hollis-labs/plugins/tangent-torque/internal/torque"
 	tangentplugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/hollis-labs/tangent/pkg/plugin/hostclient"
 )
