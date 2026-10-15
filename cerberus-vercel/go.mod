@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/vercel
+module github.com/hollis-labs/plugins/cerberus-vercel
 
 go 1.26.8
 

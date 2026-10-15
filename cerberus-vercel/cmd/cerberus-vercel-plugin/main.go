@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/vercel/internal/vercelplugin"
+	"github.com/hollis-labs/plugins/cerberus-vercel/internal/vercelplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
