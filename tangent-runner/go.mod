@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/runner
+module github.com/hollis-labs/plugins/tangent-runner
 
 go 1.26.8
 

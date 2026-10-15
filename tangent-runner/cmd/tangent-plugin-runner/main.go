@@ -25,7 +25,7 @@ import (
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 
-	"github.com/hollis-labs/tangent-plugins/runner/internal/runner"
+	"github.com/hollis-labs/plugins/tangent-runner/internal/runner"
 	tangentplugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/hollis-labs/tangent/pkg/plugin/hostclient"
 )
