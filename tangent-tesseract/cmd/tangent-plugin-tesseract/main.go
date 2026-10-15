@@ -34,9 +34,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
-	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
+	sdkmanifest "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 
 	"github.com/hollis-labs/plugins/tangent-tesseract/internal/tesseract"
 	tangentplugin "github.com/hollis-labs/tangent/pkg/plugin"

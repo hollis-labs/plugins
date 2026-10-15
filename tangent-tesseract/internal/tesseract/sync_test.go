@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	plugin "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk"
+	plugin "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk"
 )
 
 // The sync flow, and the line it holds.
