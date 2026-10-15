@@ -16,3 +16,4 @@ cerberus-rsync cerberus host application has not adopted the current libs (modul
 cerberus-sysmon cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-tailscale cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-tmux cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+cerberus-ufw cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
