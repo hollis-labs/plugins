@@ -5,3 +5,4 @@ cerberus-contextforge cerberus host application has not adopted the current libs
 cerberus-fail2ban cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-forge cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-github cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+cerberus-journalctl cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
