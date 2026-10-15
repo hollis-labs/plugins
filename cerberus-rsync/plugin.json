@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-rsync",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
