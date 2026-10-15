@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/onepassword
+module github.com/hollis-labs/plugins/cerberus-onepassword
 
 go 1.26.8
 
