@@ -16,7 +16,7 @@ import (
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
 	sdksub "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 
-	"github.com/hollis-labs/chimera-plugins/observability/activity-monitor/internal/scan"
+	"github.com/hollis-labs/plugins/chimera-activity-monitor/internal/scan"
 )
 
 func main() {

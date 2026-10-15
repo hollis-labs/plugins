@@ -1,4 +1,4 @@
-module github.com/hollis-labs/chimera-plugins/observability/activity-monitor
+module github.com/hollis-labs/plugins/chimera-activity-monitor
 
 go 1.26.8
 
