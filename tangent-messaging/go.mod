@@ -7,7 +7,7 @@ toolchain go1.26.9
 require (
 	github.com/hollis-labs/go-messaging v0.7.0
 	github.com/hollis-labs/go-tether-client v0.10.0
-	github.com/hollis-labs/libs/mcp/plugin-mcp v0.1.1
+	github.com/hollis-labs/libs/mcp/plugin-mcp v0.2.0
 	github.com/hollis-labs/tangent v0.19.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	modernc.org/sqlite v1.60.1
