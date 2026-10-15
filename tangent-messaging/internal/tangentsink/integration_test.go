@@ -15,7 +15,7 @@ import (
 
 	gomsg "github.com/hollis-labs/go-messaging"
 	tether "github.com/hollis-labs/go-tether-client"
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	plugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/hollis-labs/tangent/pkg/plugin/hostclient"

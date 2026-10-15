@@ -11,7 +11,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	plugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/santhosh-tekuri/jsonschema/v5"

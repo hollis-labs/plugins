@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	pluginhost "github.com/hollis-labs/libs/plugin-mcp/plugin-host"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	pluginhost "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-host"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 )
 

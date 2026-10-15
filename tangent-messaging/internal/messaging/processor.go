@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 )
 
 // OwnedProcessor adds an incarnation-owned join to the portable runner. The

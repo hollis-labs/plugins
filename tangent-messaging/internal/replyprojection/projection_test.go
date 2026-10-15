@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	tether "github.com/hollis-labs/go-tether-client"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 	"net/http"

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/chatbridge"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"

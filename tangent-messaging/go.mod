@@ -7,7 +7,7 @@ toolchain go1.26.9
 require (
 	github.com/hollis-labs/go-messaging v0.7.0
 	github.com/hollis-labs/go-tether-client v0.10.0
-	github.com/hollis-labs/libs/plugin-mcp v0.1.1
+	github.com/hollis-labs/libs/mcp/plugin-mcp v0.1.1
 	github.com/hollis-labs/tangent v0.19.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	modernc.org/sqlite v1.60.1
@@ -27,7 +27,7 @@ require (
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hollis-labs/libs/message-pipeline v0.1.0
+	github.com/hollis-labs/libs/mesh/pipeline v0.1.0
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

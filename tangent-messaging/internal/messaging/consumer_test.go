@@ -11,7 +11,7 @@ import (
 	"time"
 
 	tether "github.com/hollis-labs/go-tether-client"
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 )
 
 type fakeProcessor struct{ calls int }

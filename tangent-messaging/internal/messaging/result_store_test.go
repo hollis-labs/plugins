@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	pipeline "github.com/hollis-labs/libs/message-pipeline"
-	"github.com/hollis-labs/libs/message-pipeline/pipelinetest"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
+	"github.com/hollis-labs/libs/mesh/pipeline/pipelinetest"
 )
 
 func TestSQLiteResultStoreContractAndFailureSurviveReopen(t *testing.T) {
