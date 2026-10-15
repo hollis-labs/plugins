@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/contextforge
+module github.com/hollis-labs/plugins/cerberus-contextforge
 
 go 1.26.8
 

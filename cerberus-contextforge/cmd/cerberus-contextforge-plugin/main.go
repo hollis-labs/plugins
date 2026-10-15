@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/contextforge/internal/cfplugin"
+	"github.com/hollis-labs/plugins/cerberus-contextforge/internal/cfplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
