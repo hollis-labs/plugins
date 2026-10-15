@@ -1,0 +1,2 @@
+# Owner-reviewed scan-public allowlist for nanite-oembed (paths prefixed nanite-oembed/).
+credentials-in-url nanite-oembed/main_test.go Placeholder connection string in a test or doc; reviewed by the owner 2026-10-15, no live credential.
