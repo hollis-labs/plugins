@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/oembed
+module github.com/hollis-labs/plugins/nanite-oembed
 
 go 1.26.7
 
