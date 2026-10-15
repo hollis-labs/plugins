@@ -1,0 +1,95 @@
+schema_version: "1"
+id: apt
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-apt-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: apt
+        version: 0.1.0
+        resource_types:
+            - apt.package
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: update
+              description: Update the local package index.
+              examples:
+                - cerberus connectors exec apt update --ack
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: apt.package
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+            - name: upgrade
+              description: Upgrade installed packages.
+              examples:
+                - cerberus connectors exec apt upgrade --ack
+              input_schema:
+                additionalProperties: false
+                properties: {}
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: apt.package
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+            - name: install
+              description: Install an APT package.
+              examples:
+                - cerberus connectors exec apt install --arg package=curl --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    package:
+                        description: Package to install.
+                        type: string
+                required:
+                    - package
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: apt.package
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - update
+            - upgrade
+            - install
