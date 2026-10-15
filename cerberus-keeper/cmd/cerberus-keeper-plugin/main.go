@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/keeper/internal/keeperplugin"
+	"github.com/hollis-labs/plugins/cerberus-keeper/internal/keeperplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

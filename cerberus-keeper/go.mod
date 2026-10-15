@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/keeper
+module github.com/hollis-labs/plugins/cerberus-keeper
 
 go 1.26.8
 
