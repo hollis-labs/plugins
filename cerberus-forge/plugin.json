@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-forge",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
