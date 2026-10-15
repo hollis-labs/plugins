@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/giphy
+module github.com/hollis-labs/plugins/nanite-giphy
 
 go 1.26.7
 
