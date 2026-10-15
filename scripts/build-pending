@@ -35,3 +35,4 @@ nanite-loom nanite host application has not adopted the current libs (module pat
 nanite-pins nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-plan nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-reminders nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+nanite-giphy nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
