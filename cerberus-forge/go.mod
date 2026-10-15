@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/forge
+module github.com/hollis-labs/plugins/cerberus-forge
 
 go 1.26.8
 
