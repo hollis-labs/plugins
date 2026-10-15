@@ -1,0 +1,2 @@
+# cerberus-fail2ban: findings reviewed by the owner 2026-10-15.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
