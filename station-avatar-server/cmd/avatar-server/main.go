@@ -46,7 +46,7 @@ import (
 	"strconv"
 	"time"
 
-	gmcpserver "github.com/hollis-labs/go-mcp/server"
+	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/model"

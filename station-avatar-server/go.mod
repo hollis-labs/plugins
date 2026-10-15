@@ -3,7 +3,7 @@ module github.com/hollis-labs/plugins/station-avatar-server
 go 1.26.8
 
 require (
-	github.com/hollis-labs/go-mcp v0.7.0
+	github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp v0.7.0
 	golang.org/x/text v0.41.0
 )
 
