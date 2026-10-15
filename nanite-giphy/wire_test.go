@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func TestSDKHelperProcess(t *testing.T) {

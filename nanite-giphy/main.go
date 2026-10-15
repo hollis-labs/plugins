@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	plugin "github.com/hollis-labs/plugin-sdk"
-	"github.com/hollis-labs/plugin-sdk/manifest"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	plugin "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 const (
