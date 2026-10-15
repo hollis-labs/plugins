@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/namecheap/internal/namecheapplugin"
+	"github.com/hollis-labs/plugins/cerberus-namecheap/internal/namecheapplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
