@@ -1,0 +1,5 @@
+{
+  "name": "tangent-runner",
+  "kind": "module",
+  "hosts": ["tangent"]
+}
