@@ -9,3 +9,4 @@ cerberus-journalctl cerberus host application has not adopted the current libs (
 cerberus-kubernetes cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-namecheap cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-azure cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+cerberus-caddy cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
