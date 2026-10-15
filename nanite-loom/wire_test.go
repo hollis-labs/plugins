@@ -17,7 +17,7 @@ import (
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
 
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func TestSDKHelperProcess(t *testing.T) {
