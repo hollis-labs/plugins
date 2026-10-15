@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/fail2ban
+module github.com/hollis-labs/plugins/cerberus-fail2ban
 
 go 1.26.8
 
