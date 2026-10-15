@@ -1,0 +1,4 @@
+# Owner-reviewed scan-public allowlist for cerberus-vercel (paths prefixed cerberus-vercel/).
+home-path-macos cerberus-vercel/README.md Developer home directory path in a test, doc or local config; reviewed by the owner 2026-10-15, no credential.
+home-path-macos cerberus-vercel/internal/vercelplugin/plugin_test.go Developer home directory path in a test, doc or local config; reviewed by the owner 2026-10-15, no credential.
+secret-assignment cerberus-vercel/internal/vercelplugin/plugin_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
