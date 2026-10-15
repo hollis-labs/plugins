@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/hollis-labs/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
 )
 
 // Definitions captured from Nanite 81f8d3f2; see testdata/core-tools.json.

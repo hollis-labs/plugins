@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func exportedFixture(t *testing.T, dir, feature string, rows [][]pluginapi.DataCell) pluginapi.DataExportReceipt {
