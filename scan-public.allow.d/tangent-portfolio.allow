@@ -3,3 +3,5 @@ credentials-in-url tangent-portfolio/internal/projects/client_test.go Placeholde
 credentials-in-url tangent-portfolio/torqueclient/client_test.go Placeholder connection string in a test or doc; reviewed by the owner 2026-10-15, no live credential.
 secret-assignment tangent-portfolio/cmd/tangent-plugin-portfolio/manifest_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
 secret-assignment tangent-portfolio/internal/ptrack/ptrack_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+agent-box-host (commit-message)@0b98ddc9257b Internal build machine name used as a label or example; reviewed by the owner 2026-10-15, not an access path.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.

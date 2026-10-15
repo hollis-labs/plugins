@@ -26,3 +26,4 @@ tangent-tesseract tangent host application has not adopted the current libs (mod
 tangent-messaging tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 tangent-runner tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 tangent-chat-agent tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+tangent-portfolio tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
