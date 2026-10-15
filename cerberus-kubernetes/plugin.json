@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-kubernetes",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
