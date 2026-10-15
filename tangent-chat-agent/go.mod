@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/chat-agent
+module github.com/hollis-labs/plugins/tangent-chat-agent
 
 go 1.26.8
 
