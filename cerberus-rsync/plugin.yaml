@@ -1,0 +1,60 @@
+schema_version: "1"
+id: rsync
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-rsync-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: rsync
+        version: 0.1.0
+        resource_types:
+            - rsync.job
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: sync
+              description: Sync a source path to a destination path.
+              examples:
+                - cerberus connectors exec rsync sync --arg source=/var/www --arg dest=~/dev/backups/www --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    delete:
+                        description: Delete extraneous files from dest directories (default false).
+                        type: boolean
+                    dest:
+                        description: The destination path.
+                        type: string
+                    source:
+                        description: The source path.
+                        type: string
+                required:
+                    - source
+                    - dest
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: rsync.job
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - sync
