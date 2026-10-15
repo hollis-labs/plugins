@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/messaging
+module github.com/hollis-labs/plugins/tangent-messaging
 
 go 1.26.8
 

@@ -14,7 +14,7 @@ import (
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/messaging"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 )
 
 func TestManifestVerifiesStagedPayload(t *testing.T) {

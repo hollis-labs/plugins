@@ -16,7 +16,7 @@ import (
 	gomsg "github.com/hollis-labs/go-messaging"
 	tether "github.com/hollis-labs/go-tether-client"
 	pipeline "github.com/hollis-labs/libs/message-pipeline"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/messaging"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	plugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/hollis-labs/tangent/pkg/plugin/hostclient"
 	"github.com/modelcontextprotocol/go-sdk/mcp"

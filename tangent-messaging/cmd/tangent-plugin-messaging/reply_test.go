@@ -10,11 +10,11 @@ import (
 
 	pipeline "github.com/hollis-labs/libs/message-pipeline"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/chatbridge"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/messaging"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/reply"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/replyprojection"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/tangentsink"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/chatbridge"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/replyprojection"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/tangentsink"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 

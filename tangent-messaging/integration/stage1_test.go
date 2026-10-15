@@ -22,8 +22,8 @@ import (
 	tether "github.com/hollis-labs/go-tether-client"
 	pluginhost "github.com/hollis-labs/libs/plugin-mcp/plugin-host"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/messaging"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/replyprojection"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/replyprojection"
 )
 
 // This proxy forwards to the real host. Only the first committed enqueue

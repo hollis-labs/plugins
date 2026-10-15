@@ -12,8 +12,8 @@ import (
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/chatbridge"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/replyprojection"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/chatbridge"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/replyprojection"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 

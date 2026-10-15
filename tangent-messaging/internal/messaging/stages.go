@@ -8,7 +8,7 @@ import (
 	"time"
 
 	pipeline "github.com/hollis-labs/libs/message-pipeline"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/summarizer"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/summarizer"
 )
 
 // BuildStages snapshots instructions/configuration once per incarnation. The

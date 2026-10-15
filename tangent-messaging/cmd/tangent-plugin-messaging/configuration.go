@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/messaging"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 )
 
 // resolveConfiguration is the sole domain decoder for manifest scalar settings.

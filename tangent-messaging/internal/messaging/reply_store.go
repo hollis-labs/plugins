@@ -15,7 +15,7 @@ import (
 
 	gomsg "github.com/hollis-labs/go-messaging"
 	tether "github.com/hollis-labs/go-tether-client"
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/reply"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 

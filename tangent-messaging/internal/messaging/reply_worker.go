@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/messaging/internal/reply"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
 )
 
 type ReplyMappings interface {
