@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/azure
+module github.com/hollis-labs/plugins/cerberus-azure
 
 go 1.26.8
 
