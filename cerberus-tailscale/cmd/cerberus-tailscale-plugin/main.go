@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/tailscale/internal/tailscaleplugin"
+	"github.com/hollis-labs/plugins/cerberus-tailscale/internal/tailscaleplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

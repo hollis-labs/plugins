@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/tailscale
+module github.com/hollis-labs/plugins/cerberus-tailscale
 
 go 1.26.8
 
