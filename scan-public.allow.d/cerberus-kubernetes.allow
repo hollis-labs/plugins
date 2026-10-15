@@ -1,3 +1,4 @@
 # Owner-reviewed scan-public allowlist for cerberus-kubernetes (paths prefixed cerberus-kubernetes/).
 internal-ip cerberus-kubernetes/internal/k8splugin/clientgo_reads_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
 internal-ip cerberus-kubernetes/internal/k8splugin/codes_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
