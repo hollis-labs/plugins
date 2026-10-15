@@ -17,3 +17,4 @@ cerberus-sysmon cerberus host application has not adopted the current libs (modu
 cerberus-tailscale cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-tmux cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 cerberus-ufw cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+cerberus-vercel cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
