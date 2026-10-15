@@ -1,0 +1,5 @@
+{
+  "name": "webhook",
+  "kind": "connector",
+  "hosts": ["fragments-engine"]
+}
