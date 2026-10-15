@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Repository layout guard (plugins). Exits non-zero when:
+#   - the tree breaks the flat layout: a loose file at the root, a submodule, an LFS filter,
+#     a file over 10 MiB, a directory name that is not lower case [a-z0-9._-];
+#   - a go.work or go.work.sum is tracked or sits in the tree and is not ignored;
+#   - a go.mod exists anywhere but <name>/go.mod (not at the root, none nested in a plugin);
+#   - a module path is not github.com/hollis-labs/plugins/<name> (plus /vN for v2 and later);
+#   - a go.mod has no go directive, or contains a replace directive;
+#   - a scan-public allowlist line has no reason, or a reason that quotes an address or value;
+#   - scripts/check-plugins fails: every plugin directory needs a go.mod and a valid
+#     plugin.json descriptor, and tags must be <plugin>/vX.Y.Z.
+# Every top-level directory is a plugin; there are no plain directories.
+#
+# Usage: scripts/check-layout
+set -euo pipefail
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_common.sh
+. "$(cd "$(dirname "$0")" && pwd)/_common.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=check-common.sh
+. "$SCRIPT_DIR/check-common.sh"
+
+fail=0
+bad() {
+  echo "FAIL: $*" >&2
+  fail=1
+}
+
+check_common
+
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [ -e "$REPO_ROOT/$f" ] || continue
+  case "$(basename "$f")" in
+    go.work | go.work.sum) bad "$f: go.work is not allowed; build each module on its own" ;;
+  esac
+  case "$f" in */testdata/*) continue ;; esac
+  case "$f" in
+    go.mod) bad "go.mod at the repository root; modules live at <name>/go.mod" ;;
+    */go.mod)
+      d="${f%/go.mod}"
+      case "$d" in
+        */*) bad "$f: nested go.mod; a plugin's go.mod must be <name>/go.mod, never inside another plugin" ;;
+      esac
+      ;;
+  esac
+done <<EOF2
+$(repo_files)
+EOF2
+
+count=0
+for m in $(modules); do
+  count=$((count + 1))
+  gm="$REPO_ROOT/$m/go.mod"
+  want="$MODULE_PREFIX/$m"
+  path="$(awk '$1 == "module" { print $2; exit }' "$gm")"
+  if ! grep -Eq "^$(re_escape "$want")(/v[2-9][0-9]*)?\$" <<<"$path"; then
+    bad "$m/go.mod: module path is '$path'; want '$want' (or '$want/vN' for N >= 2)"
+  fi
+  grep -Eq '^go[[:space:]]+[0-9]+\.[0-9]+' "$gm" || bad "$m/go.mod: no go directive"
+  if grep -Eq '^[[:space:]]*replace([[:space:]]|\()' "$gm"; then
+    bad "$m/go.mod: replace directive; consumers cannot resolve it"
+  fi
+done
+
+if ! "$SCRIPT_DIR/check-plugins"; then
+  fail=1
+fi
+
+[ "$fail" -eq 0 ] || exit 1
+echo "ok: layout (flat; $count plugin modules under $MODULE_PREFIX; $(project_dirs | wc -l | tr -d ' ') plugin directories)"

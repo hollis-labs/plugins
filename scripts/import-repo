@@ -1,0 +1,356 @@
+#!/usr/bin/env bash
+# Import a plugin into this repository as <plugin>/, keeping its history.
+#
+# Usage: scripts/import-repo --kind KIND --hosts a,b [options] <source> <plugin>
+#
+#   <source>   path or URL of the repository; its default branch is imported
+#   <plugin>   directory the plugin lands in, at the repository root (flat). Lower case,
+#              digits, '.', '_', '-'. Required (a monorepo subdirectory name is not unique).
+#
+# Required:
+#   --kind K          descriptor kind: connector, provider or module
+#   --hosts a,b       descriptor hosts: comma-separated lower-case ids, at least one
+# Options:
+#   --subdir DIR      the plugin is the directory DIR of the source (a monorepo). Only commits
+#                     touching DIR survive (git filter-repo --subdirectory-filter DIR); the
+#                     contents of DIR become the plugin root. Without it the whole source
+#                     repository is the plugin.
+#   --name NAME       label for the source in messages and the merge commit (default: the
+#                     source's basename without .git)
+#   --import-map O=N  rewrite the import prefix O to N in the plugin's .go files and in the
+#                     require lines of its go.mod; repeatable. A prefix matches O itself and
+#                     O/anything, never O-suffix. Versions are NOT touched: a moved module
+#                     usually needs its require bumped (see "After the import").
+#   --target DIR          repository to import into (default: the one this script is in)
+#   --source-allowlist F  allowlist for the source scan (RULE-ID PATH-GLOB REASON lines; paths
+#                         are the plugin's own, i.e. relative to --subdir). Owner-reviewed;
+#                         reasons must not quote values or addresses. It is installed as
+#                         scan-public.allow.d/<plugin>.allow with every path prefixed <plugin>/.
+#   --allow-main          allow the import while main is checked out
+#   -h, --help
+#
+# What it does: clones the source into a scratch directory, narrows it to --subdir if given,
+# and, before anything is written here, STOPS (exit 1, target untouched) when the history to be
+# imported holds
+#   - a file over 10 MiB in any commit on any ref,
+#   - a submodule (a .gitmodules or a gitlink) in any commit,
+#   - Git LFS (a filter=lfs attribute or an LFS pointer) in any commit,
+#   - no go.mod at the plugin root, or a plugin.json at the plugin root (that path belongs to
+#     the monorepo descriptor; the owner decides how to carry the source's file).
+# These need an owner decision; there is no flag to override them. It then runs
+# scripts/scan-public on the clone (tip AND every commit; findings stop the import), rewrites
+# the clone with git filter-repo so every path sits under <plugin>/ (original commits, authors
+# and dates are kept), and merges it with a merge commit that records the source, subdir, its
+# HEAD and its old tags. The source repository is only read. The target must be clean.
+#
+# Follow-up commits: drop <plugin>/AGENTS.md, CLAUDE.md, LICENSE, lefthook.yml; rewrite the
+# go.mod module line from the old module path to MODULE_PREFIX/<plugin> and the old module
+# path in .go and .md files; apply each --import-map to .go files and go.mod require lines;
+# write <plugin>/plugin.json; install the allowlist. Old tags are not carried.
+# Finally scripts/check-plugins and scripts/scan-public --ref HEAD run on the result.
+#
+# After the import (the importer's job, see AGENTS.md): in <plugin>/, run
+#   GOWORK=off GOPRIVATE='github.com/hollis-labs/*' go mod tidy && go build ./... && go vet ./... && go test ./...
+# bump requires that no longer resolve (go get <module>@<version>), add CHANGELOG.md.
+#
+# Work on a branch, not main. Needs git-filter-repo: set GIT_FILTER_REPO to the executable,
+# or put it on PATH.
+set -euo pipefail
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_common.sh
+. "$(cd "$(dirname "$0")" && pwd)/_common.sh"
+
+usage() {
+  awk 'NR > 1 && /^set -euo pipefail/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0"
+}
+
+target="$REPO_ROOT"
+allow_main=0
+source_allowlist=""
+subdir=""
+label=""
+kind=""
+hosts=""
+maps=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --target) [ $# -ge 2 ] || die "--target needs a directory"; target="$2"; shift 2 ;;
+    --source-allowlist) [ $# -ge 2 ] || die "--source-allowlist needs a file"; source_allowlist="$2"; shift 2 ;;
+    --subdir) [ $# -ge 2 ] || die "--subdir needs a directory"; subdir="$2"; shift 2 ;;
+    --name) [ $# -ge 2 ] || die "--name needs a value"; label="$2"; shift 2 ;;
+    --kind) [ $# -ge 2 ] || die "--kind needs a value"; kind="$2"; shift 2 ;;
+    --hosts) [ $# -ge 2 ] || die "--hosts needs a comma-separated list"; hosts="$2"; shift 2 ;;
+    --import-map)
+      [ $# -ge 2 ] || die "--import-map needs OLD=NEW"
+      grep -Eq '^[^=[:space:]]+=[^=[:space:]]+$' <<<"$2" || die "--import-map '$2' is not OLD=NEW"
+      maps+=("$2"); shift 2 ;;
+    --allow-main) allow_main=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) die "unknown flag: $1 (see --help)" ;;
+    *) break ;;
+  esac
+done
+[ $# -eq 2 ] || { usage >&2; exit 2; }
+source_repo="$1"
+name="${2%/}"
+valid_name "$name" || die "plugin '$name' must match [a-z0-9][a-z0-9._-]*"
+if is_reserved "$name"; then die "plugin '$name' is reserved ($RESERVED_DIRS)"; fi
+dest="$name"
+
+# The descriptor is required and validated before anything is cloned.
+[ -n "$kind" ] || die "--kind is required (connector, provider or module); the descriptor cannot be guessed"
+[ -n "$hosts" ] || die "--hosts is required (comma-separated lower-case ids, e.g. cerberus); the descriptor cannot be guessed"
+case "$kind" in connector | provider | module) ;; *) die "--kind '$kind' must be connector, provider or module" ;; esac
+hosts_json=""
+IFS=',' read -r -a host_list <<<"$hosts"
+[ "${#host_list[@]}" -ge 1 ] || die "--hosts needs at least one host"
+for h in "${host_list[@]}"; do
+  grep -Eq '^[a-z][a-z0-9_-]*$' <<<"$h" || die "host '$h' must be a lower-case id ([a-z][a-z0-9_-]*)"
+  hosts_json="${hosts_json:+$hosts_json, }\"$h\""
+done
+if [ -n "$subdir" ]; then
+  subdir="${subdir%/}"
+  grep -Eq '^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$' <<<"$subdir" || die "--subdir '$subdir' must be a relative path inside the source"
+  case "/$subdir/" in */../*) die "--subdir '$subdir' must not contain '..'" ;; esac
+fi
+
+target="$(git -C "$target" rev-parse --show-toplevel 2>/dev/null)" || die "--target is not a git repository"
+[ ! -e "$target/$dest" ] || die "$dest already exists in the target"
+git -C "$target" rev-parse -q --verify HEAD >/dev/null || die "the target has no commits yet"
+[ -z "$(git -C "$target" status --porcelain)" ] || die "the target working tree is not clean; commit or stash first"
+branch="$(git -C "$target" symbolic-ref --short -q HEAD || true)"
+if [ "$allow_main" -eq 0 ] && { [ "$branch" = "main" ] || [ "$branch" = "master" ]; }; then
+  die "refusing to import onto $branch; use a task branch or worktree (or pass --allow-main)"
+fi
+
+if [ -n "${GIT_FILTER_REPO:-}" ]; then
+  [ -x "$GIT_FILTER_REPO" ] || die "GIT_FILTER_REPO='$GIT_FILTER_REPO' is not an executable file"
+  filter_repo="$GIT_FILTER_REPO"
+else
+  filter_repo="$(command -v git-filter-repo || true)"
+  [ -n "$filter_repo" ] || die "git-filter-repo not found: set GIT_FILTER_REPO or put it on PATH"
+fi
+
+if [ -z "$label" ]; then
+  label="$(basename "$source_repo")"
+  label="${label%.git}"
+fi
+
+work="$(mktemp -d "${TMPDIR:-/tmp}/import-repo.XXXXXX")"
+tmpref="refs/import-tmp/$name"
+# shellcheck disable=SC2329 # run by the EXIT trap
+cleanup() {
+  git -C "$target" update-ref -d "$tmpref" >/dev/null 2>&1 || true
+  case "${work:-}" in
+    */import-repo.??????) [ ! -d "$work" ] || rm -rf -- "$work" ;;
+  esac
+}
+trap cleanup EXIT
+
+echo "cloning $label"
+git clone --quiet --no-hardlinks "$source_repo" "$work/src" || die "could not clone '$source_repo'"
+src="$work/src"
+
+src_head="$(git -C "$src" rev-parse HEAD)"
+if [ -n "$subdir" ]; then
+  git -C "$src" cat-file -e "HEAD:$subdir" 2>/dev/null || die "the source has no '$subdir' at its default branch HEAD"
+  src_tags="$(git -C "$src" tag --list "$subdir/*" --merged HEAD | sort -V | tr '\n' ' ' | sed 's/ $//')"
+  echo "extracting $subdir/ with its history"
+  (cd "$src" && "$filter_repo" --force --subdirectory-filter "$subdir") >"$work/subdir.log" 2>&1 || {
+    cat "$work/subdir.log" >&2
+    die "git filter-repo --subdirectory-filter failed"
+  }
+else
+  src_tags="$(git -C "$src" tag --merged HEAD | sort -V | tr '\n' ' ' | sed 's/ $//')"
+fi
+src_commits="$(git -C "$src" rev-list --count HEAD)"
+[ "$src_commits" -gt 0 ] || die "no commit touches '${subdir:-the source}'"
+
+# --- stops that need an owner decision (before the scan, before any write) ---------------
+stop=0
+halt() {
+  echo "STOP: $*" >&2
+  stop=1
+}
+
+big="$(git -C "$src" rev-list --objects --all |
+  git -C "$src" cat-file --batch-check='%(objecttype) %(objectsize) %(rest)' |
+  awk -v max="$MAX_BYTES" '$1 == "blob" && $2 > max { print $2, $3 }' | sort -u)"
+if [ -n "$big" ]; then
+  while IFS= read -r l; do
+    halt "a file over 10 MiB in the history to import: ${l#* } (${l%% *} bytes)"
+  done <<BIGEOF
+$big
+BIGEOF
+fi
+
+raw="$(git -C "$src" log --all -m --raw --no-abbrev --format= 2>/dev/null || true)"
+if grep -Eq '^:[0-7]+ 160000 |^:160000 ' <<<"$raw"; then
+  halt "a submodule (gitlink) in the history to import"
+fi
+if grep -Eq '[[:space:]](.*/)?\.gitmodules$' <<<"$raw"; then
+  halt "a .gitmodules in the history to import"
+fi
+if [ -n "$(git -C "$src" log --all --format=%h -1 -G'filter=lfs' -- '*.gitattributes' 2>/dev/null)" ] ||
+  [ -n "$(git -C "$src" log --all --format=%h -1 -G'git-lfs\.github\.com/spec' 2>/dev/null)" ]; then
+  halt "Git LFS (attribute or pointer) in the history to import"
+fi
+git -C "$src" cat-file -e HEAD:go.mod 2>/dev/null || halt "no go.mod at the plugin root (${subdir:-source root}); every plugin is a Go module"
+if git -C "$src" cat-file -e HEAD:plugin.json 2>/dev/null; then
+  halt "the source has its own plugin.json at the plugin root; that path is the monorepo descriptor, so the owner decides how the source's file is carried (e.g. renamed to plugin.yaml in the source first)"
+fi
+if [ "$stop" -ne 0 ]; then
+  die "import stopped; the owner must decide how to handle the items above. Nothing was written to the target."
+fi
+
+# --- public-hygiene scan: tip and every commit ---------------------------------------------
+echo "scanning $label (tip and full history) for secrets, internal hosts and private paths"
+scan_args=(--repo "$src")
+if [ -n "$source_allowlist" ]; then
+  [ -f "$source_allowlist" ] || die "--source-allowlist '$source_allowlist' is not a file"
+  scan_args+=(--allowlist "$source_allowlist")
+else
+  scan_args+=(--no-allowlist)
+fi
+"$SCRIPT_DIR/scan-public" "${scan_args[@]}" >"$work/scan.log" 2>&1 || {
+  cat "$work/scan.log" >&2
+  die "source scan failed; the owner triages the findings and passes --source-allowlist (reasons required)"
+}
+
+old_module="$(git -C "$src" show HEAD:go.mod | awk '$1 == "module" { print $2; exit }')"
+[ -n "$old_module" ] || die "the source go.mod has no module line"
+
+echo "rewriting $src_commits commits under $dest/"
+(cd "$src" && "$filter_repo" --force --to-subdirectory-filter "$dest") >"$work/filter.log" 2>&1 || {
+  cat "$work/filter.log" >&2
+  die "git filter-repo failed"
+}
+
+echo "merging into $target"
+git -C "$target" fetch --quiet --no-tags "$src" "HEAD:$tmpref"
+
+msg="import: $label${subdir:+/$subdir} into $dest (history preserved)
+
+Source: $label
+Source subdir: ${subdir:-(whole repository)}
+Source HEAD: ${src_head:0:12} ($src_commits commits${subdir:+ touching $subdir})
+Source module: $old_module
+Source tags, not carried: ${src_tags:-none}
+Descriptor: kind=$kind hosts=$hosts
+Imported with scripts/import-repo (git filter-repo${subdir:+ --subdirectory-filter $subdir} --to-subdirectory-filter $dest)."
+if ! git -C "$target" merge --quiet --no-ff --allow-unrelated-histories -m "$msg" "$tmpref"; then
+  git -C "$target" merge --abort >/dev/null 2>&1 || true
+  die "merge failed and was aborted; the target is unchanged"
+fi
+
+# --- follow-up commits -----------------------------------------------------------------------
+strip_files=""
+for f in AGENTS.md CLAUDE.md LICENSE lefthook.yml; do
+  if [ -n "$(git -C "$target" ls-files -- "$dest/$f")" ]; then
+    git -C "$target" rm --quiet -f -- "$dest/$f"
+    strip_files="${strip_files:+$strip_files }$f"
+  fi
+done
+if [ -n "$strip_files" ]; then
+  git -C "$target" commit --quiet -m "import: drop $name's per-directory files ($strip_files)
+
+This repository keeps a single AGENTS.md and LICENSE at the root and no per-directory
+CLAUDE.md or hook config; the history keeps the originals."
+fi
+
+requirements="$(awk '
+  $1 == "require" && $2 == "(" { inblock = 1; next }
+  inblock && $1 == ")" { inblock = 0; next }
+  inblock { print $1, $2; next }
+  $1 == "require" { print $2, $3 }
+' "$target/$dest/go.mod")"
+
+suffix="$(grep -oE '/v[2-9][0-9]*$' <<<"$old_module" || true)"
+new_module="$MODULE_PREFIX/$dest$suffix"
+esc="$(re_escape "$old_module")"
+# Module line first, then the old module path in .go and .md files.
+awk -v new="$new_module" '$1 == "module" && !done { print "module " new; done = 1; next } { print }' \
+  "$target/$dest/go.mod" >"$work/go.mod.new"
+cp "$work/go.mod.new" "$target/$dest/go.mod"
+git -C "$target" add -- "$dest/go.mod"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  sed -E -i "s#${esc}([^A-Za-z0-9._-]|\$)#${new_module}\\1#g" "$target/$f"
+  git -C "$target" add -- "$f"
+done <<LSEOF
+$(git -C "$target" ls-files -- "$dest/*.go" "$dest/*.md")
+LSEOF
+if ! git -C "$target" diff --cached --quiet; then
+  git -C "$target" commit --quiet -m "import: module path of $name is now $new_module
+
+The imported go.mod is kept. Its module line changes, and so does the old module path in
+$dest's .go and .md files (was $old_module). Requirements are untouched.
+
+Requirements carried over:
+${requirements:-  (none)}"
+fi
+
+if [ "${#maps[@]}" -gt 0 ]; then
+  for m in "${maps[@]}"; do
+    o="${m%%=*}"
+    n="${m#*=}"
+    eo="$(re_escape "$o")"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      sed -E -i "s#${eo}([^A-Za-z0-9._-]|\$)#${n}\\1#g" "$target/$f"
+      git -C "$target" add -- "$f"
+    done <<MAPEOF
+$(git -C "$target" ls-files -- "$dest/*.go" "$dest/go.mod")
+MAPEOF
+  done
+  if ! git -C "$target" diff --cached --quiet; then
+    git -C "$target" commit --quiet -m "import: rewrite import prefixes in $name
+
+$(printf '%s\n' "${maps[@]}" | sed 's/=/ -> /')
+
+Applied to $dest's .go files and the require lines of its go.mod. Versions are untouched."
+  fi
+fi
+
+printf '{\n  "name": "%s",\n  "kind": "%s",\n  "hosts": [%s]\n}\n' "$name" "$kind" "$hosts_json" >"$target/$dest/plugin.json"
+git -C "$target" add -- "$dest/plugin.json"
+git -C "$target" commit --quiet -m "import: descriptor for $name (kind=$kind)
+
+$dest/plugin.json is owned by this repository; it is not part of the plugin's own manifest."
+
+if [ -n "$source_allowlist" ]; then
+  out="$target/scan-public.allow.d/$name.allow"
+  mkdir -p "$target/scan-public.allow.d"
+  {
+    echo "# Owner-reviewed scan-public allowlist for $name (paths prefixed $name/)."
+    awk -v p="$name/" '/^[[:space:]]*(#|$)/ { next } { rule = $1; glob = $2; $1 = ""; $2 = ""; sub(/^[[:space:]]+/, ""); print rule, p glob, $0 }' "$source_allowlist"
+  } >"$out"
+  git -C "$target" add -- "scan-public.allow.d/$name.allow"
+  git -C "$target" commit --quiet -m "$name: scan-public allowlist for reviewed path/host references"
+fi
+
+echo
+echo "imported $label${subdir:+/$subdir} into $dest/: $src_commits source commits preserved"
+echo "HEAD $(git -C "$target" rev-parse --short HEAD)  ($(git -C "$target" log -1 --format=%s))"
+nested="$(git -C "$target" ls-files "$dest" | grep -E '(^|/)go\.(mod|work)$' | grep -vE '/testdata/' | grep -vx "$dest/go\.mod" || true)"
+if [ -n "$nested" ]; then
+  echo "warning: nested go.mod or go.work under $dest (scripts/check-layout will fail):" >&2
+  printf '  %s\n' "$nested" >&2
+fi
+if grep -Eq '^[[:space:]]*replace([[:space:]]|\()' "$target/$dest/go.mod"; then
+  echo "warning: $dest/go.mod has a replace directive (scripts/check-layout will fail)" >&2
+fi
+if [ -n "$requirements" ]; then
+  echo "requirements, as the source had them (after --import-map the paths in go.mod differ):"
+  awk '{ print "  " $0 }' <<<"$requirements"
+fi
+rc=0
+"$SCRIPT_DIR/check-plugins" --repo "$target" --no-tags || rc=1
+"$SCRIPT_DIR/scan-public" --repo "$target" --ref HEAD >"$work/post-scan.log" 2>&1 || {
+  tail -40 "$work/post-scan.log" >&2
+  echo "warning: scan-public on the result fails; fix scan-public.allow.d/$name.allow (owner-reviewed)" >&2
+  rc=1
+}
+echo "next: in $dest/ run go mod tidy, go build ./..., go vet ./..., go test ./... (GOWORK=off GOPRIVATE='github.com/hollis-labs/*'); bump requires that do not resolve; scripts/check-layout; add $dest/CHANGELOG.md before scripts/release"
+exit "$rc"

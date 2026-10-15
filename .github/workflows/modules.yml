@@ -1,0 +1,67 @@
+# Per-plugin checks (<plugin>/go.mod, one Go module per plugin). The plan job lists the modules a change
+# touches (scripts/changed-modules); each one is vetted and tested on its own, with no go.work.
+# A change to scripts/ or to this workflow runs them all.
+name: modules
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.plan.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the diff against the base needs its history
+
+      - id: plan
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: echo "modules=$(scripts/changed-modules --base "$BASE")" >> "$GITHUB_OUTPUT"
+
+  module:
+    name: ${{ matrix.module }}
+    needs: plan
+    if: needs.plan.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.plan.outputs.modules) }}
+    env:
+      GOWORK: "off" # every module builds on its own
+      GOPRIVATE: "github.com/hollis-labs/*"
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: |
+            ${{ matrix.module }}/go.mod
+            ${{ matrix.module }}/go.sum
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test -count=1 -race ./...

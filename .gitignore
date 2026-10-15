@@ -1,0 +1,11 @@
+# No go.work anywhere: modules are built one at a time with GOWORK=off.
+go.work
+go.work.sum
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/

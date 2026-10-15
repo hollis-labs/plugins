@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Print the Go modules a change touches, as a JSON array for a CI matrix.
+#
+# Usage: scripts/changed-modules [--base REV] [--all]
+#
+#   --base REV   compare REV...HEAD (default: origin/main)
+#   --all        every module, ignoring the diff
+#
+# A module is a tool directory <name> holding a go.mod. It is listed when a file under its
+# directory changed. Every module is listed when the shared pipeline changes (scripts/, the
+# modules workflow) or when the base is unusable (an all-zero SHA from a first push, or
+# a revision the clone does not have). Modules never need re-testing because another
+# module changed: there is no go.work and no replace, so a module builds against the
+# released versions of its dependencies.
+set -euo pipefail
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_common.sh
+. "$(cd "$(dirname "$0")" && pwd)/_common.sh"
+
+usage() {
+  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+base="origin/main"
+all=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) [ $# -ge 2 ] || die "--base needs a revision"; base="$2"; shift 2 ;;
+    --all) all=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown argument: $1 (see --help)" ;;
+  esac
+done
+
+grouped="$(modules)"
+
+changed=""
+if [ "$all" -eq 0 ]; then
+  if grep -Eq '^0+$' <<<"$base" || ! git -C "$REPO_ROOT" rev-parse -q --verify "$base^{commit}" >/dev/null 2>&1; then
+    all=1
+  else
+    changed="$(git -C "$REPO_ROOT" diff --name-only "$base"...HEAD 2>/dev/null || git -C "$REPO_ROOT" diff --name-only "$base" HEAD)"
+    if grep -Eq '^(scripts/|\.github/workflows/modules\.yml$)' <<<"$changed"; then
+      all=1
+    fi
+  fi
+fi
+
+out=""
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  if [ "$all" -eq 1 ] || grep -q "^$(re_escape "$m")/" <<<"$changed"; then
+    out="$out\"$m\","
+  fi
+done <<EOF
+$grouped
+EOF
+printf '[%s]\n' "${out%,}"

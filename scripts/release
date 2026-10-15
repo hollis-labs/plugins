@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+# Validate a module release and print its module-prefixed tag.
+#
+# Usage: scripts/release [--apply] <module> <version>
+#
+#   scripts/release <module> v0.1.0           dry run: validate and print the tag
+#   scripts/release --apply <module> v0.1.0   also create the annotated tag in THIS clone
+#
+# Dry run is the default. This script never pushes: publishing a tag is a separate,
+# owner-approved step, and the command to run is printed at the end.
+#
+# <module> is the plugin's directory name, for example cerberus-apt. Releases are per module and
+# never lockstep. The tag is <module>/<version> (for example cerberus-apt/v0.3.2), which is how
+# the Go tooling finds a module in a subdirectory. Every plugin is a Go module.
+# Checks: scripts/check-plugins passes for the plugin (descriptor, go.mod) and for the tags; the module exists (a directory holding a go.mod); the version is plain semver
+# with a leading v; a v2+ major matches the module path suffix; the tag is new and newer
+# than the module's latest tag; every module of this repository that go.mod requires is
+# already tagged at the required version (dependency first); <module>/CHANGELOG.md has
+# a section for the version; the working tree is clean; main is checked out. Any failed
+# check exits non-zero, with or without --apply.
+set -euo pipefail
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=_common.sh
+. "$(cd "$(dirname "$0")" && pwd)/_common.sh"
+
+usage() {
+  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+SEMVER_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?$'
+
+# semver_gt A B: succeeds when version A is greater than B (both vMAJOR.MINOR.PATCH[-pre]).
+semver_gt() {
+  awk -v a="${1#v}" -v b="${2#v}" '
+    function parse(v, out,   i, core, parts) {
+      core = v; out[4] = ""
+      i = index(v, "-")
+      if (i > 0) { core = substr(v, 1, i - 1); out[4] = substr(v, i + 1) }
+      split(core, parts, ".")
+      out[1] = parts[1] + 0; out[2] = parts[2] + 0; out[3] = parts[3] + 0
+    }
+    # Prerelease precedence per semver 2.0.0: a release outranks its prereleases;
+    # numeric identifiers compare as numbers and rank below alphanumeric ones.
+    function cmp_pre(p, q,   pa, qa, np, nq, n, i, x, y, xn, yn) {
+      if (p == q) return 0
+      if (p == "") return 1
+      if (q == "") return -1
+      np = split(p, pa, "."); nq = split(q, qa, ".")
+      n = (np > nq) ? np : nq
+      for (i = 1; i <= n; i++) {
+        if (i > np) return -1
+        if (i > nq) return 1
+        x = pa[i]; y = qa[i]
+        xn = (x ~ /^[0-9]+$/); yn = (y ~ /^[0-9]+$/)
+        if (xn && yn) { if (x + 0 != y + 0) return (x + 0 > y + 0) ? 1 : -1 }
+        else if (xn) return -1
+        else if (yn) return 1
+        else if (x != y) return (x > y) ? 1 : -1
+      }
+      return 0
+    }
+    BEGIN {
+      parse(a, A); parse(b, B)
+      for (i = 1; i <= 3; i++) if (A[i] != B[i]) exit (A[i] > B[i]) ? 0 : 1
+      exit (cmp_pre(A[4], B[4]) > 0) ? 0 : 1
+    }'
+}
+
+apply=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) apply=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    --) shift; break ;;
+    -*) die "unknown flag: $1 (see --help)" ;;
+    *) break ;;
+  esac
+done
+[ $# -eq 2 ] || { usage >&2; exit 2; }
+module="$1"
+version="$2"
+
+module="${module%/}"
+if ! valid_module "$module"; then
+  die "'$module' is not a module here (modules: $(modules | tr '\n' ' '))"
+fi
+[[ "$version" =~ $SEMVER_RE ]] || die "'$version' is not a valid version; want vMAJOR.MINOR.PATCH with an optional -prerelease (no module prefix, no +build metadata)"
+
+tag="$module/$version"
+modpath="$(awk '$1 == "module" { print $2; exit }' "$REPO_ROOT/$module/go.mod")"
+major="${BASH_REMATCH[1]}"
+
+fail=0
+ok() { printf '  ok    %s\n' "$*"; }
+nope() { printf '  FAIL  %s\n' "$*"; fail=1; }
+
+echo "module   $module ($modpath)"
+echo "version  $version"
+echo "tag      $tag"
+echo "checks"
+
+if "$SCRIPT_DIR/check-plugins" --plugin "$module" >/dev/null 2>"${TMPDIR:-/tmp}/check-plugins.$$"; then
+  ok "descriptor and go.mod of '$module' pass scripts/check-plugins"
+else
+  nope "scripts/check-plugins fails for '$module': $(tr '\n' ' ' <"${TMPDIR:-/tmp}/check-plugins.$$")"
+fi
+rm -f "${TMPDIR:-/tmp}/check-plugins.$$"
+ok "module '$module' exists"
+ok "version $version is valid semver"
+ok "tag is <plugin>/<version>: $tag"
+
+# Go requires the major version in the module path from v2 on, and forbids it for v0 and v1.
+if [ "$major" -ge 2 ]; then
+  case "$modpath" in
+    */v"$major") ok "module path ends in /v$major" ;;
+    *) nope "major version $major needs the module path to end in /v$major (found '$modpath')" ;;
+  esac
+else
+  if grep -Eq '/v[0-9]+$' <<<"$modpath"; then
+    nope "module path '$modpath' has a /vN suffix, which v0 and v1 must not have"
+  else
+    ok "module path has no major suffix (right for v$major)"
+  fi
+fi
+
+if git -C "$REPO_ROOT" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+  nope "tag $tag already exists locally"
+else
+  ok "tag $tag does not exist locally"
+fi
+
+latest=""
+for t in $(git -C "$REPO_ROOT" tag --list "$module/v*"); do
+  v="${t#"$module"/}"
+  [[ "$v" =~ $SEMVER_RE ]] || continue
+  if [ -z "$latest" ] || semver_gt "$v" "$latest"; then
+    latest="$v"
+  fi
+done
+if [ -z "$latest" ]; then
+  ok "no earlier $module tag (first release)"
+elif semver_gt "$version" "$latest"; then
+  ok "$version is newer than the latest $module tag ($latest)"
+else
+  nope "$version is not newer than the latest $module tag ($latest)"
+fi
+
+# Dependency order: a requirement on another module of this repository must name a
+# version that has been tagged, or a consumer's go get cannot resolve it.
+reqs="$(awk '
+  $1 == "require" && $2 == "(" { inblock = 1; next }
+  inblock && $1 == ")" { inblock = 0; next }
+  inblock { print $1, $2; next }
+  $1 == "require" { print $2, $3 }
+' "$REPO_ROOT/$module/go.mod")"
+while read -r rpath rver; do
+  [ -n "${rpath:-}" ] || continue
+  case "$rpath" in "$MODULE_PREFIX"/*) ;; *) continue ;; esac
+  rdir="$(printf '%s\n' "${rpath#"$MODULE_PREFIX"/}" | sed -E 's#/v[0-9]+$##')"
+  if git -C "$REPO_ROOT" rev-parse -q --verify "refs/tags/$rdir/$rver" >/dev/null 2>&1; then
+    ok "dependency $rdir is tagged $rver"
+  else
+    nope "go.mod requires $rpath $rver but tag $rdir/$rver does not exist; release the dependency first"
+  fi
+done <<EOF
+$reqs
+EOF
+
+bare="${version#v}"
+if grep -Eq "^##[[:space:]]+\\[?v?$(printf '%s' "$bare" | sed 's/\./\\./g')\\]?([[:space:]]|\$)" "$REPO_ROOT/$module/CHANGELOG.md" 2>/dev/null; then
+  ok "$module/CHANGELOG.md has a section for $version"
+else
+  nope "$module/CHANGELOG.md has no '## $version' section (write the entry before tagging)"
+fi
+
+if [ -z "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
+  ok "working tree is clean"
+else
+  nope "working tree has uncommitted changes"
+fi
+
+branch="$(git -C "$REPO_ROOT" symbolic-ref --short -q HEAD || true)"
+if [ "$branch" = "main" ]; then
+  ok "main is checked out"
+else
+  nope "main is not checked out (on '${branch:-a detached HEAD}'); release from main"
+fi
+
+if ! git -C "$REPO_ROOT" rev-parse -q --verify HEAD >/dev/null 2>&1; then
+  nope "no commits yet"
+fi
+
+echo
+if [ "$fail" -ne 0 ]; then
+  echo "NOT READY: fix the failed checks above. No tag was created."
+  exit 1
+fi
+
+if [ "$apply" -eq 0 ]; then
+  echo "Dry run: no tag created. Re-run with --apply to create $tag locally."
+else
+  git -C "$REPO_ROOT" tag -a "$tag" -m "$module $version" HEAD
+  echo "Created local annotated tag $tag at $(git -C "$REPO_ROOT" rev-parse --short HEAD). Nothing was pushed."
+fi
+echo "Publishing needs the owner's approval; this script never pushes. When approved:"
+echo "  git push origin refs/tags/$tag"
