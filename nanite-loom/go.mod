@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/loom
+module github.com/hollis-labs/plugins/nanite-loom
 
 go 1.26.7
 
