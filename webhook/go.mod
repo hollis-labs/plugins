@@ -1,3 +1,3 @@
-module github.com/hollis-labs/fragments-engine/connectors/webhook
+module github.com/hollis-labs/plugins/webhook
 
 go 1.26.1
