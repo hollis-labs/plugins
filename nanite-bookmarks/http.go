@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"io"
 	"net/http"
 )
