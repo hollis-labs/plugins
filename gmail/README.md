@@ -43,7 +43,7 @@ import (
     "fmt"
     "log"
 
-    gmail "github.com/hollis-labs/fragments-engine/connectors/gmail"
+    gmail "github.com/hollis-labs/plugins/gmail"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-module github.com/hollis-labs/fragments-engine/connectors/gmail
+module github.com/hollis-labs/plugins/gmail
 
 go 1.26.1
 
