@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/hollis-labs/plugins/cerberus-digitalocean/internal/digitaloceanplugin"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // The binary has two modes. With no arguments it speaks the plugin-sdk

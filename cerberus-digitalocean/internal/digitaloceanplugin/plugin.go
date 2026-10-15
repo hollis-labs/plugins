@@ -14,8 +14,8 @@ import (
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
 	"github.com/hollis-labs/cerberus/pkg/resource"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // errMissingCredential is what every DigitalOcean call returns when no token
