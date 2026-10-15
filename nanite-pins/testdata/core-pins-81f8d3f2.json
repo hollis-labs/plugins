@@ -1,0 +1,260 @@
+{
+  "source": "Nanite internal/chat/context_client.go buildUserContextSlot and internal/store pinned-content queries",
+  "core_sha": "81f8d3f2",
+  "capture": "Independent PR #10 reviewer executed the real core builder against these input rows on 2026-10-03; copied from probe-pr10/core-golden.json. Expected core bytes are literal captured output, not rendered by this plugin.",
+  "fixtures": [
+    {
+      "name": "none",
+      "session": "sa",
+      "project": "pa",
+      "rows": null,
+      "core": ""
+    },
+    {
+      "name": "session-only",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "first",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "second",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        },
+        {
+          "id": "pin-1000000000000000003",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "third",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:03Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned] first\n[pinned] second\n[pinned] third"
+    },
+    {
+      "name": "project-only",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sb",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "proj-one",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sa",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "proj-two",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned:project] proj-one\n[pinned:project] proj-two"
+    },
+    {
+      "name": "mixed-chronology",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sb",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "p-early",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "s-mid",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        },
+        {
+          "id": "pin-1000000000000000003",
+          "session_id": "sa",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "p-mid",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:03Z"
+        },
+        {
+          "id": "pin-1000000000000000004",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "s-late",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:04Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned:project] p-early\n[pinned] s-mid\n[pinned:project] p-mid\n[pinned] s-late"
+    },
+    {
+      "name": "whitespace-multiline",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "  leading and trailing  ",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sa",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "line1\nline2\n\n\nline5\n",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        },
+        {
+          "id": "pin-1000000000000000003",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "\tTAB\r\nCRLF\r\n",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:03Z"
+        },
+        {
+          "id": "pin-1000000000000000004",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "## Pinned Context\n[pinned] nested\n\n## Session Documents",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:04Z"
+        },
+        {
+          "id": "pin-1000000000000000005",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "\u754c \u2028 emoji \ud83d\ude00 <&> \"q\" \\ \u0001ctl",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:05Z"
+        },
+        {
+          "id": "pin-1000000000000000006",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "   ",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:06Z"
+        },
+        {
+          "id": "pin-1000000000000000007",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:07Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned]   leading and trailing  \n[pinned:project] line1\nline2\n\n\nline5\n\n[pinned] \tTAB\r\nCRLF\r\n\n[pinned] ## Pinned Context\n[pinned] nested\n\n## Session Documents\n[pinned] \u754c \u2028 emoji \ud83d\ude00 <&> \"q\" \\ \u0001ctl\n[pinned]    \n[pinned] "
+    },
+    {
+      "name": "turn-rows-excluded",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sa",
+          "scope": "turn",
+          "project_id": "",
+          "content": "ephemeral",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "kept",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned] kept"
+    },
+    {
+      "name": "other-sessions-projects-excluded",
+      "session": "sa",
+      "project": "pa",
+      "rows": [
+        {
+          "id": "pin-1000000000000000001",
+          "session_id": "sb",
+          "scope": "session",
+          "project_id": "",
+          "content": "foreign session",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:01Z"
+        },
+        {
+          "id": "pin-1000000000000000002",
+          "session_id": "sd",
+          "scope": "project",
+          "project_id": "pb",
+          "content": "foreign project",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:02Z"
+        },
+        {
+          "id": "pin-1000000000000000003",
+          "session_id": "sa",
+          "scope": "session",
+          "project_id": "",
+          "content": "mine",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:03Z"
+        },
+        {
+          "id": "pin-1000000000000000004",
+          "session_id": "sb",
+          "scope": "project",
+          "project_id": "pa",
+          "content": "shared project",
+          "agent_id": "agent-x",
+          "created_at": "2026-01-01T00:00:04Z"
+        }
+      ],
+      "core": "## Pinned Context\n[pinned] mine\n[pinned:project] shared project"
+    }
+  ]
+}
