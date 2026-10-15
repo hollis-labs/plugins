@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	cerbplugin "github.com/hollis-labs/cerberus/pkg/plugin"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Plugin serves the Kubernetes connector over the plugin-sdk subprocess
