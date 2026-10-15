@@ -1,0 +1,5 @@
+{
+  "name": "tangent-tesseract",
+  "kind": "connector",
+  "hosts": ["tangent"]
+}
