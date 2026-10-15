@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/caddy/internal/caddyplugin"
+	"github.com/hollis-labs/plugins/cerberus-caddy/internal/caddyplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

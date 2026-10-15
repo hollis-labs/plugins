@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/caddy
+module github.com/hollis-labs/plugins/cerberus-caddy
 
 go 1.26.8
 
