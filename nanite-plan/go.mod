@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/plan
+module github.com/hollis-labs/plugins/nanite-plan
 
 go 1.26.7
 
