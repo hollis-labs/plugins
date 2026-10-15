@@ -19,9 +19,9 @@ import (
 	"github.com/hollis-labs/go-mcp/budget"
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/corpus"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
 )
 
 // Deps are what the tools read through.

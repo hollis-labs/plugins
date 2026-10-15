@@ -13,12 +13,12 @@ import (
 	"github.com/hollis-labs/go-mcp/budget"
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/atlastest"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/audit"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/corpus"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tools"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/atlastest"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/audit"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tools"
 )
 
 var now = time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)

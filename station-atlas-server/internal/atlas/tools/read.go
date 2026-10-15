@@ -10,10 +10,10 @@ import (
 
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/audit"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/corpus"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/audit"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
 )
 
 // scanCap is how many ranked matches atlas_search reads when it has to filter

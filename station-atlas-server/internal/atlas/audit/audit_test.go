@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/atlastest"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/audit"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/corpus"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/atlastest"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/audit"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
 )
 
 func run(revs ...tesseract.Revision) []audit.Finding {

@@ -1,4 +1,4 @@
-module github.com/hollis-labs/station-plugins/atlas-server
+module github.com/hollis-labs/plugins/station-atlas-server
 
 go 1.26.8
 

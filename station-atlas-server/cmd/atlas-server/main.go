@@ -25,9 +25,9 @@ import (
 
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/corpus"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tools"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/corpus"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tools"
 )
 
 const version = "0.1.0"

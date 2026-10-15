@@ -8,8 +8,8 @@ import (
 
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/audit"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/audit"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
 )
 
 var guideTopics = []string{"classes", "class:<name>", "vocabularies", "tags", "lifecycle", "boundaries", "audit", "tools"}

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
 )
 
 // TagCounts counts how many records carry each tag.

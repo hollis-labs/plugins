@@ -23,8 +23,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
 )
 
 // DocumentClass is the Class of a record outside the seven class namespaces:

@@ -22,8 +22,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/contract"
-	"github.com/hollis-labs/station-plugins/atlas-server/internal/atlas/tesseract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/contract"
+	"github.com/hollis-labs/plugins/station-atlas-server/internal/atlas/tesseract"
 )
 
 // Fake is a running fake Tesseract.
