@@ -1,1 +1,2 @@
 # plugin host reason
+cerberus-apt cerberus host application has not adopted the current libs (module paths and versions); adopted when the host is booted
