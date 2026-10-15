@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/cloudflare
+module github.com/hollis-labs/plugins/cerberus-cloudflare
 
 go 1.26.8
 

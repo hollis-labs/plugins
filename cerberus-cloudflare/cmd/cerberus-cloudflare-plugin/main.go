@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/cloudflare/internal/cloudflareplugin"
+	"github.com/hollis-labs/plugins/cerberus-cloudflare/internal/cloudflareplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
