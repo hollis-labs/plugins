@@ -1,0 +1,11 @@
+# Owner-reviewed scan-public allowlist for cerberus-cloudflare (paths prefixed cerberus-cloudflare/).
+internal-ip cerberus-cloudflare/README.md Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/internal/cloudflareplugin/api_backend_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/internal/cloudflareplugin/connector.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/internal/cloudflareplugin/plugin_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/internal/cloudflareplugin/redaction_test.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/internal/cloudflareplugin/upsert.go Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+internal-ip cerberus-cloudflare/(commit-message)@ba400c882395 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-cloudflare/internal/cloudflareplugin/api_backend_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-cloudflare/internal/cloudflareplugin/plugin_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-cloudflare/internal/cloudflareplugin/scrub_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
