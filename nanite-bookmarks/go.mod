@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/bookmarks
+module github.com/hollis-labs/plugins/nanite-bookmarks
 
 go 1.26.7
 
