@@ -1,0 +1,355 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"slices"
+	"syscall"
+	"time"
+
+	"github.com/hollis-labs/nanite/pkg/pluginapi"
+)
+
+// Each source retains the complete typed core snapshot. Edits change only the
+// addressed fields; unrecognized columns and SQLite storage classes survive.
+// The checkpoint and rows are one atomic commit, never separate writes.
+type table struct {
+	ImportSHA256 string                 `json:"import_sha256"`
+	Snapshot     pluginapi.DataSnapshot `json:"snapshot"`
+}
+type database struct{ dir string }
+
+var errNotFound = errors.New("bookmark not found")
+
+const maxTableBytes = 256 << 20
+
+func sourceFile(source string) string {
+	digest := sha256.Sum256([]byte(source))
+	return "bookmarks-" + hex.EncodeToString(digest[:]) + ".json"
+}
+func noLink(root *os.Root, name string) error {
+	info, err := root.Lstat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("bookmarks: non-regular storage file")
+	}
+	return nil
+}
+
+// Separate lock descriptors coordinate both concurrent SDK calls and multiple
+// host processes sharing DataDir. Nonblocking polling honors cancellation.
+func (db database) transaction(ctx context.Context, source string, mutate func(*table) (bool, error)) error {
+	root, err := os.OpenRoot(db.dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close() //nolint:errcheck // Root.Close does not flush writes.
+	lockName := sourceFile(source) + ".lock"
+	if err = noLink(root, lockName); err != nil {
+		return err
+	}
+	lock, err := root.OpenFile(lockName, os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		return err
+	}
+	defer lock.Close() //nolint:errcheck // The lock file contains no data.
+	for {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EINTR) {
+			return err
+		}
+		timer := time.NewTimer(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck // Descriptor close also releases the lock.
+	name := sourceFile(source)
+	if err = noLink(root, name); err != nil {
+		return err
+	}
+	state := table{}
+	file, err := root.Open(name)
+	if err == nil {
+		bounded := &io.LimitedReader{R: file, N: maxTableBytes + 1}
+		decoder := json.NewDecoder(bounded)
+		decoder.DisallowUnknownFields()
+		decodeErr := decoder.Decode(&state)
+		var extra any
+		if decodeErr == nil && decoder.Decode(&extra) != io.EOF {
+			decodeErr = fmt.Errorf("bookmarks: trailing storage data")
+		}
+		closeErr := file.Close()
+		if decodeErr != nil {
+			return decodeErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if bounded.N <= 0 {
+			return fmt.Errorf("bookmarks: storage exceeds limit")
+		}
+		if err = validateTable(state, source); err != nil {
+			return err
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	changed, err := mutate(&state)
+	if err != nil || !changed {
+		return err
+	}
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	if err = validateTable(state, source); err != nil {
+		return err
+	}
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	if len(raw) > maxTableBytes {
+		return fmt.Errorf("bookmarks: storage exceeds limit")
+	}
+	temporary := name + "." + newID() + ".tmp"
+	out, err := root.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer root.Remove(temporary) //nolint:errcheck // Removed after success; best-effort cleanup after failure.
+	_, writeErr := out.Write(raw)
+	if writeErr == nil {
+		writeErr = out.Sync()
+	}
+	closeErr := out.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err = root.Rename(temporary, name); err != nil {
+		return err
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	closeErr = directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
+}
+func newID() string { return rand.Text() }
+
+var requiredColumns = []string{"id", "message_id", "session_id", "note", "tags", "created_at"}
+
+func columns(snapshot pluginapi.DataSnapshot) (map[string]int, error) {
+	result := make(map[string]int)
+	for i, name := range snapshot.Columns {
+		result[name] = i
+	}
+	for _, name := range requiredColumns {
+		if _, ok := result[name]; !ok {
+			return nil, fmt.Errorf("bookmarks: required column %s absent", name)
+		}
+	}
+	return result, nil
+}
+func validateTable(state table, source string) error {
+	if len(state.ImportSHA256) != 64 || state.Snapshot.SourceID != source || state.Snapshot.PluginID != pluginID || state.Snapshot.Feature != "bookmarks" {
+		return fmt.Errorf("bookmarks: storage identity differs")
+	}
+	if _, err := hex.DecodeString(state.ImportSHA256); err != nil {
+		return err
+	}
+	if err := state.Snapshot.Validate(); err != nil {
+		return err
+	}
+	index, err := columns(state.Snapshot)
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for _, row := range state.Snapshot.Rows {
+		id, readErr := cellString(row[index["id"]])
+		if readErr != nil || id == "" || seen[id] {
+			return fmt.Errorf("bookmarks: missing or duplicate bookmark ID")
+		}
+		seen[id] = true
+	}
+	return nil
+}
+func (db database) importReceipt(ctx context.Context, receipt pluginapi.DataExportReceipt) error {
+	if receipt.PluginID != pluginID || receipt.Feature != "bookmarks" {
+		return fmt.Errorf("bookmarks: foreign receipt")
+	}
+	root, err := os.OpenRoot(db.dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close() //nolint:errcheck
+	file, err := root.Open(receipt.Path)
+	if err != nil {
+		return err
+	}
+	exported, decodeErr := pluginapi.DecodeDataExport(file)
+	closeErr := file.Close()
+	if decodeErr != nil {
+		return decodeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err = receipt.Verify(exported); err != nil {
+		return err
+	}
+	incoming := table{ImportSHA256: receipt.SHA256, Snapshot: exported.Snapshot}
+	if err = validateTable(incoming, receipt.SourceID); err != nil {
+		return err
+	}
+	return db.transaction(ctx, receipt.SourceID, func(state *table) (bool, error) {
+		if state.ImportSHA256 != "" {
+			if state.ImportSHA256 != receipt.SHA256 {
+				return false, fmt.Errorf("bookmarks: conflicting export replay")
+			}
+			return false, nil
+		}
+		*state = incoming
+		return true, nil
+	})
+}
+
+type bookmark struct {
+	ID        string `json:"id"`
+	MessageID string `json:"message_id"`
+	SessionID string `json:"session_id"`
+	Note      string `json:"note"`
+	Tags      string `json:"tags"`
+	CreatedAt string `json:"created_at"`
+}
+
+func cellString(cell pluginapi.DataCell) (string, error) {
+	value, err := cell.Value()
+	if err != nil {
+		return "", err
+	}
+	if value == nil {
+		return "", nil
+	}
+	switch v := value.(type) {
+	case string:
+		return v, nil
+	case []byte:
+		return string(v), nil
+	default:
+		return fmt.Sprint(v), nil
+	}
+}
+func project(row []pluginapi.DataCell, index map[string]int) bookmark {
+	get := func(name string) string { value, _ := cellString(row[index[name]]); return value }
+	return bookmark{ID: get("id"), MessageID: get("message_id"), SessionID: get("session_id"), Note: get("note"), Tags: get("tags"), CreatedAt: get("created_at")}
+}
+func (db database) list(ctx context.Context, source, session string) ([]bookmark, error) {
+	result := []bookmark{}
+	err := db.transaction(ctx, source, func(state *table) (bool, error) {
+		if state.ImportSHA256 == "" {
+			return false, fmt.Errorf("bookmarks: committed core import required")
+		}
+		index, _ := columns(state.Snapshot)
+		for _, row := range state.Snapshot.Rows {
+			b := project(row, index)
+			if b.SessionID == session {
+				result = append(result, b)
+			}
+		}
+		slices.SortStableFunc(result, func(a, b bookmark) int {
+			if a.CreatedAt > b.CreatedAt {
+				return -1
+			}
+			if a.CreatedAt < b.CreatedAt {
+				return 1
+			}
+			return 0
+		})
+		return false, nil
+	})
+	return result, err
+}
+func (db database) create(ctx context.Context, source string, reference pluginapi.CoreReference, note string, toggle bool) (bookmark, bool, error) {
+	var result bookmark
+	removed := false
+	err := db.transaction(ctx, source, func(state *table) (bool, error) {
+		if state.ImportSHA256 == "" {
+			return false, fmt.Errorf("bookmarks: committed core import required")
+		}
+		index, _ := columns(state.Snapshot)
+		for i, row := range state.Snapshot.Rows {
+			b := project(row, index)
+			if b.SessionID == reference.SessionID && b.MessageID == reference.MessageID {
+				result = b
+				if toggle {
+					state.Snapshot.Rows = slices.Delete(state.Snapshot.Rows, i, i+1)
+					removed = true
+					return true, nil
+				}
+				return false, nil
+			}
+		}
+		result = bookmark{ID: newID(), MessageID: reference.MessageID, SessionID: reference.SessionID, Note: note, Tags: "[]", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+		row := make([]pluginapi.DataCell, len(state.Snapshot.Columns))
+		for i := range row {
+			row[i] = pluginapi.DataCell{Kind: "null"}
+		}
+		for key, value := range map[string]string{"id": result.ID, "message_id": result.MessageID, "session_id": result.SessionID, "note": note, "tags": result.Tags, "created_at": result.CreatedAt} {
+			row[index[key]] = pluginapi.DataCell{Kind: "text", Text: value}
+		}
+		state.Snapshot.Rows = append(state.Snapshot.Rows, row)
+		return true, nil
+	})
+	return result, removed, err
+}
+func (db database) change(ctx context.Context, source, id string, note *string) error {
+	return db.transaction(ctx, source, func(state *table) (bool, error) {
+		if state.ImportSHA256 == "" {
+			return false, errNotFound
+		}
+		index, _ := columns(state.Snapshot)
+		for i, row := range state.Snapshot.Rows {
+			if project(row, index).ID != id {
+				continue
+			}
+			if note == nil {
+				state.Snapshot.Rows = slices.Delete(state.Snapshot.Rows, i, i+1)
+			} else {
+				row[index["note"]] = pluginapi.DataCell{Kind: "text", Text: *note}
+			}
+			return true, nil
+		}
+		return false, errNotFound
+	})
+}
