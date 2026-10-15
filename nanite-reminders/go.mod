@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/reminders
+module github.com/hollis-labs/plugins/nanite-reminders
 
 go 1.26.7
 
