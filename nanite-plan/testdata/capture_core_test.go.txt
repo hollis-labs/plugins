@@ -1,0 +1,28 @@
+package service
+import("testing";"path/filepath";"encoding/json";"os";"strings";"github.com/hollis-labs/nanite/internal/store";"github.com/hollis-labs/nanite/internal/mcp")
+func TestCapturePlanGolden(t *testing.T){
+ st,err:=store.New(t.Context(),filepath.Join(t.TempDir(),"core.db"));if err!=nil{t.Fatal(err)};defer st.Close(t.Context())
+ tr:=NewSelfToolsTransport(st);tr.WorkTrackingTools=NewWorkTrackingTools(st,nil);ctx:=mcp.WithSessionID(t.Context(),"session-a")
+ type sample struct{Name string `json:"name"`;Args map[string]any `json:"args"`;Text string `json:"text"`;IsError bool `json:"is_error"`}
+ samples:=[]sample{};todoID:="";planID:=""
+ cases:=[]sample{
+ {Name:"todo_create",Args:map[string]any{"title":"Golden todo","description":"keep","labels":"[\"a\"]"}},
+ {Name:"todo_update",Args:map[string]any{"id":"$todo","description":"","title":nil,"metadata":"{\"n\":9007199254740993}"}},
+ {Name:"todo_update",Args:map[string]any{"id":"$todo","status":""}},
+ {Name:"todo_update",Args:map[string]any{"id":"$todo","priority":""}},
+ {Name:"todo_update",Args:map[string]any{"id":"$todo","labels":[]any{"bad"}}},
+ {Name:"todo_update",Args:map[string]any{"id":"missing"}},
+ {Name:"todo_update",Args:map[string]any{}},
+ {Name:"todo_list",Args:map[string]any{}},
+ {Name:"plan_create",Args:map[string]any{"title":"Golden plan","scope":"session","steps":"[{\"id\":\"s1\",\"title\":\"First\",\"status\":\"pending\"}]"}},
+ {Name:"plan_update",Args:map[string]any{"id":"$plan","step_id":"s1","status":"done"}},
+ {Name:"plan_step_add",Args:map[string]any{"plan_id":"$plan","steps":"[{\"title\":\"Second\"}]"}},
+ {Name:"plan_list",Args:map[string]any{}},
+ {Name:"plan_get",Args:map[string]any{"id":"$plan"}},
+ {Name:"plan_delete",Args:map[string]any{"id":"$plan"}},
+ }
+ for _,c:=range cases{args:=map[string]any{};for k,v:=range c.Args{if v=="$todo"{v=todoID};if v=="$plan"{v=planID};args[k]=v};r,e:=tr.CallTool(ctx,c.Name,args);if e!=nil{t.Fatal(e)};raw,_:=json.Marshal(r);var result struct{Content []struct{Text string};IsError bool};if err=json.Unmarshal(raw,&result);err!=nil{t.Fatal(err)};if len(result.Content)==0{t.Fatal(string(raw))};c.Text=result.Content[0].Text;c.IsError=result.IsError
+ if c.Name=="todo_create"||c.Name=="plan_create"{if c.IsError{t.Fatal(c.Name,c.Text)};var row map[string]any;_ =json.Unmarshal([]byte(c.Text[strings.Index(c.Text,"\n")+1:]),&row);if c.Name=="todo_create"{todoID=row["id"].(string)}else{planID=row["id"].(string)}}
+ if todoID!="" {c.Text=strings.ReplaceAll(c.Text,todoID,"$todo")};if planID!="" {c.Text=strings.ReplaceAll(c.Text,planID,"$plan")};samples=append(samples,c)}
+ raw,_:=json.MarshalIndent(samples,"","  ");if err=os.WriteFile(os.Getenv("PLAN_GOLDEN_OUT"),raw,0600);err!=nil{t.Fatal(err)}
+}
