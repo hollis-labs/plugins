@@ -1,0 +1,2 @@
+# Owner-reviewed scan-public allowlist for nanite-giphy (paths prefixed nanite-giphy/).
+secret-assignment nanite-giphy/main_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
