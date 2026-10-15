@@ -28,3 +28,4 @@ tangent-runner tangent host application has not adopted the current libs (module
 tangent-chat-agent tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 tangent-portfolio tangent host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-bookmarks nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+nanite-diagnostics nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
