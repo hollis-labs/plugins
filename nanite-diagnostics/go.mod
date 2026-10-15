@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/diagnostics
+module github.com/hollis-labs/plugins/nanite-diagnostics
 
 go 1.26.7
 
