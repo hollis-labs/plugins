@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/hollis-labs/plugins/cerberus-apt/internal/aptplugin"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func main() {
