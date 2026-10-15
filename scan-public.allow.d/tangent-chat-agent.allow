@@ -1,0 +1,4 @@
+# Owner-reviewed scan-public allowlist for tangent-chat-agent (paths prefixed tangent-chat-agent/).
+nanite-cloud-host tangent-chat-agent/README.md Service hostname used as a fixture or test value; the owner judged it useless to third parties and approved allowlisting 2026-10-15.
+secret-assignment tangent-chat-agent/cmd/tangent-plugin-chat-agent/manifest_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment tangent-chat-agent/integration/lifecycle_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
