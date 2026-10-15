@@ -1,0 +1,5 @@
+# Owner-reviewed scan-public allowlist for cerberus-contextforge (paths prefixed cerberus-contextforge/).
+home-path-macos cerberus-contextforge/go.mod Developer home directory path in a test, doc or local config; reviewed by the owner 2026-10-15, no credential.
+secret-assignment cerberus-contextforge/internal/cfplugin/backend_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-contextforge/internal/cfplugin/dto_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-contextforge/internal/cfplugin/plugin_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
