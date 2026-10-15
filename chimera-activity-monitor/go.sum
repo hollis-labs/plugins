@@ -1,0 +1,4 @@
+github.com/hollis-labs/go-runtime-events v0.2.2 h1:nzZBN4ws+SQu8rrlnD/fYfsFKhGfvbJcPecw1rGsQpg=
+github.com/hollis-labs/go-runtime-events v0.2.2/go.mod h1:+4cNkz4YKLfhCtve9FjMRKOp/0SokwjJ5vGfZ0/mHRk=
+github.com/hollis-labs/libs/plugin-mcp v0.1.1 h1:213HZTZaWL6KFkQeU3d2HZU9UMI+C0jxixHUtD4JFR0=
+github.com/hollis-labs/libs/plugin-mcp v0.1.1/go.mod h1:3x5ZVgHJewzwEpdl1RNFfxXXkq9SKVNL6LJVcpLCGnQ=
