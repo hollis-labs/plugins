@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/tesseract
+module github.com/hollis-labs/plugins/tangent-tesseract
 
 go 1.26.8
 
