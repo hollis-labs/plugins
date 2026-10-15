@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-fail2ban",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
