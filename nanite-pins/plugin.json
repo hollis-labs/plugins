@@ -1,0 +1,5 @@
+{
+  "name": "nanite-pins",
+  "kind": "module",
+  "hosts": ["nanite"]
+}

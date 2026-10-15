@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-tmux",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

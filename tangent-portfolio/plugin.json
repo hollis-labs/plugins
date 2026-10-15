@@ -1,0 +1,5 @@
+{
+  "name": "tangent-portfolio",
+  "kind": "module",
+  "hosts": ["tangent"]
+}

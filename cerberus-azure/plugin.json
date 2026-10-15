@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-azure",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

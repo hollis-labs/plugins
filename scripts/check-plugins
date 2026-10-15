@@ -183,6 +183,33 @@ def main():
             elif m.group(1) not in tops:
                 bad("tag %s: %s is not a plugin directory here" % (t, m.group(1)))
 
+    bp = os.path.join(root, "scripts", "build-pending")
+    if os.path.exists(bp) and not args.plugin:
+        seen = set()
+        with open(bp) as fh:
+            for n, line in enumerate(fh, 1):
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split(None, 2)
+                if len(parts) < 3:
+                    bad("scripts/build-pending:%d: want 'PLUGIN HOST REASON'" % n)
+                    continue
+                name, host, _reason = parts
+                if name in seen:
+                    bad("scripts/build-pending:%d: %s is listed twice" % (n, name))
+                seen.add(name)
+                if name not in tops:
+                    bad("scripts/build-pending:%d: %s is not a plugin directory here" % (n, name))
+                    continue
+                dpath = os.path.join(root, name, "plugin.json")
+                try:
+                    hosts = json.load(open(dpath)).get("hosts", [])
+                except Exception:
+                    hosts = []
+                if host not in hosts:
+                    bad("scripts/build-pending:%d: %s does not list host %s in its descriptor" % (n, name, host))
+
     if fail:
         sys.exit(1)
     print("ok: plugins (%d: %s)" % (len(selected), " ".join(selected)))

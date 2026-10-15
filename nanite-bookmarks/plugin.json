@@ -1,0 +1,5 @@
+{
+  "name": "nanite-bookmarks",
+  "kind": "module",
+  "hosts": ["nanite"]
+}

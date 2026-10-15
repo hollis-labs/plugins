@@ -1,0 +1,131 @@
+workflow:
+  id: avatar-generate
+  version: v2
+  metadata:
+    description: Deterministic pixel-robot avatar from an agent id and a few knobs.
+
+inputs:
+  - name: id
+    type: string
+    required: true
+  - name: fill
+    schema: {type: integer, minimum: 0, maximum: 100}
+    default: 65
+  - name: hue
+    schema: {type: integer, minimum: -1, maximum: 359}
+    default: -1
+  - name: accent
+    description: Body colour as #rrggbb; empty keeps the colour derived from hue.
+    schema: {type: string, pattern: "^(#[0-9A-Fa-f]{6})?$"}
+    default: {literal: ""}
+
+steps:
+  - id: generate
+    kind: script
+    kind_version: v1
+    config:
+      runtime: goja
+      code: |
+        // Spike: the robot generator as plain, dependency-free JS (goja-safe: no modules, no Math.random, no Date).
+        function hashString(s) {
+          var h = 2166136261
+          for (var i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i)
+            h = Math.imul(h, 16777619)
+          }
+          return h >>> 0
+        }
+
+        function robotSprite(id, knobs) {
+          var seed = hashString(id)
+          function next() {
+            seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0
+            return seed / 0x100000000
+          }
+          var half = [[false, false, false, false], [false, false, false, false], [false, false, false, false], [false, false, false, false], [false, false, false, false], [false, false, false, false], [false, false, false, false], [false, false, false, false]]
+          half[0][3] = true
+          if (next() > 0.5) half[0][0] = true
+          for (var r2 = 1; r2 <= 4; r2++) for (var c = 1; c < 4; c++) half[r2][c] = true
+          if (next() > 0.5) { half[2][0] = true; half[3][0] = true }
+          for (var r3 = 5; r3 < 8; r3++) {
+            half[r3][3] = true
+            half[r3][2] = true
+            half[r3][1] = next() > knobs.density
+            half[r3][0] = next() > 0.55
+          }
+          var pixels = []
+          for (var pr = 0; pr < 8; pr++) {
+            var full = []
+            for (var pc = 0; pc < 4; pc++) full.push(half[pr][pc])
+            for (var mc = 3; mc >= 0; mc--) full.push(half[pr][mc])
+            pixels.push(full)
+          }
+          var hue = Math.floor(next() * 360)
+          return { pixels: pixels, eyes: [[2, 2], [2, 5]], hue: knobs.hue === null ? hue : knobs.hue }
+        }
+
+        function hex2(v) {
+          var d = '0123456789abcdef'
+          return d.charAt((v >> 4) & 15) + d.charAt(v & 15)
+        }
+
+        // accent is "#rrggbb" (validated by the workflow input schema) or "" for the hue-derived colours.
+        function shades(sprite, accent) {
+          if (accent === '') return { body: 'hsl(' + sprite.hue + ' 65% 58%)', shade: 'hsl(' + sprite.hue + ' 65% 38%)' }
+          var dark = '#'
+          for (var i = 1; i < 7; i += 2) dark += hex2(Math.round(parseInt(accent.slice(i, i + 2), 16) * 0.6))
+          return { body: accent.toLowerCase(), shade: dark }
+        }
+
+        function renderSvg(sprite, size, accent) {
+          var c = shades(sprite, accent)
+          var body = c.body
+          var shade = c.shade
+          var out = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" width="' + size + '" height="' + size + '" shape-rendering="crispEdges">'
+          sprite.pixels.forEach(function (row, r) {
+            row.forEach(function (on, c) {
+              var eye = sprite.eyes.some(function (e) { return e[0] === r && e[1] === c })
+              if (on && !eye) out += '<rect x="' + c + '" y="' + r + '" width="1" height="1" fill="' + (r >= 5 ? shade : body) + '"/>'
+            })
+          })
+          sprite.eyes.forEach(function (e) { out += '<rect x="' + e[1] + '" y="' + e[0] + '" width="1" height="1" fill="#a7f3d0"/>' })
+          return out + '</svg>'
+        }
+
+        function main(input) {
+          var knobs = { density: (100 - input.fill) / 100, hue: input.hue < 0 ? null : input.hue }
+          var sprite = robotSprite(input.id, knobs)
+          return { sprite: sprite, svg: renderSvg(sprite, input.size || 64, input.accent) }
+        }
+      input_schema:
+        type: object
+        additionalProperties: false
+        required: [id, fill, hue, accent]
+        properties:
+          id: {type: string}
+          fill: {type: integer, minimum: 0, maximum: 100}
+          hue: {type: integer, minimum: -1, maximum: 359}
+          accent: {type: string}
+      output_schema:
+        type: object
+        required: [sprite, svg]
+        properties:
+          sprite: {type: object}
+          svg: {type: string}
+    with:
+      id: inputs.id
+      fill: inputs.fill
+      hue: inputs.hue
+      accent: inputs.accent
+    outputs:
+      sprite: {type: object}
+      svg: {type: string}
+    effects: [compute]
+
+outputs:
+  sprite:
+    type: object
+    value: steps.generate.outputs.sprite
+  svg:
+    type: string
+    value: steps.generate.outputs.svg

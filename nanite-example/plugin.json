@@ -1,0 +1,5 @@
+{
+  "name": "nanite-example",
+  "kind": "module",
+  "hosts": ["nanite"]
+}

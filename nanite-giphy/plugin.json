@@ -1,0 +1,5 @@
+{
+  "name": "nanite-giphy",
+  "kind": "connector",
+  "hosts": ["nanite"]
+}

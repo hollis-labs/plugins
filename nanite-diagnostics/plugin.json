@@ -1,0 +1,5 @@
+{
+  "name": "nanite-diagnostics",
+  "kind": "module",
+  "hosts": ["nanite"]
+}

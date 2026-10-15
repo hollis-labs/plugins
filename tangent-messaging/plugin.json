@@ -1,0 +1,5 @@
+{
+  "name": "tangent-messaging",
+  "kind": "connector",
+  "hosts": ["tangent"]
+}

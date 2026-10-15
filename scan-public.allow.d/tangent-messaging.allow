@@ -1,0 +1,6 @@
+# Owner-reviewed scan-public allowlist for tangent-messaging (paths prefixed tangent-messaging/).
+agent-box-host tangent-messaging/(commit-message)@75178830dde8 Internal build machine name used as a label or example; reviewed by the owner 2026-10-15, not an access path.
+credentials-in-url tangent-messaging/internal/messaging/config_test.go Placeholder connection string in a test or doc; reviewed by the owner 2026-10-15, no live credential.
+secret-assignment tangent-messaging/cmd/tangent-plugin-messaging/config_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+agent-box-host (commit-message)@0b98ddc9257b Internal build machine name used as a label or example; reviewed by the owner 2026-10-15, not an access path.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.

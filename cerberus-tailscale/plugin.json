@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-tailscale",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

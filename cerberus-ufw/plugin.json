@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-ufw",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-vercel",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

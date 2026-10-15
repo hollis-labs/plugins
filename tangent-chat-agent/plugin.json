@@ -1,0 +1,5 @@
+{
+  "name": "tangent-chat-agent",
+  "kind": "module",
+  "hosts": ["tangent"]
+}

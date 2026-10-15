@@ -1,0 +1,1 @@
+{"session_id":"session-a","resource":"usage","result":{"data":{"input_tokens":2000,"output_tokens":500,"total_tokens":2500,"tool_input_tokens":250,"cache_creation_tokens":120,"cache_read_tokens":700,"estimated_cost_usd":0.006,"message_count":2}}}

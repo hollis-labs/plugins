@@ -1,0 +1,5 @@
+{
+  "name": "nanite-oembed",
+  "kind": "connector",
+  "hosts": ["nanite"]
+}

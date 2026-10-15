@@ -1,0 +1,5 @@
+{
+  "name": "nanite-reminders",
+  "kind": "module",
+  "hosts": ["nanite"]
+}
