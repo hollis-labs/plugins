@@ -1,0 +1,5 @@
+# Owner-reviewed scan-public allowlist for tangent-portfolio (paths prefixed tangent-portfolio/).
+credentials-in-url tangent-portfolio/internal/projects/client_test.go Placeholder connection string in a test or doc; reviewed by the owner 2026-10-15, no live credential.
+credentials-in-url tangent-portfolio/torqueclient/client_test.go Placeholder connection string in a test or doc; reviewed by the owner 2026-10-15, no live credential.
+secret-assignment tangent-portfolio/cmd/tangent-plugin-portfolio/manifest_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment tangent-portfolio/internal/ptrack/ptrack_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
