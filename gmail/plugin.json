@@ -1,0 +1,5 @@
+{
+  "name": "gmail",
+  "kind": "connector",
+  "hosts": ["fragments-engine"]
+}
