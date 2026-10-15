@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 // Independent literal expectation: never call the production notice helper.

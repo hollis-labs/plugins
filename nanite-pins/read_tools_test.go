@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func readPlugin(t *testing.T, rows [][]pluginapi.DataCell) *pinsPlugin {
