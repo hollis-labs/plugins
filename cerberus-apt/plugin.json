@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-apt",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
