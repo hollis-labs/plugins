@@ -3,3 +3,4 @@ home-path-macos cerberus-contextforge/go.mod Developer home directory path in a 
 secret-assignment cerberus-contextforge/internal/cfplugin/backend_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
 secret-assignment cerberus-contextforge/internal/cfplugin/dto_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
 secret-assignment cerberus-contextforge/internal/cfplugin/plugin_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
