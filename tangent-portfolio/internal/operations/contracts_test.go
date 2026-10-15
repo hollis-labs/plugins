@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
 	"path/filepath"
 	"strings"
 	"testing"

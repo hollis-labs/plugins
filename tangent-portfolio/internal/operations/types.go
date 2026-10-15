@@ -9,8 +9,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/textcompat"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/textcompat"
 	"modernc.org/sqlite"
 )
 

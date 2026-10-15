@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/textcompat"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/textcompat"
 )
 
 var databaseNames = []string{"priorities", "workstreams", "roadmap", "ideas", "decisions", "risks", "inbox"}

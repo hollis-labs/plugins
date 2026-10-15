@@ -12,9 +12,9 @@ import (
 
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/httpapi"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/mcpapi"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/operations"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/httpapi"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/mcpapi"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/operations"
 )
 
 const (

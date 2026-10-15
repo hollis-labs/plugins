@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/textcompat"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/textcompat"
 )
 
 var projectionTables = []string{"envelopes", "id_reservations", "items", "comments", "links", "edges", "items_fts"}

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
 )
 
 func run(args []string) error {

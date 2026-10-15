@@ -8,7 +8,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/projects"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/projects"
 )
 
 // RegistryReader supplies only directory reads.

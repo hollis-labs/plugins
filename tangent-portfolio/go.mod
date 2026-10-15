@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/portfolio
+module github.com/hollis-labs/plugins/tangent-portfolio
 
 go 1.26.8
 

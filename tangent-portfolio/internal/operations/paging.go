@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
 )
 
 // pageResult pages only a complete local snapshot after domain filtering. The

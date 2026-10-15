@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/projects"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/projects"
 )
 
 type directoryFake struct {

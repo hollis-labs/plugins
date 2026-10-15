@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
 )
 
 const MaxInputBytes = 32 * 1024

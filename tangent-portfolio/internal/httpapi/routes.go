@@ -5,7 +5,7 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/operations"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/operations"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 

@@ -5,8 +5,8 @@ import (
 	"os"
 
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/httpapi"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/mcpapi"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/httpapi"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/mcpapi"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/textcompat"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/textcompat"
 )
 
 var refField = regexp.MustCompile(`^(related_ids|depends_on|[a-z][a-z_]*_ids)$`)

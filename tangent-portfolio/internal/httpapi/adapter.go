@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/operations"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/operations"
 )
 
 // MaxBodyBytes matches the inspected Tangent plugin HTTP contract.

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/textcompat"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/textcompat"
 )
 
 // State is a detached lossless view inside a shadow transaction. Callbacks must

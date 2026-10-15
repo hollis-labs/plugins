@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hollis-labs/tangent-plugins/portfolio/internal/storage"
+	"github.com/hollis-labs/plugins/tangent-portfolio/internal/storage"
 )
 
 func TestActualPromotionRollsBackAfterTargetAndSourceWrites(t *testing.T) {
