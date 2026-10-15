@@ -1,0 +1,5 @@
+{
+  "name": "tangent-github",
+  "kind": "connector",
+  "hosts": ["tangent"]
+}
