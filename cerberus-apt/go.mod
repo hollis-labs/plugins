@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/apt
+module github.com/hollis-labs/plugins/cerberus-apt
 
 go 1.26.8
 
