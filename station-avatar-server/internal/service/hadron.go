@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/avatar"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/hadron"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
 )
 
 // ErrBadOutput: the workflow ran but did not return what this plugin's generator

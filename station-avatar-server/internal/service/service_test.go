@@ -18,13 +18,13 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/avatar"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/model"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/palette"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/policy"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/spend"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/store"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/model"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/palette"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/policy"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/spend"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/store"
 )
 
 // A 3-pixel sprite in the shape the workflow emits.

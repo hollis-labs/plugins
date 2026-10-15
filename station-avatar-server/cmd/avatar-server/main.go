@@ -48,14 +48,14 @@ import (
 
 	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/hadron"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/model"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/palette"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/policy"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/service"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/spend"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/store"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/tools"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/model"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/palette"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/policy"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/service"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/spend"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/store"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/tools"
 )
 
 const version = "0.3.0"

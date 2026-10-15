@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/policy"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/policy"
 )
 
 func fileExists(path string) bool {

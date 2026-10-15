@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
 )
 
 func write(t *testing.T, body string) string {

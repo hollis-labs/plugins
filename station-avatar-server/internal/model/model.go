@@ -34,7 +34,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
 )
 
 // Reason and Error are the engine package's: the model path is one engine, and

@@ -1,4 +1,4 @@
-module github.com/hollis-labs/station-plugins/avatar-server
+module github.com/hollis-labs/plugins/station-avatar-server
 
 go 1.26.8
 

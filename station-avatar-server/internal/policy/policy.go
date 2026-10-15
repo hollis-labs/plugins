@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
 )
 
 // MaxChain bounds a mode plus its fallbacks.

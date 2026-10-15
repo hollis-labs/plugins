@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/avatar"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/engine"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/model"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/render"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/engine"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/model"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/render"
 )
 
 // SVGSource draws the procedural sprite (a Hadron workflow). HadronSVG is the

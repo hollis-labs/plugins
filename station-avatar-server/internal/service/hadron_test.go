@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/avatar"
-	"github.com/hollis-labs/station-plugins/avatar-server/internal/hadron"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
 )
 
 type fakeRunner struct {
