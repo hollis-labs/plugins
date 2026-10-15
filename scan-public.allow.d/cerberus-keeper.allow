@@ -1,0 +1,3 @@
+# Owner-reviewed scan-public allowlist for cerberus-keeper (paths prefixed cerberus-keeper/).
+secret-assignment cerberus-keeper/internal/keeperplugin/nocache_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+secret-assignment cerberus-keeper/internal/keeperplugin/plugin_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
