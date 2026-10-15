@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/ufw/internal/ufwplugin"
+	"github.com/hollis-labs/plugins/cerberus-ufw/internal/ufwplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

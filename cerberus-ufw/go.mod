@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/ufw
+module github.com/hollis-labs/plugins/cerberus-ufw
 
 go 1.26.8
 
