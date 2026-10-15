@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/digitalocean
+module github.com/hollis-labs/plugins/cerberus-digitalocean
 
 go 1.26.8
 

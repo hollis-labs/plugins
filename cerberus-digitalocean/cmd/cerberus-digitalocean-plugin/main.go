@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/digitalocean/internal/digitaloceanplugin"
+	"github.com/hollis-labs/plugins/cerberus-digitalocean/internal/digitaloceanplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
