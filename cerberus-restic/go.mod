@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/restic
+module github.com/hollis-labs/plugins/cerberus-restic
 
 go 1.26.8
 
