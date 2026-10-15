@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
-	"github.com/hollis-labs/tangent-plugins/github/internal/github"
+	"github.com/hollis-labs/plugins/tangent-github/internal/github"
 )
 
 func TestManifestDeclaresProtectedRoutes(t *testing.T) {

@@ -1,4 +1,4 @@
-module github.com/hollis-labs/tangent-plugins/github
+module github.com/hollis-labs/plugins/tangent-github
 
 go 1.26.8
 

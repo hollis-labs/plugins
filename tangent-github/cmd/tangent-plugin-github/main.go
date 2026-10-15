@@ -12,7 +12,7 @@ import (
 	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 
-	"github.com/hollis-labs/tangent-plugins/github/internal/github"
+	"github.com/hollis-labs/plugins/tangent-github/internal/github"
 	tangentplugin "github.com/hollis-labs/tangent/pkg/plugin"
 	"github.com/hollis-labs/tangent/pkg/plugin/hostclient"
 )
