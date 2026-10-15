@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/tmux/internal/tmuxplugin"
+	"github.com/hollis-labs/plugins/cerberus-tmux/internal/tmuxplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 

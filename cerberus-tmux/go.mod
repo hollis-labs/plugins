@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/tmux
+module github.com/hollis-labs/plugins/cerberus-tmux
 
 go 1.26.8
 
