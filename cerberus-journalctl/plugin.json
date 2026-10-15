@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-journalctl",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
