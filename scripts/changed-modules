@@ -46,9 +46,18 @@ if [ "$all" -eq 0 ]; then
   fi
 fi
 
+# Plugins whose host application has not adopted the current libs yet cannot build on a
+# clean module cache; scripts/build-pending lists them (plugin, host, reason) and the
+# module matrix skips them. check-plugins still validates every one of them.
+pending=""
+if [ -f "$REPO_ROOT/scripts/build-pending" ]; then
+  pending="$(awk '!/^[[:space:]]*(#|$)/ {print $1}' "$REPO_ROOT/scripts/build-pending")"
+fi
+
 out=""
 while IFS= read -r m; do
   [ -n "$m" ] || continue
+  if [ -n "$pending" ] && grep -qxF -- "$m" <<<"$pending"; then continue; fi
   if [ "$all" -eq 1 ] || grep -q "^$(re_escape "$m")/" <<<"$changed"; then
     out="$out\"$m\","
   fi
