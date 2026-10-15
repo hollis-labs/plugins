@@ -31,3 +31,4 @@ nanite-bookmarks nanite host application has not adopted the current libs (modul
 nanite-diagnostics nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-documents nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
 nanite-example nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
+nanite-loom nanite host application has not adopted the current libs (module paths and versions); adopted when the host is booted
