@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/capability"
-	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
+	sdkmanifest "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"github.com/hollis-labs/plugins/tangent-portfolio/internal/httpapi"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )

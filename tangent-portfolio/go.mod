@@ -12,7 +12,7 @@ require (
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hollis-labs/libs/plugin-mcp v0.1.1
+	github.com/hollis-labs/libs/mcp/plugin-mcp v0.1.1
 	github.com/hollis-labs/tangent v0.19.1-0.20261010073346-380db1fa961c
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
