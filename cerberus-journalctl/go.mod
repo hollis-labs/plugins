@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/journalctl
+module github.com/hollis-labs/plugins/cerberus-journalctl
 
 go 1.26.8
 

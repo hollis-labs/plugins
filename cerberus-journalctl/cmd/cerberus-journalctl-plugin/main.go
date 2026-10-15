@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/journalctl/internal/journalctlplugin"
+	"github.com/hollis-labs/plugins/cerberus-journalctl/internal/journalctlplugin"
 	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
 )
 
