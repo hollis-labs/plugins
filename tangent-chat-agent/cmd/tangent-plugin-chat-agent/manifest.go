@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"os"
 
-	sdkmanifest "github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/manifest"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	sdkmanifest "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )
 
