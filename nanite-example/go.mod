@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/example
+module github.com/hollis-labs/plugins/nanite-example
 
 go 1.26.7
 
