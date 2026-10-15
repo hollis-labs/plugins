@@ -1,0 +1,52 @@
+package cloudflareplugin
+
+import "context"
+
+// Backend is everything this plugin asks of Cloudflare. It returns this
+// package's DTOs, never cloudflare-go types or decoded vendor JSON, so the
+// vendor shapes are confined to sdk_backend.go and api_backend.go and a
+// connector built on Backend structurally cannot return a vendor struct.
+type Backend interface {
+	ListZones(ctx context.Context) ([]Zone, error)
+	CreateZone(ctx context.Context, accountID, name, zoneType string) (*Zone, error)
+	ListDNSRecords(ctx context.Context, zoneID string) ([]DNSRecord, error)
+	CreateDNSRecord(ctx context.Context, zoneID string, rec DNSRecord) (*DNSRecord, error)
+	DeleteDNSRecord(ctx context.Context, zoneID, recordID string) error
+
+	// GetZone reads one zone, for its name.
+	GetZone(ctx context.Context, zoneID string) (*Zone, error)
+	// FindARecords returns the A records at one fully qualified name.
+	FindARecords(ctx context.Context, zoneID, fqdn string) ([]DNSRecord, error)
+	UpdateDNSRecord(ctx context.Context, zoneID, recordID string, rec DNSRecord) (*DNSRecord, error)
+
+	// VerifyToken verifies the plugin's own token. With an account id it asks
+	// the account-owned token endpoint, without one the user-owned one.
+	VerifyToken(ctx context.Context, accountID string) (*TokenStatus, error)
+
+	// R2 buckets. An empty jurisdiction is the default one.
+	ListBuckets(ctx context.Context, accountID, jurisdiction string) ([]Bucket, error)
+	CreateBucket(ctx context.Context, accountID string, req BucketRequest) (*Bucket, error)
+	// DeleteBucket is refused by Cloudflare while the bucket holds objects.
+	DeleteBucket(ctx context.Context, accountID, name, jurisdiction string) error
+
+	credentialBackend
+}
+
+// R2 credentials are bucket-scoped S3 key pairs. Cloudflare issues them as
+// account API tokens, so the access key id is the token's id, and revoking the
+// key is deleting that token.
+type credentialBackend interface {
+	// CreateR2Credential mints the key pair. The secret half is in the
+	// returned value only; it is never stored.
+	CreateR2Credential(ctx context.Context, accountID string, req CredentialRequest) (*R2Credential, error)
+	GetR2Credential(ctx context.Context, accountID, accessKeyID string) (*CredentialInfo, error)
+	RevokeR2Credential(ctx context.Context, accountID, accessKeyID string) error
+}
+
+// BucketRequest is what create_r2_bucket sends. It is ours, not the wire body.
+type BucketRequest struct {
+	Name         string
+	Jurisdiction string
+	LocationHint string
+	StorageClass string
+}
