@@ -1,3 +1,5 @@
 # Owner-reviewed scan-public allowlist for station-avatar-server (paths prefixed station-avatar-server/).
 agent-box-host station-avatar-server/(commit-message)@3a235a44666d Internal build machine name used as a label or example; reviewed by the owner 2026-10-15, not an access path.
 secret-assignment station-avatar-server/internal/store/store_test.go Test, fixture or documentation sample; high-entropy check found no live credential; reviewed by the owner 2026-10-15.
+agent-box-host (commit-message)@0b98ddc9257b Internal build machine name used as a label or example; reviewed by the owner 2026-10-15, not an access path.
+internal-ip (commit-message)@77aeb94ac1b5 Private-range sample address in a test or doc; reviewed by the owner 2026-10-15.
