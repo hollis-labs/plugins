@@ -1,0 +1,108 @@
+schema_version: "1"
+id: fail2ban
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-fail2ban-plugin
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: fail2ban
+        version: 0.1.0
+        resource_types:
+            - fail2ban.jail
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        operations:
+            - name: status
+              description: Get status of all jails or a specific jail.
+              examples:
+                - cerberus connectors exec fail2ban status --arg jail=sshd
+              input_schema:
+                additionalProperties: false
+                properties:
+                    jail:
+                        description: The jail name (optional).
+                        type: string
+                type: object
+              effect: read
+              target:
+                kind: fail2ban.jail
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+            - name: unban
+              description: Unban an IP from a jail.
+              examples:
+                - cerberus connectors exec fail2ban unban --arg jail=sshd --arg ip=1.2.3.4 --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    ip:
+                        description: The IP address to unban.
+                        type: string
+                    jail:
+                        description: The jail name (e.g. sshd).
+                        type: string
+                required:
+                    - jail
+                    - ip
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: fail2ban.jail
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+            - name: ban
+              description: Ban an IP in a jail.
+              examples:
+                - cerberus connectors exec fail2ban ban --arg jail=sshd --arg ip=1.2.3.4 --ack
+              input_schema:
+                additionalProperties: false
+                properties:
+                    ip:
+                        description: The IP address to ban.
+                        type: string
+                    jail:
+                        description: The jail name (e.g. sshd).
+                        type: string
+                required:
+                    - jail
+                    - ip
+                type: object
+              effect: write
+              reversible: true
+              target:
+                kind: fail2ban.jail
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: string
+              destructive: true
+              requires_ack: true
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - status
+            - unban
+            - ban
