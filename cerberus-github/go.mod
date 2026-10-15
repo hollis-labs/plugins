@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/github
+module github.com/hollis-labs/plugins/cerberus-github
 
 go 1.26.8
 
