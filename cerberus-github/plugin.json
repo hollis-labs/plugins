@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-github",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}
