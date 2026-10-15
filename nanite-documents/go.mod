@@ -1,4 +1,4 @@
-module github.com/hollis-labs/nanite-plugins/documents
+module github.com/hollis-labs/plugins/nanite-documents
 
 go 1.26.7
 
