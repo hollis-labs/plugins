@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/hollis-labs/nanite/pkg/pluginapi"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func hostFixture(t *testing.T, dir string, committed bool) (subprocess.InitParams, *atomic.Bool) {
