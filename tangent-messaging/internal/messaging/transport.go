@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	tether "github.com/hollis-labs/go-tether-client"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 )
 
 const maxHistoryBytes = 16 * 1024 * 1024

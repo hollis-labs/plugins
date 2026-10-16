@@ -21,7 +21,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	tether "github.com/hollis-labs/go-tether-client"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 )
 

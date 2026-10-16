@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tether "github.com/hollis-labs/go-tether-client"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 )
 
 func TestSourceUsesExplicitCallerAndCredentialChoiceWithoutRedirect(t *testing.T) {

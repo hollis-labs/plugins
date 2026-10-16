@@ -19,11 +19,11 @@ import (
 	"testing"
 	"time"
 
-	gomsg "github.com/hollis-labs/go-messaging"
-	tether "github.com/hollis-labs/go-tether-client"
 	pluginhost "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-host"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
+	gomsg "github.com/hollis-labs/libs/mesh/core/messaging"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )

@@ -1,13 +1,11 @@
 module github.com/hollis-labs/plugins/tangent-runner
 
-go 1.26.8
-
-toolchain go1.26.9
+go 1.26.9
 
 require (
-	github.com/hollis-labs/go-tether-client v0.10.0
-	github.com/hollis-labs/libs/mcp/plugin-mcp v0.2.0
-	github.com/hollis-labs/tangent v0.17.0
+	github.com/hollis-labs/libs/mcp/plugin-mcp v0.3.0
+	github.com/hollis-labs/libs/mesh/core v0.4.0
+	github.com/hollis-labs/tangent v0.20.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 )
 
@@ -15,7 +13,7 @@ require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hollis-labs/go-messaging v0.7.0 // indirect
+	github.com/hollis-labs/libs/ui/ui-go v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.8.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect

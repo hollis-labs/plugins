@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	tether "github.com/hollis-labs/go-tether-client"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )

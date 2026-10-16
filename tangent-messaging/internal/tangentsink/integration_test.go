@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	gomsg "github.com/hollis-labs/go-messaging"
-	tether "github.com/hollis-labs/go-tether-client"
+	gomsg "github.com/hollis-labs/libs/mesh/core/messaging"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	plugin "github.com/hollis-labs/tangent/pkg/plugin"

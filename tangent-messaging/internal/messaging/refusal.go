@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	tether "github.com/hollis-labs/go-tether-client"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 )
 
 // RecordRefusal retains a bounded diagnostic identity without claiming to
