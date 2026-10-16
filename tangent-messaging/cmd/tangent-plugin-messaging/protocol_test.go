@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,10 @@ func TestProtocolLoadAndUnloadJoinSubscriptionAndReap(t *testing.T) {
 			t.Error(stopErr)
 		}
 	})
+	health, err := process.Client().Health(ctx)
+	if err != nil || !strings.Contains(health.Message, "version="+pluginVersion) || !strings.Contains(health.Message, "vcs.revision="+pluginBuild.Revision) || !strings.Contains(health.Message, "vcs.modified="+pluginBuild.Modified) {
+		t.Fatalf("plugin health lost build identity: %+v, %v", health, err)
+	}
 	cancel() // The completed handshake must not own the loaded subscription.
 	select {
 	case <-entered:
@@ -116,5 +121,12 @@ func TestProtocolLoadAndUnloadJoinSubscriptionAndReap(t *testing.T) {
 	defer ledger.Close()
 	if _, found, err := ledger.Cursor(context.Background(), messaging.Source{EndpointRef: "synthetic-tether", Channel: "owner-inbox"}); err != nil || found {
 		t.Fatal("history high water advanced cursor", err)
+	}
+}
+
+func TestUnloadedHealthIncludesBuildIdentity(t *testing.T) {
+	health, err := (&served{}).Health(context.Background())
+	if err != nil || health.OK || health.Message != pluginBuild.HealthMessage("not_loaded") {
+		t.Fatalf("unloaded health = %+v, %v", health, err)
 	}
 }

@@ -184,3 +184,41 @@ immutable stage/result snapshots, crash-boundary rollback, saved-request replay,
 source admission, reconnect cursors, reply receipt/delivery/ack recovery,
 explicit retry rollback and lifecycle joins. Packaging only builds
 the binary and emits a manifest whose artifact inventory binds that binary.
+
+## Build identity and release plan
+
+The manifest, protocol initialization and health response use one build version.
+An explicit `-X github.com/hollis-labs/plugins/tangent-messaging/internal/buildinfo.Version=vX.Y.Z`
+overrides Go's module version (including the pseudo-version used by `go install
+...@<commit>`). Local untagged builds use `0.0.0-dev`, with a revision suffix
+when available. `make build` and `make dist` stamp the full Git revision and
+working-tree modification state, including in worktrees. `make dist VERSION=vX.Y.Z`
+can name a release explicitly; an exact `tangent-messaging/vX.Y.Z` tag supplies
+that version automatically. Put `DIST` outside the source tree to keep packaging
+outputs from marking subsequent builds dirty.
+
+Plugin health retains its operational status first, then reports
+`version=... vcs.revision=... vcs.modified=...`. These fields live in the SDK's
+health message. Unavailable revision or modification metadata is `unknown`,
+never an inferred clean revision. Plain `go install` usually embeds the module
+version without VCS settings; reproducible deployment packages should use the
+stamped Makefile build from a clean checkout. Source archives can set the same
+`buildinfo.Revision` and `buildinfo.Modified` linker strings when their build
+system has verified that provenance.
+
+The first independent monorepo release is planned as `tangent-messaging/v0.1.0`.
+The prefix is the actual module directory: `messaging/v*` belongs to the old
+layout and does not version `github.com/hollis-labs/plugins/tangent-messaging`.
+Before publishing, the release owner adds the versioned changelog entry, runs
+this module's build/vet/race and synthetic integration checks, checks
+vulnerabilities, and runs `scripts/release tangent-messaging v0.1.0` from clean
+monorepo main. After review, that owner creates and publishes the module tag,
+then verifies a clean-cache `go install` and emitted manifest before advancing
+consumer pins. This plan creates no tag.
+
+Installation remains opt-in: in Tangent, `make install-plugins PLUGINS=messaging`
+stages this plugin disabled when new and preserves existing enable intent on
+upgrade. Configure the upstream, channels, stage and caller before enabling it;
+installation alone cannot supply those choices. Messaging remains outside the
+default installer and default smoke roster. Its synthetic integration and
+staged deployment checks cover its explicit configuration separately.

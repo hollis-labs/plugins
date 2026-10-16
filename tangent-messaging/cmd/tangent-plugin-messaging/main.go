@@ -11,9 +11,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
+	pipeline "github.com/hollis-labs/libs/mesh/pipeline"
+	"github.com/hollis-labs/plugins/tangent-messaging/internal/buildinfo"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/chatbridge"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
@@ -23,10 +24,12 @@ import (
 )
 
 const (
-	pluginID      = "tangent.plugin.messaging"
-	pluginVersion = "0.1.0-dev"
-	configEnv     = "TANGENT_MESSAGING_CONFIG"
+	pluginID  = "tangent.plugin.messaging"
+	configEnv = "TANGENT_MESSAGING_CONFIG"
 )
+
+var pluginBuild = buildinfo.Current()
+var pluginVersion = pluginBuild.Version
 
 type served struct {
 	mu          sync.Mutex
@@ -221,13 +224,13 @@ func (s *served) Health(ctx context.Context) (subprocess.HealthStatus, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.consumer == nil {
-		return subprocess.HealthStatus{OK: false, Message: "not_loaded"}, nil
+		return subprocess.HealthStatus{OK: false, Message: pluginBuild.HealthMessage("not_loaded")}, nil
 	}
 	ok, code := s.consumer.Health()
 	if ok && s.replyWorker != nil {
 		ok, code = s.replyWorker.Health()
 	}
-	return subprocess.HealthStatus{OK: ok, Message: code}, nil
+	return subprocess.HealthStatus{OK: ok, Message: pluginBuild.HealthMessage(code)}, nil
 }
 
 func (s *served) HTTPHandle(ctx context.Context, request subprocess.HTTPRequest) (subprocess.HTTPResponse, error) {
