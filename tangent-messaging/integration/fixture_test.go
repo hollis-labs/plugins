@@ -33,6 +33,7 @@ const channel = "stage1"
 var binaries struct {
 	sync.Once
 	dir, host, consumer string
+	version             string
 	err                 error
 }
 
@@ -70,6 +71,18 @@ func buildBinaries(t *testing.T) (string, string) {
 				binaries.err = fmt.Errorf("build %s: %w\n%s", build.source, e, output)
 				return
 			}
+		}
+		if binaries.err == nil {
+			raw, err := exec.CommandContext(ctx, binaries.consumer, "--manifest").Output()
+			if err != nil {
+				binaries.err = err
+				return
+			}
+			var declaration struct {
+				Version string `json:"version"`
+			}
+			binaries.err = json.Unmarshal(raw, &declaration)
+			binaries.version = declaration.Version
 		}
 	})
 	if binaries.err != nil {
@@ -399,7 +412,7 @@ func startPlugin(t *testing.T, u *upstream, mcpURL, data string, generation uint
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	process, e := pluginhost.Start(ctx, pluginhost.Spec{ID: "tangent.plugin.messaging", ExpectedID: "tangent.plugin.messaging", ExpectedVersion: "0.1.0-dev", Command: binary, Env: []string{"HOME=" + privateDir(t), "TANGENT_MESSAGING_CONFIG=" + path, "TANGENT_MCP_URL=" + mcpURL, "TETHER_TOKEN="}, Init: subprocess.InitParams{PluginDir: filepath.Dir(binary), DataDir: data, CacheDir: cache, Config: map[string]string{}, CapabilityContract: capability.ContractVersion, Incarnation: capability.RuntimeIdentity{HostInstance: "stage1-private-host", OwnerID: "tangent.plugin.messaging", OwnerGeneration: generation}, Grants: capability.GrantSet{}, HostInfo: subprocess.HostInfo{Version: "0.19.0", Protocol: 2}}, HandshakeTimeout: 10 * time.Second, UnloadTimeout: 5 * time.Second, ReapTimeout: 2 * time.Second})
+	process, e := pluginhost.Start(ctx, pluginhost.Spec{ID: "tangent.plugin.messaging", ExpectedID: "tangent.plugin.messaging", ExpectedVersion: binaries.version, Command: binary, Env: []string{"HOME=" + privateDir(t), "TANGENT_MESSAGING_CONFIG=" + path, "TANGENT_MCP_URL=" + mcpURL, "TETHER_TOKEN="}, Init: subprocess.InitParams{PluginDir: filepath.Dir(binary), DataDir: data, CacheDir: cache, Config: map[string]string{}, CapabilityContract: capability.ContractVersion, Incarnation: capability.RuntimeIdentity{HostInstance: "stage1-private-host", OwnerID: "tangent.plugin.messaging", OwnerGeneration: generation}, Grants: capability.GrantSet{}, HostInfo: subprocess.HostInfo{Version: "0.19.0", Protocol: 2}}, HandshakeTimeout: 10 * time.Second, UnloadTimeout: 5 * time.Second, ReapTimeout: 2 * time.Second})
 	if e != nil {
 		t.Fatal(e)
 	}
