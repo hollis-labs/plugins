@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	tether "github.com/hollis-labs/go-tether-client"
 	pluginhost "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-host"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/messaging"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/replyprojection"
 )

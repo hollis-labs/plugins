@@ -13,8 +13,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	gomsg "github.com/hollis-labs/go-messaging"
-	tether "github.com/hollis-labs/go-tether-client"
+	gomsg "github.com/hollis-labs/libs/mesh/core/messaging"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 	"github.com/hollis-labs/plugins/tangent-messaging/internal/reply"
 	"github.com/hollis-labs/tangent/pkg/plugin"
 )

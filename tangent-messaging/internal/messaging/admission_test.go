@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	gomsg "github.com/hollis-labs/go-messaging"
-	tether "github.com/hollis-labs/go-tether-client"
+	gomsg "github.com/hollis-labs/libs/mesh/core/messaging"
+	tether "github.com/hollis-labs/libs/mesh/core/tetherclient"
 )
 
 func testSource() Source { return Source{EndpointRef: "test-tether", Channel: "owner-inbox"} }

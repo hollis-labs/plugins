@@ -1,8 +1,6 @@
 module github.com/hollis-labs/plugins/tangent-portfolio
 
-go 1.26.8
-
-toolchain go1.26.9
+go 1.26.9
 
 require (
 	golang.org/x/text v0.42.0
@@ -12,8 +10,8 @@ require (
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hollis-labs/libs/mcp/plugin-mcp v0.2.0
-	github.com/hollis-labs/tangent v0.19.1-0.20261010073346-380db1fa961c
+	github.com/hollis-labs/libs/mcp/plugin-mcp v0.3.0
+	github.com/hollis-labs/tangent v0.20.0
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
