@@ -237,21 +237,63 @@ def scan_history(repo, findings, refs):
     return stats
 
 
-def run_gitleaks(repo, mode, tmpdir, refs=()):
+def run_gitleaks(repo, mode, tmpdir, refs=(), ignore_path=None):
     """Run gitleaks `dir` (tree) or `git` (history). Returns (entries, error or None)."""
     report = os.path.join(tmpdir, "gitleaks-%s.json" % mode)
+    scan_repo = repo
+    original_paths = {}
+    if ignore_path is None:
+        ignore_path = os.path.join(tmpdir, "empty.gitleaksignore")
+        with open(ignore_path, "w"):
+            pass
+        # Gitleaks also loads SOURCE/.gitleaksignore even when an explicit
+        # empty ignore path is supplied. Never mutate the repository being
+        # inspected: scan a temporary tree with ignore files renamed as data, or
+        # point history scanning at Git's metadata directory instead.
+        if mode == "dir" and os.path.lexists(os.path.join(repo, ".gitleaksignore")):
+            scan_repo = os.path.join(tmpdir, "raw-tree")
+            shutil.copytree(
+                repo, scan_repo, symlinks=True,
+                ignore=shutil.ignore_patterns(".git"),
+            )
+            for directory, _, files in os.walk(scan_repo):
+                if ".gitleaksignore" not in files:
+                    continue
+                original = os.path.join(directory, ".gitleaksignore")
+                fd, neutral = tempfile.mkstemp(prefix=".scan-public-ignore-data-", dir=directory)
+                os.close(fd)
+                os.replace(original, neutral)
+                original_paths[os.path.relpath(neutral, scan_repo)] = os.path.relpath(original, scan_repo)
+        elif mode == "git":
+            gitdir = subprocess.run(
+                ["git", "-C", repo, "rev-parse", "--absolute-git-dir"],
+                capture_output=True, text=True,
+            )
+            if gitdir.returncode:
+                return [], "could not resolve Git metadata for raw history scan"
+            scan_repo = gitdir.stdout.strip()
     cmd = [
         "gitleaks", mode, "--no-banner", "--redact", "--report-format", "json",
-        "--report-path", report,
-    ] + (["--log-opts", " ".join(refs)] if mode == "git" and refs else []) + [repo]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+        "--report-path", report, "--gitleaks-ignore-path", ignore_path,
+    ] + (["--log-opts", " ".join(refs)] if mode == "git" and refs else []) + ["."]
+    # Stable relative paths make exact fingerprints portable across checkouts.
+    # The caller explicitly selects reviewed exceptions; targets cannot opt out.
+    r = subprocess.run(cmd, cwd=scan_repo, capture_output=True, text=True)
     if r.returncode not in (0, 1):
         return [], "gitleaks %s exited %d: %s" % (mode, r.returncode, r.stderr.strip()[-300:])
     if not os.path.exists(report):
         return [], None
     try:
         with open(report) as fh:
-            return json.load(fh) or [], None
+            entries = json.load(fh) or []
+        for entry in entries:
+            path = entry.get("File", "")
+            if path in original_paths:
+                entry["File"] = original_paths[path]
+                fingerprint = entry.get("Fingerprint", "")
+                if fingerprint.startswith(path + ":"):
+                    entry["Fingerprint"] = original_paths[path] + fingerprint[len(path):]
+        return entries, None
     except ValueError as e:
         return [], "gitleaks %s wrote an unreadable report: %s" % (mode, e)
 
@@ -358,7 +400,17 @@ def scan(args):
                 for mode, wanted in (("dir", do_tree), ("git", do_history)):
                     if not wanted or (mode == "git" and not is_git_repo(repo)):
                         continue
-                    entries, err = run_gitleaks(repo, mode, tmp, args.ref)
+                    own_repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    reviewed_ignore = os.path.join(own_repo, ".gitleaksignore")
+                    trusted_self_scan = (
+                        not args.no_allowlist and not args.source
+                        and os.path.realpath(repo) == os.path.realpath(own_repo)
+                        and os.path.isfile(reviewed_ignore)
+                    )
+                    entries, err = run_gitleaks(
+                        repo, mode, tmp, args.ref,
+                        ignore_path=reviewed_ignore if trusted_self_scan else None,
+                    )
                     if err:
                         errors.append(err)
                     for e in entries:

@@ -1,0 +1,39 @@
+# Exact reviewed synthetic fixtures only; no path-wide or rule-wide exclusions.
+# Fingerprints bind rule, path and line; history also binds the full commit.
+# Two Keeper lines each trigger twice; one exact fingerprint covers both detections.
+
+# Fixed sentinelToken used by fake Caddy execution tests to assert credential redaction from files, diffs, results and errors.
+cerberus-caddy/internal/caddyplugin/helpers_test.go:generic-api-key:18
+
+# Fake Keeper transport configuration; key fields decode to short fixture text and exercise refusing cached values after transport failure.
+cerberus-keeper/internal/keeperplugin/nocache_test.go:generic-api-key:117
+
+# validConfigJSON constructs a fake Keeper configuration; key fields decode to short fixture text for local fake-vault tests.
+cerberus-keeper/internal/keeperplugin/plugin_test.go:generic-api-key:35
+
+# Unbound configuration fixture decodes to test text and is checked verbatim for non-disclosure; test asserts the vault factory is never invoked.
+cerberus-keeper/internal/keeperplugin/plugin_test.go:generic-api-key:141
+
+# Explicit test sentinelToken used by the fake Vercel CLI and redaction assertions; not a vendor credential.
+cerberus-vercel/internal/vercelplugin/plugin_test.go:generic-api-key:18
+
+# TestStatusReportsWithoutCredentialMaterial checks fixed fake-token material is absent from the local fake-resolver response.
+cerberus-onepassword/internal/opplugin/plugin_test.go:generic-api-key:366
+
+# Fixed sentinelToken used by fake Caddy execution tests to assert credential redaction from files, diffs, results and errors.
+7b9c119c57880ace58a29fdb80162e0b4516d758:cerberus-caddy/internal/caddyplugin/helpers_test.go:generic-api-key:18
+
+# Explicit test sentinelToken used by the fake Vercel CLI and redaction assertions; not a vendor credential.
+4b89e7293782996a898110aadad1c143975ee0f7:cerberus-vercel/internal/vercelplugin/plugin_test.go:generic-api-key:18
+
+# Fake Keeper transport configuration; key fields decode to short fixture text and exercise refusing cached values after transport failure.
+f839531a935a357fea134d5d40ef8d0a76f8144f:cerberus-keeper/internal/keeperplugin/nocache_test.go:generic-api-key:117
+
+# validConfigJSON constructs a fake Keeper configuration; key fields decode to short fixture text for local fake-vault tests.
+f839531a935a357fea134d5d40ef8d0a76f8144f:cerberus-keeper/internal/keeperplugin/plugin_test.go:generic-api-key:35
+
+# Unbound configuration fixture decodes to test text and is checked verbatim for non-disclosure; test asserts the vault factory is never invoked.
+f839531a935a357fea134d5d40ef8d0a76f8144f:cerberus-keeper/internal/keeperplugin/plugin_test.go:generic-api-key:141
+
+# TestStatusReportsWithoutCredentialMaterial checks fixed fake-token material is absent from the local fake-resolver response.
+7d65fbebdd0cc5b388df6ba66a88a1102973f293:cerberus-onepassword/internal/opplugin/plugin_test.go:generic-api-key:366

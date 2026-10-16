@@ -27,7 +27,7 @@ export MAX_BYTES=$((10 * 1024 * 1024))
 # Directories that are repository infrastructure, not imported repositories.
 RESERVED_DIRS="scripts .github scan-public.allow.d docs"
 # Files that may sit at the repository root.
-ROOT_FILES="AGENTS.md README.md LICENSE .gitignore"
+ROOT_FILES="AGENTS.md README.md LICENSE .gitignore .gitleaksignore"
 
 is_reserved() {
   local d
