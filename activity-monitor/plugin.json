@@ -1,5 +1,5 @@
 {
-  "name": "chimera-activity-monitor",
+  "name": "activity-monitor",
   "kind": "module",
   "hosts": ["chimera"]
 }

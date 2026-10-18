@@ -25,6 +25,10 @@ const (
 
 // Agent is one live agent process. Conf records the tier per field.
 type Agent struct {
+	Machine      string                `json:"machine,omitempty"`
+	Source       string                `json:"source,omitempty"`
+	Stale        bool                  `json:"stale"`
+	LastAction   json.RawMessage       `json:"last_action,omitempty"`
 	ID           string                `json:"id"` // provider:pid:starttime
 	Provider     string                `json:"provider"`
 	PID          int                   `json:"pid"`

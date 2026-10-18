@@ -16,7 +16,7 @@ import (
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/capability"
 	sdksub "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 
-	"github.com/hollis-labs/plugins/chimera-activity-monitor/internal/scan"
+	"github.com/hollis-labs/plugins/activity-monitor/internal/scan"
 )
 
 func main() {
@@ -37,22 +37,27 @@ func main() {
 		return
 	}
 	p := &plugin{sc: scan.New(), tr: scan.NewTracker(2000), push: &pusher{}}
-	go p.poll(context.Background(), 2*time.Second)
+
 	if err := sdksub.Serve(p); err != nil {
 		os.Exit(1)
 	}
 }
 
 type plugin struct {
-	sc   *scan.Scanner
-	tr   *scan.Tracker
-	push *pusher
+	fleet  *fleet
+	cancel context.CancelFunc
+	done   chan struct{}
+	sc     *scan.Scanner
+	tr     *scan.Tracker
+	push   *pusher
 }
 
 func (p *plugin) poll(ctx context.Context, every time.Duration) {
 	for {
+		now := time.Now()
+		p.fleet.fetch(ctx, now)
 		if agents, err := p.sc.Scan(ctx); err == nil {
-			p.push.send(ctx, p.tr.Update(time.Now(), agents))
+			p.push.send(ctx, p.tr.Update(now, p.fleet.merge(agents, now)))
 		}
 		select {
 		case <-ctx.Done():
@@ -63,13 +68,36 @@ func (p *plugin) poll(ctx context.Context, every time.Duration) {
 }
 
 func (p *plugin) Init(ctx context.Context, params sdksub.InitParams) (sdksub.InitResult, error) {
+	var err error
+	p.fleet, err = newFleet(params.Config)
+	if err != nil {
+		return sdksub.InitResult{}, err
+	}
 	p.push.configure(params.Config["ingest_url"], params.Config["ingest_token"])
 	return sdksub.InitResult{ID: "activity-monitor", Name: "Activity Monitor", Version: "0.1.0",
 		Description: "Live coding-agent activity on this machine.", Protocol: sdksub.ProtocolVersion,
 		CapabilityContract: capability.ContractVersion}, nil
 }
-func (p *plugin) Load(context.Context) (sdksub.LoadResult, error) { return sdksub.LoadResult{}, nil }
-func (p *plugin) Unload(context.Context) error                    { return nil }
+func (p *plugin) Load(context.Context) (sdksub.LoadResult, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancel = cancel
+	done := make(chan struct{})
+	p.done = done
+	go func() { defer close(done); p.poll(ctx, 2*time.Second) }()
+	return sdksub.LoadResult{}, nil
+}
+func (p *plugin) Unload(ctx context.Context) error {
+	if p.cancel == nil {
+		return nil
+	}
+	p.cancel()
+	select {
+	case <-p.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
 func (p *plugin) Health(context.Context) (sdksub.HealthStatus, error) {
 	return sdksub.HealthStatus{OK: true}, nil
 }
@@ -82,7 +110,7 @@ func (p *plugin) HTTPHandle(ctx context.Context, r sdksub.HTTPRequest) (sdksub.H
 	path := strings.TrimSuffix(r.Path, "/")
 	switch {
 	case strings.HasSuffix(path, "/agents"):
-		return jsonResp(200, map[string]any{"agents": p.tr.Agents()}), nil
+		return jsonResp(200, map[string]any{"agents": p.tr.Agents(), "transport": p.fleet.status()}), nil
 	case strings.HasSuffix(path, "/events"):
 		after, _ := strconv.ParseUint(r.Query["since"], 10, 64)
 		evs, latest := p.tr.Since(after)

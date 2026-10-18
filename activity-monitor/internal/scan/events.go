@@ -1,11 +1,13 @@
 package scan
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"sync"
 	"time"
 
-	re "github.com/hollis-labs/go-runtime-events/runtimeevents"
+	re "github.com/hollis-labs/libs/harness/core/adapters/runtimeevents"
 )
 
 // Channels for unmanaged discovery. go-runtime-events' SourceChannel set has
@@ -18,14 +20,17 @@ const (
 // Tracker diffs successive scans into runtime-event envelopes and keeps a
 // bounded ring so clients can poll with ?since=<sequence>.
 type Tracker struct {
-	mu   sync.Mutex
-	prev map[string]Agent
-	seq  uint64
-	ring []re.Event
-	max  int
+	mu         sync.Mutex
+	prev       map[string]Agent
+	seq        uint64
+	ring       []re.Event
+	max        int
+	generation uint64
 }
 
-func NewTracker(max int) *Tracker { return &Tracker{prev: map[string]Agent{}, max: max} }
+func NewTracker(max int) *Tracker {
+	return &Tracker{prev: map[string]Agent{}, max: max, generation: uint64(time.Now().UnixNano())}
+}
 
 func (t *Tracker) Update(now time.Time, agents []Agent) []re.Event {
 	t.mu.Lock()
@@ -39,7 +44,7 @@ func (t *Tracker) Update(now time.Time, agents []Agent) []re.Event {
 		case !seen:
 			evs = append(evs, t.mk(now, a, re.KindProcessStarted))
 			evs = append(evs, t.mk(now, a, stateKind(a.State)))
-		case old.State != a.State || old.WaitingFor != a.WaitingFor:
+		case old.State != a.State || old.WaitingFor != a.WaitingFor || old.Stale != a.Stale || !bytes.Equal(old.LastAction, a.LastAction) || !sameTime(old.LastActivity, a.LastActivity):
 			evs = append(evs, t.mk(now, a, stateKind(a.State)))
 		}
 	}
@@ -72,29 +77,17 @@ func (t *Tracker) mk(now time.Time, a Agent, k re.EventKind) re.Event {
 	if a.Provider == "claude" {
 		ch, conf = ChannelSessionFile, Exact
 	}
-	payload, _ := json.Marshal(map[string]any{"state": a.State, "waiting_for": a.WaitingFor, "cwd": a.Cwd})
+	if a.Source == "pulse" {
+		ch, conf = "plugin-hook", a.Conf["state"]
+	}
+	payload, _ := json.Marshal(a)
 	return re.Event{
-		SchemaVersion: re.SchemaVersion, ID: "evt_" + a.ID + "_" + itoa(t.seq), Kind: k, Time: now.UTC(),
-		App: "activity-monitor", SessionID: a.ID, Sequence: t.seq,
+		SchemaVersion: re.SchemaVersion, ID: "evt_" + rand.Text(), Kind: k, Time: now.UTC(),
+		App: "activity-monitor", SessionID: a.ID, Sequence: t.seq, Generation: t.generation,
 		Process: re.Process{PID: a.PID, Provider: a.Provider, ProviderSessionID: a.SessionID},
 		Source:  re.Source{Channel: ch, Confidence: re.Confidence(conf)},
 		Payload: payload,
 	}
-}
-
-func itoa(u uint64) string { return uitoa(u) }
-func uitoa(u uint64) string {
-	if u == 0 {
-		return "0"
-	}
-	var b [20]byte
-	i := len(b)
-	for u > 0 {
-		i--
-		b[i] = byte('0' + u%10)
-		u /= 10
-	}
-	return string(b[i:])
 }
 
 // Since returns events with sequence > after, plus the latest sequence.
@@ -118,4 +111,11 @@ func (t *Tracker) Agents() []Agent {
 		out = append(out, a)
 	}
 	return out
+}
+
+func sameTime(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
 }

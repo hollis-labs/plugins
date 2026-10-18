@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	re "github.com/hollis-labs/go-runtime-events/runtimeevents"
+	re "github.com/hollis-labs/libs/harness/core/adapters/runtimeevents"
 )
 
 const maxPending = 2000
