@@ -3,7 +3,7 @@ package pgplugin
 import contract "github.com/hollis-labs/cerberus/pkg/connector"
 
 const ConnectorID = "postgres"
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 func Definition() contract.Definition {
 	fields := []contract.ConfigField{}
@@ -27,7 +27,7 @@ func Definition() contract.Definition {
 		op("inspect", "Read bounded cluster metadata only; never application rows or password hashes.", contract.ObjectSchema(common, "cluster"), contract.OutputSchemaOf[Inventory]()),
 		op("plan_app", "Preview app isolation, role split, credential requirements and blockers. Does not provision or generate credentials.", contract.ObjectSchema(plan, "cluster", "app", "environment"), contract.OutputSchemaOf[Plan]()),
 	}
-	for _, name := range []string{"provision_app", "rotate_login", "retire_login", "revoke_login"} {
+	for _, name := range []string{"provision_app", "adopt_app", "rotate_login", "retire_login", "revoke_login", "retire_legacy"} {
 		inputs := map[string]any{"cluster": common["cluster"], "app": plan["app"], "environment": plan["environment"], "expected_plan": contract.StringSchema("Lifecycle plan_digest from this operation's dry-run; required for execution.")}
 		required := []string{"cluster", "app", "environment"}
 		slots := []string(nil)
@@ -37,6 +37,15 @@ func Definition() contract.Definition {
 			inputs["vector"] = plan["vector"]
 			slots = []string{"migration_password", "runtime_password"}
 			description = "Provision a new private app database and separate migration/runtime logins. Refuses adoption and existing PUBLIC CONNECT. Host persists credentials first; return references only."
+		case "adopt_app":
+			inputs["adoption"] = adoptionInputSchema()
+			required = append(required, "adoption")
+			slots = []string{"migration_password", "runtime_password"}
+			description = "Adopt an existing dedicated database with an explicit table privilege mapping; preserve data and names. Refuse unsupported objects and stale plans. Host persists credentials before transactional ownership/grant changes and activation."
+		case "retire_legacy":
+			inputs["consumer"] = contract.StringSchema("Live replacement runtime application_name; lowercase slug, max 48 characters.")
+			required = append(required, "consumer")
+			description = "Revoke legacy CONNECT and grants only in the adopted database, then drain its sessions there after proving the new runtime consumer. Preserve the legacy role and access to other databases."
 		case "rotate_login":
 			slots = []string{"password"}
 			description = "Add a new login generation with a host-persisted credential; retain existing generations until consumer cutover."
@@ -47,7 +56,7 @@ func Definition() contract.Definition {
 		case "revoke_login":
 			description = "Emergency disable and drain a managed login without requiring a replacement. Preserves roles and data."
 		}
-		if name != "provision_app" {
+		if name != "provision_app" && name != "adopt_app" && name != "retire_legacy" {
 			inputs["kind"] = map[string]any{"type": "string", "enum": []string{"runtime", "migration"}}
 			required = append(required, "kind")
 		}

@@ -14,7 +14,7 @@ const BinaryName = "cerberus-postgres-plugin"
 
 func declare(spec cerbplugin.PluginYAML) cerbplugin.PluginYAML {
 	spec.Cerberus.Host = cerbplugin.HostRange{MinContract: 1, MaxContract: 1}
-	spec.Cerberus.Surfaces = cerbplugin.Surfaces{MCP: []string{"inspect", "plan_app", "provision_app", "rotate_login", "retire_login", "revoke_login"}}
+	spec.Cerberus.Surfaces = cerbplugin.Surfaces{MCP: []string{"inspect", "plan_app", "provision_app", "rotate_login", "retire_login", "revoke_login", "adopt_app", "retire_legacy"}}
 	spec.Capabilities = []subprocess.CapabilityRequest{{Name: cerbplugin.CredentialIssuanceCapability}}
 	return spec
 }

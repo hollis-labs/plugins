@@ -1,6 +1,6 @@
 schema_version: "1"
 id: postgres
-version: 0.2.0
+version: 0.3.0
 protocol: plugin-sdk/subprocess
 runtime: subprocess
 entrypoint:
@@ -15,7 +15,7 @@ cerberus:
         api_version: cerberus.connector/v1
         kind: Connector
         id: postgres
-        version: 0.2.0
+        version: 0.3.0
         resource_types:
             - server
         capabilities:
@@ -181,6 +181,189 @@ cerberus:
               output_schema:
                 oneOf:
                     - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              issued_secrets:
+                - migration_password
+                - runtime_password
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: adopt_app
+              description: Adopt an existing dedicated database with an explicit table privilege mapping; preserve data and names. Refuse unsupported objects and stale plans. Host persists credentials before transactional ownership/grant changes and activation.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    adoption:
+                        additionalProperties: false
+                        properties:
+                            database:
+                                description: Existing dedicated database; its name is preserved.
+                                type: string
+                            legacy_owner:
+                                description: Existing non-administrative owner; preserved for a separate consumer cutover.
+                                type: string
+                            schema:
+                                description: Existing application schema, including public; its name is preserved.
+                                type: string
+                            tables:
+                                items:
+                                    additionalProperties: false
+                                    properties:
+                                        access:
+                                            enum:
+                                                - read
+                                                - read_write
+                                            type: string
+                                        name:
+                                            description: Existing ordinary table name.
+                                            type: string
+                                    required:
+                                        - name
+                                        - access
+                                    type: object
+                                maxItems: 32
+                                minItems: 1
+                                type: array
+                        required:
+                            - database
+                            - schema
+                            - legacy_owner
+                            - tables
+                        type: object
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                    issuance_id:
+                        description: Fresh 32-character lowercase hex ID; host durably refuses reuse.
+                        type: string
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - adoption
+                    - issuance_id
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: writes
+              output_schema:
+                oneOf:
+                    - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
                         app:
                             properties:
                                 blockers:
@@ -248,6 +431,48 @@ cerberus:
               output_schema:
                 oneOf:
                     - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
                         app:
                             properties:
                                 blockers:
@@ -319,6 +544,48 @@ cerberus:
               output_schema:
                 oneOf:
                     - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
                         app:
                             properties:
                                 blockers:
@@ -384,6 +651,148 @@ cerberus:
               output_schema:
                 oneOf:
                     - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: retire_legacy
+              description: Revoke legacy CONNECT and grants only in the adopted database, then drain its sessions there after proving the new runtime consumer. Preserve the legacy role and access to other databases.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    consumer:
+                        description: Live replacement runtime application_name; lowercase slug, max 48 characters.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - consumer
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                oneOf:
+                    - properties:
+                        adoption_inventory:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                                database_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                database_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                relations:
+                                    items:
+                                        properties:
+                                            acl:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            name:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                            owner:
+                                                type: string
+                                                x-cerberus-label:
+                                                    - untrusted
+                                        type: object
+                                    type: array
+                                schema_acl:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                                schema_owner:
+                                    type: string
+                                    x-cerberus-label:
+                                        - untrusted
+                            type: object
                         app:
                             properties:
                                 blockers:
@@ -415,3 +824,5 @@ cerberus:
             - rotate_login
             - retire_login
             - revoke_login
+            - adopt_app
+            - retire_legacy

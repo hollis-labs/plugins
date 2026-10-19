@@ -90,7 +90,7 @@ func createLoginStatements(p Plan, kind, name string, m ownership) []string {
 	return []string{
 		"CREATE ROLE " + ident(name) + " NOLOGIN " + inheritance + " NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS",
 		"GRANT " + ident(parent) + " TO " + ident(name) + " WITH " + options,
-		"ALTER ROLE " + ident(name) + " SET search_path=pg_catalog,app",
+		"ALTER ROLE " + ident(name) + " SET search_path=pg_catalog," + ident(p.Schema),
 		commentSQL("ROLE", name, m),
 	}
 }
@@ -189,15 +189,19 @@ func (b *postgresBackend) provision(ctx context.Context, c *pgx.Conn, r Lifecycl
 
 // Catalog checks are performed as admin, before enabling a new identity. This
 // does not replace independent authentication/isolation integration tests.
-func checkAppPrivileges(ctx context.Context, c *pgx.Conn, p Plan, runtime, migration string) error {
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func checkAppPrivileges(ctx context.Context, c rowQuerier, p Plan, runtime, migration string) error {
 	var safe bool
 	err := c.QueryRow(ctx, `SELECT
 	 NOT has_database_privilege($1,current_database(),'CREATE') AND NOT has_database_privilege($1,current_database(),'TEMP')
-	 AND has_database_privilege($1,current_database(),'CONNECT') AND has_schema_privilege($1,'app','USAGE') AND NOT has_schema_privilege($1,'app','CREATE')
+	 AND has_database_privilege($1,current_database(),'CONNECT') AND has_schema_privilege($1,$4,'USAGE') AND NOT has_schema_privilege($1,$4,'CREATE')
 	 AND NOT pg_has_role($1,$3,'SET') AND NOT pg_has_role($1,$3,'USAGE')
 	 AND has_database_privilege($2,current_database(),'CONNECT') AND pg_has_role($2,$3,'SET') AND NOT pg_has_role($2,$3,'USAGE')
 	 AND NOT EXISTS(SELECT 1 FROM pg_database d WHERE d.datallowconn AND d.datname<>current_database() AND (has_database_privilege($1,d.oid,'CONNECT') OR has_database_privilege($2,d.oid,'CONNECT')))
-	 AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND has_schema_privilege($1,n.oid,'CREATE'))`, runtime, migration, p.OwnerRole).Scan(&safe)
+	 AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname NOT LIKE 'pg_%' AND has_schema_privilege($1,n.oid,'CREATE'))`, runtime, migration, p.OwnerRole, p.Schema).Scan(&safe)
 	if err != nil || !safe {
 		return phaseError("app privilege verification (new logins remain disabled)")
 	}
@@ -218,13 +222,19 @@ func (b *postgresBackend) rotate(ctx context.Context, c *pgx.Conn, r LifecycleRe
 	if err = secureWriter(ctx, app); err != nil {
 		return LifecycleResult{}, err
 	}
+	if err = refuseEventTriggers(ctx, app); err != nil {
+		return LifecycleResult{}, err
+	}
+	if err = checkMappedTables(ctx, app, l.App); err != nil {
+		return LifecycleResult{}, err
+	}
 	var generation int
 	for _, login := range l.Logins {
 		if login.Kind == r.Kind && login.Generation >= generation {
 			generation = login.Generation + 1
 		}
 	}
-	m := marker(r, i, r.Kind, generation)
+	m := marker(r, i, r.Kind, generation, l.App)
 	tx, err := c.Begin(ctx)
 	if err != nil {
 		return LifecycleResult{}, phaseError("rotation transaction")

@@ -9,6 +9,8 @@ plugin owns PostgreSQL DDL. It is not a SQL proxy or an agent data-access API.
 | `inspect` | Bounded cluster/database/role inventory; no app rows or password hashes. |
 | `plan_app` | Read-only description of a new app/environment and isolation blockers. |
 | `provision_app` | Private database, NOLOGIN owner/runtime privilege roles, separate migration/runtime logins; optional vector **0.8.7**. |
+| `adopt_app` | Preserve an existing database/schema and rows under an explicit table privilege mapping; separate managed ownership and logins. |
+| `retire_legacy` | Remove legacy access only from the adopted database after a named replacement runtime connection is observed. |
 | `rotate_login` | Add the next runtime or migration login generation; keep old generations working. |
 | `retire_login` | Disable/drain an older generation after a live replacement consumer connection is observed. |
 | `revoke_login` | Emergency disable/drain of an explicitly managed generation without a replacement. |
@@ -109,6 +111,87 @@ mesh-only listener/HBA/firewall access and consumer deployment are separate
 reviewed rollout steps. Keep future database ACLs isolated too; this plugin is
 not a continuous policy enforcer.
 
+## Adopt an existing dedicated database
+
+`adopt_app` is a separate operation; `provision_app` continues to refuse existing
+names. The catalog reader needs CONNECT to the existing database, but no
+application table privileges. Grant that through the operator's reviewed
+administration path before previewing. The existing owner must be a
+non-administrative role with no role memberships.
+
+Take and restore-verify a fresh backup first. Quiesce migrations and configure
+existing consumers to verify the schema without startup DDL **before adoption**:
+the legacy login loses ownership and DDL privileges during adoption, while its
+mapped runtime access remains available for the consumer transition.
+
+Pass `cluster`, `app`, `environment`, a fresh `issuance_id`, and this explicit
+`adoption` object to the operation's dry-run:
+
+```json
+{
+  "database": "existing_ledger",
+  "schema": "public",
+  "legacy_owner": "legacy_app",
+  "tables": [
+    {"name": "events", "access": "read_write"},
+    {"name": "schema_history", "access": "read"}
+  ]
+}
+```
+
+`read_write` means SELECT/INSERT/UPDATE; it does not include DELETE, TRUNCATE,
+REFERENCES or TRIGGER. `read` means SELECT. Supply every table in the dedicated
+schema (1–32 tables). Review `adoption_inventory`, blockers, mapping and steps,
+then execute with `--ack` and the exact returned `expected_plan` digest. As with
+provisioning, host approval may apply and credentials are persisted before the
+write process starts. Never reuse the issuance ID, including after refusal.
+
+The first adoption contract accepts ordinary tables of built-in types, plain
+built-in btree indexes, primary/unique constraints, literal defaults and the
+built-in `pg_catalog.now()` default. It refuses unlisted/foreign-owned tables,
+shared grants, custom types/casts/operators/collations, executable defaults,
+functions, triggers, RLS, rules, partitions, inheritance, sequences, default ACLs,
+foreign servers, publications, large objects, extra application schemas,
+database/legacy-role settings, and extensions other than plpgsql. It does not
+install vector or silently repair an unsupported schema. An existing database
+comment is a blocker, so adoption cannot overwrite unrelated provenance.
+
+Execution takes the cluster advisory lock and exclusive locks on mapped tables,
+with bounded lock/statement timeouts, then rechecks the preview. Ownership,
+PUBLIC/legacy privilege changes, managed roles, new credentials and provenance
+commit in one transaction. Rows and database/schema names stay in place. Runtime
+gets schema USAGE and its mapped table grants; migrations must SET ROLE the new
+NOLOGIN owner. Future owner-created tables default to runtime SELECT/INSERT/UPDATE,
+sequences to USAGE/SELECT, and functions do not get PUBLIC EXECUTE. Explicit
+migration grants are needed for tighter or different future-table policies.
+
+Database and role comments record version-2 provenance: cluster system ID,
+app/environment and immutable database/schema/legacy-owner/table mapping. Role
+names retain the generated app namespace. `rotate_login`, `retire_login` and
+`revoke_login` discover and bind that mapping; callers cannot redirect them with
+a database override. Older plugins reject version-2 provenance. Adopted ACLs are
+bound to rotation/legacy-retirement previews, and rotation verifies the mapped
+table grants before creating a new generation. Later migrations can create
+functions and tables, but administrative DDL still refuses event triggers.
+
+Switch the consumer to its new runtime username and host credential reference,
+verified TLS, schema verification mode and a named `application_name`. After
+proving application reads/writes, preview/execute `retire_legacy` with the same
+app/environment and `consumer=<application_name>`. It requires the newest enabled
+runtime generation's exact live connection in both preview and execution. It
+revokes legacy CONNECT/schema/mapped-table privileges only in the adopted database,
+commits, then drains that role's sessions **only there**. Its global LOGIN,
+password and access to other databases remain intact. A fresh retirement plan can
+repeat the drain after an incomplete outcome. Verify remaining sessions and new
+connection denial; authentication in flight is still an operational boundary.
+
+Adoption does not activate application configuration, grant network reach, automate
+backups or reverse ownership changes. A failed commit is uncertain; inspect before
+any separately reviewed recovery, never replay issuance. The advisory lock
+serializes plugin writers, and table locks prevent mapped-table changes during
+adoption; unrelated superuser changes and concurrent migrations outside those
+locks remain outside this boundary. Keep migrations quiescent for the operation.
+
 ## Rotate, retire and revoke
 
 For `rotate_login`, supply `cluster`, `app`, `environment`, `kind=runtime` or
@@ -166,10 +249,11 @@ POSTGRES_TEST_IMAGE=<reviewed-pg17-with-vector-0.8.7-image> ./test-scratch.sh
 The scratch script creates and removes its own container, with network disabled,
 no published ports, tmpfs data, synthetic credentials and a marked Unix socket.
 It tests real SCRAM, migration/runtime and cross-database isolation, vector DML,
-rotation of both login kinds, stale plans, lost consumer proof, retirement,
+rotation of both login kinds, existing-database adoption with preserved data,
+scoped legacy retirement preserving another database, stale plans, lost consumer proof, retirement,
 emergency drain, safe partial setup, and password/verifier exclusion from verbose
 server logs including an error path. It then builds the real pinned host in a
-disposable module copy and proves that host-persisted references authenticate,
+disposable module copy and proves for both provisioning and adoption that host-persisted references authenticate,
 the socket preserves references without values, replay is refused, and audit
 and server logs exclude credentials. The driver added for that host test exists
 only in the disposable module copy. Ordinary tests do not touch a database.

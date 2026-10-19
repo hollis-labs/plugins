@@ -64,7 +64,7 @@ func (p *Plugin) call(ctx context.Context, req subprocess.MCPCallRequest) (any, 
 	if !ok {
 		return nil, errors.New("unknown PostgreSQL operation")
 	}
-	if op.Name == "provision_app" || op.Name == "rotate_login" || op.Name == "retire_login" || op.Name == "revoke_login" {
+	if op.Name == "provision_app" || op.Name == "rotate_login" || op.Name == "retire_login" || op.Name == "revoke_login" || op.Name == "adopt_app" || op.Name == "retire_legacy" {
 		return p.lifecycle(ctx, op.Name, req.Arguments)
 	}
 	if p.config.AdminPassword != "" {
