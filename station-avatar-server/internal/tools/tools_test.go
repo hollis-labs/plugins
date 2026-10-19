@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/budget"
-	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
+	"github.com/hollis-labs/go-mcp/budget"
+	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"

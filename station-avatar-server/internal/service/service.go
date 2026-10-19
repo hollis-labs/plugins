@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -66,6 +67,11 @@ type Service struct {
 	// Ledger records paid attempts and backs the daily and total limits.
 	Ledger *spend.Ledger
 	Now    func() time.Time
+	// Previewer draws unsaved svg previews; nil disables Preview.
+	Previewer SVGSource
+	// PublicURL is the base of the read-only HTTP surface (no trailing slash).
+	// When set, responses carry URLs a browser can load; empty omits them.
+	PublicURL string
 
 	mu    sync.Mutex
 	names map[string]*nameLock
@@ -105,16 +111,19 @@ type File struct {
 
 // Response is the contract's answer.
 type Response struct {
-	URN            string           `json:"urn"`
-	RequestedMode  Mode             `json:"requested_mode"`
-	UsedMode       Mode             `json:"used_mode"`
-	FallbackReason *string          `json:"fallback_reason"`
-	FallbackDetail string           `json:"fallback_detail,omitempty"`
-	Existed        bool             `json:"existed"`
-	Files          []File           `json:"files"`
-	Sidecar        string           `json:"sidecar"`
-	Provenance     store.Provenance `json:"provenance"`
-	Reproducible   bool             `json:"reproducible"`
+	URN            string  `json:"urn"`
+	RequestedMode  Mode    `json:"requested_mode"`
+	UsedMode       Mode    `json:"used_mode"`
+	FallbackReason *string `json:"fallback_reason"`
+	FallbackDetail string  `json:"fallback_detail,omitempty"`
+	Existed        bool    `json:"existed"`
+	Files          []File  `json:"files"`
+	Sidecar        string  `json:"sidecar"`
+	// URLs are browser-loadable addresses of the files, by role, when the HTTP
+	// surface is configured.
+	URLs         map[string]string `json:"urls,omitempty"`
+	Provenance   store.Provenance  `json:"provenance"`
+	Reproducible bool              `json:"reproducible"`
 }
 
 // ModeError is a request no engine in its chain could serve: fallback was
@@ -369,8 +378,17 @@ func (s *Service) response(name string, r Request, prov store.Provenance, existe
 		v := prov.FallbackReason
 		reason = &v
 	}
+	var urls map[string]string
+	if s.PublicURL != "" {
+		esc := url.PathEscape(name)
+		urls = map[string]string{"png": s.PublicURL + "/avatars/" + esc + ".png", "png8x": s.PublicURL + "/avatars/" + esc + "@8x.png"}
+		if fileExists(p.SVG) {
+			urls["svg"] = s.PublicURL + "/avatars/" + esc + ".svg"
+		}
+	}
 	return &Response{
-		URN: prov.URN, RequestedMode: r.Mode, UsedMode: Mode(prov.UsedMode), FallbackReason: reason, FallbackDetail: prov.FallbackDetail,
+		URLs: urls,
+		URN:  prov.URN, RequestedMode: r.Mode, UsedMode: Mode(prov.UsedMode), FallbackReason: reason, FallbackDetail: prov.FallbackDetail,
 		Existed: existed, Files: files, Sidecar: p.JSON, Provenance: prov, Reproducible: prov.Reproducible,
 	}
 }

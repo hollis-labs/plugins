@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/budget"
-	gmcpserver "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp/server"
+	"github.com/hollis-labs/go-mcp/budget"
+	gmcpserver "github.com/hollis-labs/go-mcp/server"
 
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
@@ -27,8 +27,23 @@ type Generator interface {
 	Status(ctx context.Context) service.Status
 }
 
-// Deps are what the tools call through.
-type Deps struct{ Generator Generator }
+// Previewer draws unsaved svg previews. *service.Service is the real one.
+type Previewer interface {
+	Preview(ctx context.Context, r service.PreviewRequest) (*service.Preview, error)
+}
+
+// Deleter archives an agent's avatar. *service.Service is the real one.
+type Deleter interface {
+	Delete(ctx context.Context, urn string) (*service.Deleted, error)
+}
+
+// Deps are what the tools call through. Previewer and Deleter are optional: a
+// tool whose dependency is nil is not registered.
+type Deps struct {
+	Generator Generator
+	Previewer Previewer
+	Deleter   Deleter
+}
 
 const guideText = `Avatar generator: 8-bit pixel-robot avatars for agents, stored as files named after the agent.
 
@@ -44,6 +59,10 @@ If the model path cannot run (no model tool, no credential, over budget, provide
 Colours come from a shared table of 16 curated pairs. Each agent is given a slot on first use (palette_registry.json), so the first 16 agents never share one. Override with palette (a slot name) or accent and bg (#rrggbb, both).
 
 Settings: fill 0-100 is how filled the procedural sprite's body is (default 65, integers only). role, species and mood vary the model's drawing and are ignored in svg mode. budget_usd lowers the per-call spend ceiling for this call; it cannot raise the configured one. Operators can also set a daily and a total limit, and change what each mode falls back to; avatar_status shows both.
+
+avatar_preview draws an svg avatar for a seed without storing it or taking a palette slot: free, reproducible, safe to call repeatedly while tweaking (seed, fill, palette). avatar_delete archives an agent's avatar (moved aside under a timestamp, never destroyed) so the next avatar_generate makes a new face; the agent keeps its palette slot.
+
+For browsers: a read-only HTTP surface serves stored avatars (GET /avatars/<name>.svg|.png|@8x.png) and previews (GET /preview?seed=&fill=&palette=&format=svg|png&size=) with no token. It never generates or spends. When it is configured, avatar_generate returns browser-loadable urls.
 
 Files: <name>.png is canonical (64x64), <name>@8x.png is 512x512, <name>.svg is the vector (svg avatars only), <name>.json is the sidecar with provenance. Generator: ` + avatar.GeneratorVersion + `.`
 
@@ -90,12 +109,69 @@ func Register(srv *gmcpserver.Server, d Deps) {
 		InputSchema: gmcpserver.InputSchema(props...),
 		// It writes files, never deletes (forced regenerates archive), and the same call twice is the same files.
 		ReadOnlyHint: false, DestructiveHint: false, IdempotentHint: true, OpenWorldHint: false,
-		Handler: guarded(props, d.generate),
+		Handler: guarded("avatar_generate", props, d.generate),
 	})
+	d.registerExtras(srv)
 }
 
 // Names lists the registered tool names.
-func Names() []string { return []string{"avatar_guide", "avatar_status", "avatar_generate"} }
+func Names() []string {
+	return []string{"avatar_guide", "avatar_status", "avatar_generate", "avatar_preview", "avatar_delete"}
+}
+
+func (d Deps) registerExtras(srv *gmcpserver.Server) {
+	if d.Previewer != nil {
+		props := []gmcpserver.Prop{
+			gmcpserver.StringProp("seed", "What decides the face: normally the agent's URN, or any text to explore. The same seed, fill and colours always draw the same avatar.", true),
+			gmcpserver.StringProp("palette", "A slot name from the shared colour table (e.g. violet). Give this or accent and bg, not both. With neither, the seed's own slot is shown.", false),
+			gmcpserver.StringProp("accent", "Explicit body colour, #rrggbb. Must be given with bg.", false),
+			gmcpserver.StringProp("bg", "Explicit background colour, #rrggbb. Must be given with accent.", false),
+			gmcpserver.IntegerProp("fill", fmt.Sprintf("Body fill in percent, %d-%d. Default %d.", avatar.FillMin, avatar.FillMax, avatar.FillDefault), false),
+		}
+		srv.RegisterTool(gmcpserver.Tool{
+			Name: "avatar_preview",
+			Description: "Draw an svg avatar for a seed WITHOUT storing it: free, reproducible, no files written, no palette slot taken. Returns the svg text. " +
+				"Use it to try seeds, fills and colours; use avatar_generate to keep one. Svg only; the model modes cost money and have no preview.",
+			InputSchema:  gmcpserver.InputSchema(props...),
+			ReadOnlyHint: true, DestructiveHint: false, IdempotentHint: true, OpenWorldHint: false,
+			Handler: guarded("avatar_preview", props, d.preview),
+		})
+	}
+	if d.Deleter != nil {
+		props := []gmcpserver.Prop{gmcpserver.StringProp("urn", "The agent's URN name whose avatar to take out of service.", true)}
+		srv.RegisterTool(gmcpserver.Tool{
+			Name: "avatar_delete",
+			Description: "Take an agent's avatar out of service. Its files are moved aside under a timestamped name, not destroyed, and the agent keeps its palette slot; " +
+				"the next avatar_generate draws a fresh face. Errors with not_found if the agent has none.",
+			InputSchema:  gmcpserver.InputSchema(props...),
+			ReadOnlyHint: false, DestructiveHint: true, IdempotentHint: false, OpenWorldHint: false,
+			Handler: guarded("avatar_delete", props, d.delete),
+		})
+	}
+}
+
+func (d Deps) preview(ctx context.Context, args map[string]any) (any, error) {
+	r := service.PreviewRequest{Seed: str(args, "seed"), Palette: str(args, "palette"), Accent: str(args, "accent"), BG: str(args, "bg")}
+	if v, ok, err := integer(args, "fill"); err != nil {
+		return nil, err
+	} else if ok {
+		r.Fill = &v
+	}
+	p, err := d.Previewer.Preview(ctx, r)
+	if err != nil {
+		return nil, fail(err, service.Request{})
+	}
+	return p, nil
+}
+
+func (d Deps) delete(ctx context.Context, args map[string]any) (any, error) {
+	urn := str(args, "urn")
+	out, err := d.Deleter.Delete(ctx, urn)
+	if err != nil {
+		return nil, fail(err, service.Request{URN: urn})
+	}
+	return out, nil
+}
 
 func (d Deps) generate(ctx context.Context, args map[string]any) (any, error) {
 	r := service.Request{
@@ -142,6 +218,9 @@ func fail(err error, r service.Request) error {
 	case errors.Is(err, store.ErrCollision):
 		return budget.NewToolError("name_collision", err.Error()).WithField("urn").
 			WithNextStep("Two different URNs sanitise to the same file name. Use distinct URNs; the existing avatar was not touched.")
+	case errors.Is(err, store.ErrNotFound):
+		return budget.NewToolError("not_found", err.Error()).WithField("urn").
+			WithNextStep("That agent has no stored avatar; there is nothing to delete.")
 	case errors.Is(err, store.ErrInvalidURN):
 		return invalid("urn", err.Error())
 	case errors.Is(err, palette.ErrLocked):
@@ -172,7 +251,7 @@ func fail(err error, r service.Request) error {
 
 // guarded rejects an argument the tool does not take: a misspelt setting would
 // otherwise be silently ignored and the caller would get the default avatar.
-func guarded(props []gmcpserver.Prop, run func(context.Context, map[string]any) (any, error)) gmcpserver.ToolHandler {
+func guarded(tool string, props []gmcpserver.Prop, run func(context.Context, map[string]any) (any, error)) gmcpserver.ToolHandler {
 	allowed := map[string]bool{}
 	names := ""
 	for i, p := range props {
@@ -185,7 +264,7 @@ func guarded(props []gmcpserver.Prop, run func(context.Context, map[string]any) 
 	return func(ctx context.Context, args map[string]any) (any, error) {
 		for k := range args {
 			if !allowed[k] {
-				return nil, invalid(k, fmt.Sprintf("avatar_generate takes no argument %q; it accepts %s", k, names))
+				return nil, invalid(k, fmt.Sprintf("%s takes no argument %q; it accepts %s", tool, k, names))
 			}
 		}
 		return run(ctx, args)

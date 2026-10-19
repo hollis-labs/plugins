@@ -113,6 +113,21 @@ func (r *Registry) Peek(urn string) (int, bool, error) {
 	return idx, ok, nil
 }
 
+// Lookup returns the pair urn has, or would be given first, without writing
+// anything: a preview shows the colours an agent will get but does not take
+// the slot. Before the agent is registered the answer is its hash slot, which
+// registration may move if that slot is taken.
+func (r *Registry) Lookup(urn string) (Pair, error) {
+	idx, ok, err := r.Peek(urn)
+	if err != nil {
+		return Pair{}, err
+	}
+	if !ok {
+		idx = hashSlot(norm.NFC.String(urn))
+	}
+	return Curated[idx], nil
+}
+
 func hashSlot(urn string) int {
 	h := sha256.Sum256([]byte(urn))
 	return (int(h[0])<<8 | int(h[1])) % len(Curated)
