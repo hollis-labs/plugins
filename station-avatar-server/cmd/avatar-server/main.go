@@ -6,7 +6,7 @@
 //
 // It is a real, standalone MCP server over stdio with no dependency on Station
 // or mcp-host; Station typically spawns and supervises it as a process-mode
-// logical server (see ../../station.yaml).
+// logical server (see the README).
 //
 // Configuration is environment only:
 //

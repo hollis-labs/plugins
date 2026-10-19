@@ -7,7 +7,7 @@ to two engines.
 
 | mode | engine | cost | reproducible |
 |---|---|---|---|
-| `svg` | drawn in-process (`internal/sprite`), or by a [Hadron](../../../hadron) workflow (`workflows/avatar-generate.workflow.yaml`) when `AVATAR_SVG_ENGINE=hadron` | free, under a millisecond in-process (~2 s via Hadron) | yes |
+| `svg` | drawn in-process (`internal/sprite`), or by a [Hadron](https://github.com/hollis-labs/hadron) workflow (`workflows/avatar-generate.workflow.yaml`) when `AVATAR_SVG_ENGINE=hadron` | free, under a millisecond in-process (~2 s via Hadron) | yes |
 | `image` | the model tool (`avatar.py`): a model draws a new character in the house style from a golden reference | ~$0.03 | no |
 | `hybrid` (default) | the same model tool, also shown the agent's own svg sprite as its identity | ~$0.03 | no |
 
@@ -17,13 +17,15 @@ avatar is a free one.
 
 ## Layout
 
-Everything is under this directory. `main.go` is the thin entry point; the code
-is in `internal/` (Go keeps it private to this plugin, so it can be lifted out
-into its own module without touching Station): `engine` (the adapter seam),
-`service` (the chain, the spend gate, the svg and model adapters), `policy`,
-`spend`, `palette`, `render`, `store`, `model` (the model tool's CLI), `hadron`
-(the workflow client), `tools` (the MCP tools) and `avatar` (the svg knobs and
-run id). `workflows/` holds the Hadron workflow.
+Everything is under this directory. `cmd/avatar-server/main.go` is the thin entry
+point; the code is in `internal/` (Go keeps it private to this plugin, so it can be
+lifted out into its own module without touching Station): `engine` (the adapter
+seam), `service` (the chain, the spend gate, preview, delete, the svg and model
+adapters), `sprite` (the native svg generator and its golden test), `policy`,
+`spend`, `palette`, `render`, `store`, `model` (the model tool's CLI), `hadron` (the
+workflow client, used only with `AVATAR_SVG_ENGINE=hadron`), `httpapi` (the
+read-only browser surface), `tools` (the MCP tools) and `avatar` (the svg knobs and
+run id). `workflows/` holds the Hadron workflow, the reference for `sprite`.
 
 ## Tools
 
@@ -111,8 +113,7 @@ A mode or limit the file does not mention keeps its default; an unknown key is a
 error rather than a silently missing limit. `AVATAR_BUDGET_USD`,
 `AVATAR_DAILY_CAP_USD` and `AVATAR_TOTAL_CAP_USD` override the file. A chain that
 ends on a paid mode can end in an error (`fallback: "none"` does this per call).
-This is a short-term surface; a proper settings object replaces it (Torque
-CW-20261015-0005).
+This is a short-term surface; a proper settings object is meant to replace it.
 
 **Spend limits** are enforced against the plugin's own ledger
 (`spend_ledger.json`, one entry per paid attempt), not the model tool's. A paid
@@ -172,7 +173,7 @@ Hadron deploy steps below then apply.
    go build -o bin/avatar-server ./cmd/avatar-server
    ```
 
-   Set `AVATAR_WORKFLOW` in `station.yaml` to the absolute path from step 1.
+   Set `AVATAR_WORKFLOW` in the Station config to the absolute path from step 1.
 
 | env | default | |
 |---|---|---|
@@ -202,7 +203,7 @@ Hadron deploy steps below then apply.
 ## The model path
 
 `AVATAR_MODEL_DIR` points at the model tool's checkout
-([`hollis-labs/avatars`](https://github.com/hollis-labs/avatars), private). The
+([`hollis-labs/avatars`](https://github.com/hollis-labs/avatars)). The
 plugin wraps its CLI rather than porting it, so that pipeline (model call,
 palette snap, downscale, despeckle) can change without a Go release. The
 contract (the tool's `docs/CONTRACT.md`, which changing needs a heads-up for):
@@ -239,7 +240,7 @@ not be able to spend freely.
   `hadrond`. The plugin tells that from an outage by probing `/v1/health`.
 - **Do not leave optional workflow inputs without a `default:`** if you edit the
   workflow: an optional input with no default that a step binds, started without
-  that input, can leave `hadrond` unable to start (Torque CW-20261015-0001). A
+  that input, can leave `hadrond` unable to start. A
   string default must be written `default: {literal: ""}`; a bare `""` passes
   `hadron workflow validate` and fails when a run is admitted.
 - **Generator versions.** `avatar.GeneratorVersion` is part of every run id. Bump
