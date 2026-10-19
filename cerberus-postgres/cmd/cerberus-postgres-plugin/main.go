@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/hollis-labs/cerberus-plugins/postgres/internal/pgplugin"
-	"github.com/hollis-labs/libs/plugin-mcp/plugin-sdk/subprocess"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
 func main() {
