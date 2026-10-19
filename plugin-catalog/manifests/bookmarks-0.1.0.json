@@ -1,0 +1,137 @@
+{
+  "schema_version": 2,
+  "id": "nanite.bookmarks",
+  "name": "Bookmarks",
+  "description": "Bookmark session messages and preserve imported notes and tags",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/bookmarks"
+  },
+  "capabilities": [
+    {
+      "name": "readonly.query",
+      "reason": "Verify message/session references and import only committed bookmarks exports; no message content access",
+      "metadata": {
+        "resources": [
+          "message_refs",
+          "data_exports"
+        ],
+        "all_sessions": true
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "bookmarks_list",
+      "description": "List bookmarks in the calling session, 100 per page",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "additionalProperties": false
+      },
+      "effect": "read"
+    },
+    {
+      "name": "bookmarks_save",
+      "description": "Bookmark a message in the calling session with an optional title",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message_id": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "bookmarks_delete",
+      "description": "Delete a bookmark in the calling session",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.6"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "panels": [
+        {
+          "id": "bookmark-list",
+          "title": "Bookmarks",
+          "component": "BookmarksWidget",
+          "icon": "Bookmark",
+          "default_visible": true,
+          "order": 20
+        }
+      ],
+      "commands": [
+        {
+          "name": "bookmark",
+          "description": "Bookmark the latest reply, or /bookmark \u003cmessage ID\u003e [title]"
+        }
+      ],
+      "http_routes": [
+        {
+          "method": "GET",
+          "path": "bookmarks"
+        },
+        {
+          "method": "POST",
+          "path": "bookmarks"
+        },
+        {
+          "method": "PATCH",
+          "path": "bookmarks/"
+        },
+        {
+          "method": "DELETE",
+          "path": "bookmarks/"
+        },
+        {
+          "method": "POST",
+          "path": "toggle"
+        },
+        {
+          "method": "POST",
+          "path": "latest"
+        }
+      ]
+    }
+  }
+}

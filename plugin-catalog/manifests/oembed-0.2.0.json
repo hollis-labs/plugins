@@ -1,0 +1,50 @@
+{
+  "schema_version": 2,
+  "id": "oembed",
+  "name": "oEmbed Rich Previews",
+  "description": "Preview matching chat URLs by sending them to their known or configured oEmbed provider",
+  "version": "0.2.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/oembed"
+  },
+  "config": {
+    "fields": {
+      "oembed_extra_providers": {
+        "type": "string",
+        "label": "Extra providers",
+        "description": "JSON array of name, pattern and endpoint triples; endpoint includes {url}. Matching URLs are sent to this endpoint."
+      }
+    }
+  },
+  "hosts": {
+    "nanite": {
+      "min": "0.1.6"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "envelopes": [
+        {
+          "type": "oembed-card",
+          "component": "OEmbedCard",
+          "version": 1,
+          "schema": "schemas/oembed-card.schema.json"
+        }
+      ],
+      "events": [
+        {
+          "types": [
+            "message.sent"
+          ]
+        }
+      ]
+    }
+  }
+}

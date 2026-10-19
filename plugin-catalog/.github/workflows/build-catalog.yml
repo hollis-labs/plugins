@@ -1,0 +1,25 @@
+name: build-catalog
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GOWORK: 'off'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Validate and build
+        run: make all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portfolio-catalog-v2
+          path: dist/
+          if-no-files-found: error

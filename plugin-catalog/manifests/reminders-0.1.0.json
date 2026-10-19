@@ -1,0 +1,188 @@
+{
+  "schema_version": 2,
+  "id": "nanite.reminders",
+  "name": "Reminders",
+  "description": "Time and turn-count reminders with durable state and explicit acknowledgment",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/hollis-labs/nanite-plugins",
+  "protocol": 1,
+  "runtime": "subprocess",
+  "entrypoint": {
+    "command": "bin/reminders"
+  },
+  "capabilities": [
+    {
+      "name": "readonly.query",
+      "reason": "Import committed reminder exports and resolve current session/project and message-count metadata; no message content",
+      "metadata": {
+        "resources": [
+          "sessions",
+          "usage",
+          "data_exports"
+        ],
+        "all_sessions": true
+      }
+    },
+    {
+      "name": "context.source",
+      "reason": "Provide due reminders in approved session context until explicitly acknowledged",
+      "metadata": {
+        "source_ids": [
+          "reminders"
+        ],
+        "all_sessions": true
+      }
+    }
+  ],
+  "tools": [
+    {
+      "name": "reminders_set",
+      "description": "Set a time or turn-count reminder in the calling session/project. Due reminders repeat until reminders_ack.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 8192
+          },
+          "trigger": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "time",
+                  "turn_count"
+                ]
+              },
+              "at": {
+                "type": "string"
+              },
+              "n": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false
+          },
+          "scope": {
+            "enum": [
+              "turn",
+              "session",
+              "project"
+            ]
+          }
+        },
+        "required": [
+          "text",
+          "trigger"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "reminders_list",
+      "description": "List pending session/project reminders, 100 per page",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          }
+        },
+        "additionalProperties": false
+      },
+      "effect": "read"
+    },
+    {
+      "name": "reminders_ack",
+      "description": "Acknowledge a handled reminder; stops further context injection",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    },
+    {
+      "name": "reminders_delete",
+      "description": "Delete a visible reminder",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "effect": "write"
+    }
+  ],
+  "hosts": {
+    "nanite": {
+      "min": "0.1.7"
+    }
+  },
+  "nanite": {
+    "ui": {
+      "bundle": "ui/index.js"
+    },
+    "registers": {
+      "slots": [
+        {
+          "id": "reminders",
+          "slot": "drawer.working.tabs",
+          "component": "RemindersTab",
+          "title": "Reminders",
+          "icon": "Bell",
+          "priority": 35
+        }
+      ],
+      "http_routes": [
+        {
+          "method": "GET",
+          "path": "reminders"
+        },
+        {
+          "method": "POST",
+          "path": "reminders"
+        },
+        {
+          "method": "POST",
+          "path": "reminders/"
+        },
+        {
+          "method": "PATCH",
+          "path": "reminders/"
+        },
+        {
+          "method": "DELETE",
+          "path": "reminders/"
+        }
+      ],
+      "context_sources": [
+        {
+          "id": "reminders"
+        }
+      ]
+    }
+  }
+}
