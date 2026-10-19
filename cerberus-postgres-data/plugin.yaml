@@ -1,0 +1,93 @@
+schema_version: "1"
+id: postgres-data
+version: 0.1.0
+protocol: plugin-sdk/subprocess
+runtime: subprocess
+entrypoint:
+    command: bin/cerberus-postgres-data
+capabilities:
+    - name: data_query_v1
+      reason: ""
+      optional: false
+      metadata: []
+cerberus:
+    connector:
+        api_version: cerberus.connector/v1
+        kind: Connector
+        id: postgres-data
+        version: 0.1.0
+        resource_types:
+            - server
+        capabilities:
+            can_create: false
+            can_destroy: false
+            can_build: false
+            can_logs: false
+            can_health: false
+        config:
+            fields:
+                - name: cluster
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: host
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: port
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: user
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: database
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: ca_file
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+                - name: projections
+                  type: string
+                  description: Operator-owned data executor setting; projections is a JSON array of typed base-table definitions.
+            secrets:
+                - name: password
+                  description: Dedicated non-owner SELECT role; never an app or administrative login.
+                  required: true
+        operations:
+            - name: query
+              description: Execute one host-authorized projection; generic connector calls are refused.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    parameters:
+                        type: object
+                    projection:
+                        description: Published projection
+                        type: string
+                    target:
+                        description: Published target
+                        type: string
+                    version:
+                        description: SHA256 of the exact published definition
+                        type: string
+                required:
+                    - target
+                    - projection
+                    - version
+                    - parameters
+                type: object
+              effect: read_sensitive
+              target:
+                kind: postgres.data
+                from:
+                    - target
+              preview: none
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                type: object
+    host:
+        min_contract: 1
+        max_contract: 1
+    surfaces:
+        mcp:
+            - query
