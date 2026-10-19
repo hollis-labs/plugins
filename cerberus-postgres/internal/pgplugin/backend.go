@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type Config struct{ Cluster, Host, Port, User, Database, CAFile, Password string }
+type Config struct{ Cluster, Host, Port, User, Database, CAFile, Password, AdminUser, AdminPassword string }
 type Backend interface {
 	Inspect(context.Context) (Inventory, error)
 }
@@ -83,17 +83,21 @@ func (b *postgresBackend) Inspect(ctx context.Context) (Inventory, error) {
 		defer cancel()
 		_ = c.Close(closeCtx)
 	}()
+	return inspectConn(ctx, c, b.config.Cluster)
+}
+
+func inspectConn(ctx context.Context, c *pgx.Conn, cluster string) (Inventory, error) {
 	tx, err := c.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return Inventory{}, errors.New("PostgreSQL catalog transaction failed")
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	i := Inventory{Cluster: b.config.Cluster, Databases: []Database{}, Roles: []Role{}}
+	i := Inventory{Cluster: cluster, Databases: []Database{}, Roles: []Role{}}
 	err = tx.QueryRow(ctx, `SELECT system_identifier::text, current_setting('server_version_num')::int, pg_is_in_recovery(), coalesce((SELECT default_version FROM pg_available_extensions WHERE name='vector'),'') FROM pg_control_system()`).Scan(&i.SystemID, &i.ServerVersion, &i.Recovery, &i.VectorVersion)
 	if err != nil {
 		return Inventory{}, errors.New("PostgreSQL identity read failed; catalog reader needs EXECUTE on pg_control_system")
 	}
-	rows, err := tx.Query(ctx, `SELECT datname,pg_get_userbyid(datdba),EXISTS(SELECT 1 FROM aclexplode(coalesce(datacl,acldefault('d',datdba))) a WHERE a.grantee=0 AND a.privilege_type='CONNECT') FROM pg_database WHERE datallowconn ORDER BY datname LIMIT 257`)
+	rows, err := tx.Query(ctx, `SELECT datname,pg_get_userbyid(datdba),datallowconn AND EXISTS(SELECT 1 FROM aclexplode(coalesce(datacl,acldefault('d',datdba))) a WHERE a.grantee=0 AND a.privilege_type='CONNECT') FROM pg_database ORDER BY datname LIMIT 257`)
 	if err != nil {
 		return Inventory{}, errors.New("PostgreSQL database catalog read failed")
 	}

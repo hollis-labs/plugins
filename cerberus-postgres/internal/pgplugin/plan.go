@@ -87,15 +87,15 @@ func BuildPlan(r AppRequest, i Inventory) (Plan, error) {
 	sort.Slice(i.Databases, func(a, b int) bool { return i.Databases[a].Name < i.Databases[b].Name })
 	sort.Slice(i.Roles, func(a, b int) bool { return i.Roles[a].Name < i.Roles[b].Name })
 	p.StateDigest = digest(i)
-	p.Blockers = []string{"host-owned durable credential issuance and apply path required; this release is preview-only"}
+	p.Blockers = []string{}
 	if i.Recovery {
 		p.Blockers = append(p.Blockers, "target is in recovery")
 	}
 	if i.ServerVersion < 170000 || i.ServerVersion >= 180000 {
 		p.Blockers = append(p.Blockers, "first provisioning contract requires PostgreSQL 17")
 	}
-	if r.Vector && i.VectorVersion == "" {
-		p.Blockers = append(p.Blockers, "pgvector is not available")
+	if r.Vector && i.VectorVersion != "0.8.7" {
+		p.Blockers = append(p.Blockers, "first provisioning contract requires reviewed pgvector version 0.8.7")
 	}
 	for _, db := range i.Databases {
 		if db.Name == p.Database {
@@ -124,6 +124,7 @@ func BuildPlan(r AppRequest, i Inventory) (Plan, error) {
 	if r.Vector {
 		p.Steps = append(p.Steps, "Install only the reviewed pgvector extension version in the new app database; do not change existing tenants.")
 	}
+	p.Executable = len(p.Blockers) == 0
 	p.PlanDigest = digest(p)
 	return p, nil
 }

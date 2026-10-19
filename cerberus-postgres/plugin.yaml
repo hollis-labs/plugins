@@ -1,16 +1,21 @@
 schema_version: "1"
 id: postgres
-version: 0.1.0
+version: 0.2.0
 protocol: plugin-sdk/subprocess
 runtime: subprocess
 entrypoint:
     command: bin/cerberus-postgres-plugin
+capabilities:
+    - name: credential_issuance_v1
+      reason: ""
+      optional: false
+      metadata: []
 cerberus:
     connector:
         api_version: cerberus.connector/v1
         kind: Connector
         id: postgres
-        version: 0.1.0
+        version: 0.2.0
         resource_types:
             - server
         capabilities:
@@ -33,6 +38,9 @@ cerberus:
                 - name: user
                   type: string
                   description: Catalog reader username. No password or DSN in this field.
+                - name: admin_user
+                  type: string
+                  description: Dedicated write-side superuser; admin_password must be bound only to the write process.
                 - name: database
                   type: string
                   description: Maintenance database for catalog reads.
@@ -42,6 +50,9 @@ cerberus:
             secrets:
                 - name: password
                   description: Declared PostgreSQL catalog-reader credential, supplied privately by the host.
+                  required: true
+                - name: admin_password
+                  description: Dedicated provisioner credential. Bind only in connector-secrets.yaml write; never in read or common credentials.
                   required: true
         operations:
             - name: inspect
@@ -129,6 +140,270 @@ cerberus:
                                 - untrusted
                         type: array
                 type: object
+            - name: provision_app
+              description: Provision a new private app database and separate migration/runtime logins. Refuses adoption and existing PUBLIC CONNECT. Host persists credentials first; return references only.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                    issuance_id:
+                        description: Fresh 32-character lowercase hex ID; host durably refuses reuse.
+                        type: string
+                    vector:
+                        description: Request pgvector for the new app database.
+                        type: boolean
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - issuance_id
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: writes
+              output_schema:
+                oneOf:
+                    - properties:
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              issued_secrets:
+                - migration_password
+                - runtime_password
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: rotate_login
+              description: Add a new login generation with a host-persisted credential; retain existing generations until consumer cutover.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                    issuance_id:
+                        description: Fresh 32-character lowercase hex ID; host durably refuses reuse.
+                        type: string
+                    kind:
+                        enum:
+                            - runtime
+                            - migration
+                        type: string
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - kind
+                    - issuance_id
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: writes
+              output_schema:
+                oneOf:
+                    - properties:
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              issued_secrets:
+                - password
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: retire_login
+              description: Disable and drain an old login only while a newer generation has a live named consumer connection. Preserves roles and data.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    consumer:
+                        description: Replacement connection application_name proving consumer cutover; lowercase slug, max 48 characters.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                    generation:
+                        maximum: 999999
+                        minimum: 1
+                        type: integer
+                    kind:
+                        enum:
+                            - runtime
+                            - migration
+                        type: string
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - consumer
+                    - kind
+                    - generation
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                oneOf:
+                    - properties:
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
+            - name: revoke_login
+              description: Emergency disable and drain a managed login without requiring a replacement. Preserves roles and data.
+              input_schema:
+                additionalProperties: false
+                properties:
+                    app:
+                        description: Lowercase app slug, max 20 characters.
+                        type: string
+                    cluster:
+                        description: Configured cluster identity; no ad-hoc endpoints.
+                        type: string
+                    environment:
+                        description: Lowercase environment slug, max 12 characters.
+                        type: string
+                    expected_plan:
+                        description: Lifecycle plan_digest from this operation's dry-run; required for execution.
+                        type: string
+                    generation:
+                        maximum: 999999
+                        minimum: 1
+                        type: integer
+                    kind:
+                        enum:
+                            - runtime
+                            - migration
+                        type: string
+                required:
+                    - cluster
+                    - app
+                    - environment
+                    - kind
+                    - generation
+                type: object
+              effect: admin
+              target:
+                kind: postgres.cluster
+                from:
+                    - cluster
+              preview: plugin
+              output: structured
+              cost: none
+              local_fs: none
+              output_schema:
+                oneOf:
+                    - properties:
+                        app:
+                            properties:
+                                blockers:
+                                    items:
+                                        type: string
+                                        x-cerberus-label:
+                                            - untrusted
+                                    type: array
+                            type: object
+                        blockers:
+                            items:
+                                type: string
+                                x-cerberus-label:
+                                    - untrusted
+                            type: array
+                      type: object
+                    - type: object
+              destructive: true
+              supports_dry: true
+              requires_ack: true
     host:
         min_contract: 1
         max_contract: 1
@@ -136,3 +411,7 @@ cerberus:
         mcp:
             - inspect
             - plan_app
+            - provision_app
+            - rotate_login
+            - retire_login
+            - revoke_login
