@@ -1,0 +1,4 @@
+ARG POSTGRES_IMAGE
+FROM ${POSTGRES_IMAGE}
+RUN apk add --no-cache openssh-server openssh-client python3 openssl
+RUN mkdir -p /run/sshd && ssh-keygen -A

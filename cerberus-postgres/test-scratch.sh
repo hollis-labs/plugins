@@ -42,4 +42,5 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 CERBERUS_PG_SCRATCH_SOCKET="$fixture" go test ./... -count=1 -v
+(cd ../postgres-data && CERBERUS_PG_SCRATCH_SOCKET="$fixture" go test ./... -count=1 -v)
 CERBERUS_PG_SCRATCH_SOCKET="$fixture" ./test-host.sh
