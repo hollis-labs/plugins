@@ -1,0 +1,325 @@
+{
+  "catalog_version": "2.0.9",
+  "plugins": [
+    {
+      "manifest": "manifests/bookmarks-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "bookmarks/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "2a2f35bf7e794ae532130e673799eecb37a9988b96f8adf1b43c7af75655fe7a",
+          "size": 2643802
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "72e1f8ec0d3fe61eefda23f346e3e196840c952acbfcf002bc5f917853697008",
+          "size": 2871957
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-linux-arm64.tar.gz",
+          "sha256": "d1284d91fb7879eaa92fc499e159775016d518271d8bc212e1bc71c3eed4e40e",
+          "size": 2560221
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/bookmarks/v0.1.0/bookmarks-0.1.0-linux-amd64.tar.gz",
+          "sha256": "d9acd74db0e7d3715e1c87a1864de39d8c1c5bcfbe5c71489bfabab3efd86ef2",
+          "size": 2840163
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Bookmark session messages and preserve imported notes and tags",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/bookmarks/v0.1.0/bookmarks"
+      }
+    },
+    {
+      "manifest": "manifests/giphy-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "giphy/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "d9acea3cd22bcabcd1585047063b24a2439f60ba302ef0efa769848f82aee4c8",
+          "size": 2561684
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "b91846b8fa1c81186a90f6a23098acc07bc98272e8a8ed7c3fcb820be1b378f4",
+          "size": 2780370
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-linux-arm64.tar.gz",
+          "sha256": "89711cfd348a5eff7f0fb8bc3776acc4117720780162ca223f831c163b643ac3",
+          "size": 2479606
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/giphy/v0.2.0/giphy-0.2.0-linux-amd64.tar.gz",
+          "sha256": "3297b6b87e4d01a7d7de557e1da342d50e86c15ff316994bca61e280516c5e51",
+          "size": 2752246
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Search Giphy for inline GIFs; demo results when no API key is configured",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/giphy/v0.2.0/giphy"
+      }
+    },
+    {
+      "manifest": "manifests/oembed-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "oembed/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "f5d18d6cb00ec3804806c48910d556a1db9e7b5d7f0e51aff7e6ca795dd032ee",
+          "size": 2565750
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "e4f2977b7bd5377957052a9a216eb3d3ab2e85dc6281c227369297f44e2598a9",
+          "size": 2784682
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-linux-arm64.tar.gz",
+          "sha256": "1088253497864fa03e7e3adc59037910a751663d27c94a681c661829a05445e3",
+          "size": 2483333
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/oembed/v0.2.0/oembed-0.2.0-linux-amd64.tar.gz",
+          "sha256": "40b092879fc087c5df62b4ab4b3ab3c2cfe73386f7414249436f9dd66af6d023",
+          "size": 2756288
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Preview matching chat URLs by sending them to their known or configured oEmbed provider",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/oembed/v0.2.0/oembed"
+      }
+    },
+    {
+      "manifest": "manifests/loom-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "loom/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "e623ef02fd56badf502b6e19e65889427e4020d7587bb377eb4ab9d24397c3d9",
+          "size": 2603719
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "3b1e69c3e8dc787398ae72c4e92ff7bdeb3e56df9b3269d577d3e2d0fba12d0c",
+          "size": 2827209
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-linux-arm64.tar.gz",
+          "sha256": "1b44585a960c05e110db464566a558a1c49a6e36a18a425ce9be9ff73ad7c56a",
+          "size": 2521440
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/loom/v0.1.0/loom-0.1.0-linux-amd64.tar.gz",
+          "sha256": "0f3cd9163505204f73a8fa0ae4f3fa1371fe486fadf922aebacf283465d6c135",
+          "size": 2796335
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Translate Fragments Engine callbacks into scoped curator wakes and contribute Loom reminder defaults",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/loom/v0.1.0/loom"
+      }
+    },
+    {
+      "manifest": "manifests/reminders-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "reminders/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "dc2eda505d1af18593ae8ff5e1050f28022bb5bbc5c4da3a2ea642212e8ffb20",
+          "size": 2661142
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "33c0a3410a0f40f8665f9a77fc91cf092d2755d7375aefc33d64c77008dfd0b3",
+          "size": 2890620
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-linux-arm64.tar.gz",
+          "sha256": "63b0c1be2b2cdd97405af9e2efb3d73e236b734ab71e0945502ba5977aca63f0",
+          "size": 2576043
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/reminders/v0.1.0/reminders-0.1.0-linux-amd64.tar.gz",
+          "sha256": "a3546926e71406dfea71a1cffa98f9c25f6f7869737ff183f40ef54422385d57",
+          "size": 2858277
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Time and turn-count reminders with durable state and explicit acknowledgment",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/reminders/v0.1.0/reminders"
+      }
+    },
+    {
+      "manifest": "manifests/documents-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "documents/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "53839b9c728757e215332440473fa34169f1e04e8a27f0832fe93b995844dbef",
+          "size": 2672728
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "d661c11c351a36248f8b7b8a91b20f75bbcefa7e10103aac5224b1caaf067b01",
+          "size": 2904826
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-linux-arm64.tar.gz",
+          "sha256": "d41adde6337d963abfe43552f0533e8676288208d77bfa47f983f909b704dddb",
+          "size": 2586973
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/documents/v0.1.0/documents-0.1.0-linux-amd64.tar.gz",
+          "sha256": "d3bbfdff7991b8268672baa5bab8600c820cd1e17d780f1aef918a436424a857",
+          "size": 2871665
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Session text documents with bounded full-content or pointer context",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/documents/v0.1.0/documents"
+      }
+    },
+    {
+      "manifest": "manifests/plan-0.1.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "plan/v0.1.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-darwin-arm64.tar.gz",
+          "sha256": "09c9b12048c2f537a9c5d76001be983563b8b6276e5096a989194855e47819b1",
+          "size": 2707279
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-darwin-amd64.tar.gz",
+          "sha256": "b3090422ea6f20baf2ba6d8f62a49ecc1c2a7b8f88b430f78c7db58ed0d969fd",
+          "size": 2943220
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-linux-arm64.tar.gz",
+          "sha256": "394cb6258ea89d3e0cdadae67f0a69e0096e8d26a94490949b208976374bc84f",
+          "size": 2621653
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/plan/v0.1.0/plan-0.1.0-linux-amd64.tar.gz",
+          "sha256": "35d5b40e713098c5d553cb8bbde2417248607c2bd7a8a2d49ad7581442fff450",
+          "size": 2909668
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Durable scoped todos and multi-step plans",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/plan/v0.1.0/plan"
+      }
+    },
+    {
+      "manifest": "manifests/pins-0.2.0.json",
+      "manifest_url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/plugin.yaml",
+      "source": {
+        "type": "git",
+        "repo": "https://github.com/hollis-labs/nanite-plugins",
+        "tag": "pins/v0.2.0"
+      },
+      "archives": [
+        {
+          "platform": "darwin-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-darwin-arm64.tar.gz",
+          "sha256": "f4ec109ea040567cefe63268a76cd9f2324b8fdd634f35a420062d09c56e1a02",
+          "size": 2670852
+        },
+        {
+          "platform": "darwin-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-darwin-amd64.tar.gz",
+          "sha256": "625b79b2870b62fac6b4d5e3304ced09d83c85b2c155615e4c7a132d85574d68",
+          "size": 2902026
+        },
+        {
+          "platform": "linux-arm64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-linux-arm64.tar.gz",
+          "sha256": "f4a8d666188be6d0efa7859d64192536b059a15cbc2ea1a6252b0967522bc857",
+          "size": 2586991
+        },
+        {
+          "platform": "linux-amd64",
+          "url": "https://github.com/hollis-labs/nanite-plugins/releases/download/pins/v0.2.0/pins-0.2.0-linux-amd64.tar.gz",
+          "sha256": "c9cbe44691852afe6fdd563793402b88b9ed0044d4bb0d42fe9b76995111a8fd",
+          "size": 2870080
+        }
+      ],
+      "directory": {
+        "status": "experimental",
+        "short_desc": "Durable pinned context with session/project scope",
+        "readme_url": "https://github.com/hollis-labs/nanite-plugins/tree/pins/v0.2.0/pins"
+      }
+    }
+  ]
+}
