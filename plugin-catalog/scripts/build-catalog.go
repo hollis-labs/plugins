@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
 	catalog "github.com/hollis-labs/plugins/plugin-catalog"
-	"github.com/hollis-labs/plugin-sdk/manifest"
 )
 
 type seedFile struct {

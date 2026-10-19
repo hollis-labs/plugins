@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Moved into the plugins repository from `hollis-labs/plugins-catalog` (history kept); the former
+  `plugin-catalog` v1 repository was dropped as superseded.
+- Depends on `libs/mcp/plugin-mcp` v0.5.0 instead of the archived `plugin-sdk`.
+- Known: the nine committed `manifests/*.json` use the old manifest schema (`entrypoint`); the
+  current SDK rejects them, so `make build` fails until they are regenerated from released
+  plugin versions. Unit tests pass.
+
 ## 0.1.0
 
 - Replace the host-specific catalog with schema v2: per-host compatibility,

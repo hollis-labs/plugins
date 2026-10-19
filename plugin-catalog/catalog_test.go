@@ -9,16 +9,26 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/manifest"
+	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 	catalog "github.com/hollis-labs/plugins/plugin-catalog"
-	"github.com/hollis-labs/plugin-sdk/manifest"
-	"github.com/hollis-labs/plugin-sdk/subprocess"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
+
+func bookmarksArtifact(t *testing.T) manifest.Artifact {
+	t.Helper()
+	files := []manifest.ArtifactFile{{Path: "bin/bookmarks", SHA256: strings.Repeat("a", 64), Executable: true}}
+	digest, err := manifest.TreeDigest(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return manifest.Artifact{Files: files, TreeSHA256: digest}
+}
 
 func manifestBytes(t *testing.T) []byte {
 	t.Helper()
 	m := manifest.Manifest{SchemaVersion: manifest.SchemaVersion, ID: "hollis.bookmarks", Name: "Bookmarks", Version: "1.2.3", Protocol: subprocess.ProtocolVersion, Runtime: manifest.Runtime,
-		Entrypoint: manifest.Entrypoint{Command: "bin/bookmarks"}, Hosts: map[string]manifest.HostRange{"nanite": {Min: "0.1.0"}, "cerberus": {Min: "1.0.0"}},
+		Server: manifest.Server{Runtime: "binary", Engines: map[string]manifest.HostRange{"binary": {Min: "0.0.0"}}, Entry: "bin/bookmarks"}, Artifact: bookmarksArtifact(t), Hosts: map[string]manifest.HostRange{"nanite": {Min: "0.1.0"}, "cerberus": {Min: "1.0.0"}},
 		Capabilities: []subprocess.CapabilityRequest{{Name: "host.query", Optional: true}},
 		Tools:        []manifest.Tool{{Name: "bookmarks_list", Description: "List bookmarks", InputSchema: json.RawMessage(`{"type":"object"}`), Effect: "read"}},
 		Cerberus:     json.RawMessage(`{"connector":{"operations":[{"name":"delete","description":"Delete bookmark","effect":"destructive"}]}}`),
