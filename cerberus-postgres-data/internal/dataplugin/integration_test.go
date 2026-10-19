@@ -62,6 +62,32 @@ func TestScratchDataIsolation(t *testing.T) {
 		t.Fatalf("vector projection: %v %s", err, out.Rows)
 	}
 	p.Vector = nil
+	// A real lock wait must time out, and the next fresh connection must work.
+	locked, lockErr := db.Begin(ctx)
+	if lockErr != nil {
+		t.Fatal(lockErr)
+	}
+	if _, lockErr = locked.Exec(ctx, `LOCK TABLE published.documents IN ACCESS EXCLUSIVE MODE`); lockErr != nil {
+		t.Fatal(lockErr)
+	}
+	started := time.Now()
+	_, lockErr = call(p, `{"tenant":"a"}`, cfg, 100)
+	_ = locked.Rollback(ctx)
+	if lockErr == nil || time.Since(started) > 2500*time.Millisecond {
+		t.Fatal("lock deadline failed")
+	}
+	if out, err = call(p, `{"tenant":"a"}`, cfg, 100); err != nil || len(out.Rows) != 2 {
+		t.Fatal("canceled connection contaminated next query")
+	}
+	if _, err = db.Exec(ctx, `UPDATE published.documents SET body=repeat('x',1048576) WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = call(p, `{"tenant":"a"}`, cfg, 100); err == nil {
+		t.Fatal("oversized cell transferred as a valid result")
+	}
+	if _, err = db.Exec(ctx, `UPDATE published.documents SET body='alpha' WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = call(p, `{"tenant":"a"}`, cfg, 1); err == nil {
 		t.Fatal("row limit not enforced")
 	}
