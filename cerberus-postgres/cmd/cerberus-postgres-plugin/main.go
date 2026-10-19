@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/postgres/internal/pgplugin"
+	"github.com/hollis-labs/plugins/cerberus-postgres/internal/pgplugin"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
