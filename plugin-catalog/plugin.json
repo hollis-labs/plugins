@@ -1,0 +1,5 @@
+{
+  "name": "plugin-catalog",
+  "kind": "module",
+  "hosts": ["nanite"]
+}
