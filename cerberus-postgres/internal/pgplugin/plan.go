@@ -39,21 +39,22 @@ type AppRequest struct {
 	Vector      bool   `json:"vector"`
 }
 type Plan struct {
-	Cluster        string   `json:"cluster"`
-	App            string   `json:"app"`
-	Environment    string   `json:"environment"`
-	Database       string   `json:"database"`
-	OwnerRole      string   `json:"owner_role"`
-	MigrationLogin string   `json:"migration_login"`
-	RuntimeRole    string   `json:"runtime_role"`
-	RuntimeLogin   string   `json:"runtime_login"`
-	Schema         string   `json:"schema"`
-	Vector         bool     `json:"vector"`
-	StateDigest    string   `json:"state_digest"`
-	PlanDigest     string   `json:"plan_digest"`
-	Executable     bool     `json:"executable"`
-	Blockers       []string `json:"blockers" cerb:"untrusted"`
-	Steps          []string `json:"steps"`
+	Adoption       *AdoptionMapping `json:"adoption,omitempty"`
+	Cluster        string           `json:"cluster"`
+	App            string           `json:"app"`
+	Environment    string           `json:"environment"`
+	Database       string           `json:"database"`
+	OwnerRole      string           `json:"owner_role"`
+	MigrationLogin string           `json:"migration_login"`
+	RuntimeRole    string           `json:"runtime_role"`
+	RuntimeLogin   string           `json:"runtime_login"`
+	Schema         string           `json:"schema"`
+	Vector         bool             `json:"vector"`
+	StateDigest    string           `json:"state_digest"`
+	PlanDigest     string           `json:"plan_digest"`
+	Executable     bool             `json:"executable"`
+	Blockers       []string         `json:"blockers" cerb:"untrusted"`
+	Steps          []string         `json:"steps"`
 }
 
 var slug = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)

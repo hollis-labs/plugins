@@ -18,13 +18,14 @@ import (
 // host supplies newly persisted values privately, after its policy gates.
 type LifecycleRequest struct {
 	AppRequest
-	IssuanceID   string `json:"issuance_id,omitempty"`
-	ExpectedPlan string `json:"expected_plan,omitempty"`
-	Kind         string `json:"kind,omitempty"`
-	Generation   int    `json:"generation,omitempty"`
-	Consumer     string `json:"consumer,omitempty"`
-	DryRun       bool   `json:"dry_run,omitempty"`
-	Acknowledged bool   `json:"acknowledged,omitempty"`
+	Adoption     *AdoptionMapping `json:"adoption,omitempty"`
+	IssuanceID   string           `json:"issuance_id,omitempty"`
+	ExpectedPlan string           `json:"expected_plan,omitempty"`
+	Kind         string           `json:"kind,omitempty"`
+	Generation   int              `json:"generation,omitempty"`
+	Consumer     string           `json:"consumer,omitempty"`
+	DryRun       bool             `json:"dry_run,omitempty"`
+	Acknowledged bool             `json:"acknowledged,omitempty"`
 }
 
 type Login struct {
@@ -35,16 +36,17 @@ type Login struct {
 }
 
 type LifecyclePlan struct {
-	Operation   string   `json:"operation"`
-	App         Plan     `json:"app"`
-	Login       string   `json:"login,omitempty"`
-	Replacement string   `json:"replacement,omitempty"`
-	Logins      []Login  `json:"logins"`
-	Witness     string   `json:"consumer_witness,omitempty"`
-	PlanDigest  string   `json:"plan_digest"`
-	Executable  bool     `json:"executable"`
-	Blockers    []string `json:"blockers" cerb:"untrusted"`
-	Steps       []string `json:"steps"`
+	AdoptionInventory *AdoptionInventory `json:"adoption_inventory,omitempty"`
+	Operation         string             `json:"operation"`
+	App               Plan               `json:"app"`
+	Login             string             `json:"login,omitempty"`
+	Replacement       string             `json:"replacement,omitempty"`
+	Logins            []Login            `json:"logins"`
+	Witness           string             `json:"consumer_witness,omitempty"`
+	PlanDigest        string             `json:"plan_digest"`
+	Executable        bool               `json:"executable"`
+	Blockers          []string           `json:"blockers" cerb:"untrusted"`
+	Steps             []string           `json:"steps"`
 }
 
 type LifecycleResult struct {
@@ -65,19 +67,22 @@ type LifecycleBackend interface {
 	Execute(context.Context, string, LifecycleRequest, cerbplugin.Issuance, map[string]string) (LifecycleResult, error)
 }
 
-// Comments identify objects this plugin created; they are provenance, not an
-// authorization boundary against a PostgreSQL superuser. Never adopt a name.
+// Comments identify objects this plugin created or explicitly adopted; they
+// are provenance, not an authorization boundary against a PostgreSQL superuser.
+// A matching name alone never establishes ownership.
 type ownership struct {
-	Version     int    `json:"version"`
-	Cluster     string `json:"cluster"`
-	SystemID    string `json:"system_id"`
-	App         string `json:"app"`
-	Environment string `json:"environment"`
-	Kind        string `json:"kind"`
-	Generation  int    `json:"generation"`
-	IssuanceID  string `json:"issuance_id"`
-	CreatedAt   string `json:"created_at"`
-	Ready       bool   `json:"ready"`
+	Adoption      *AdoptionMapping `json:"adoption,omitempty"`
+	LegacyRetired bool             `json:"legacy_retired,omitempty"`
+	Version       int              `json:"version"`
+	Cluster       string           `json:"cluster"`
+	SystemID      string           `json:"system_id"`
+	App           string           `json:"app"`
+	Environment   string           `json:"environment"`
+	Kind          string           `json:"kind"`
+	Generation    int              `json:"generation"`
+	IssuanceID    string           `json:"issuance_id"`
+	CreatedAt     string           `json:"created_at"`
+	Ready         bool             `json:"ready"`
 }
 
 type managedRole struct {
@@ -89,28 +94,42 @@ type membership struct {
 	Admin, Inherit, Set bool
 }
 type appState struct {
-	Inventory       Inventory
-	DatabaseComment string
-	Roles           []managedRole
-	Memberships     []membership
+	Adoption          *AdoptionMapping
+	AdoptionInventory *AdoptionInventory
+	LegacyRetired     bool
+	LegacySessions    string
+	Inventory         Inventory
+	DatabaseComment   string
+	Roles             []managedRole
+	Memberships       []membership
 }
 
 var issuanceIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var planPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 func validateLifecycle(op string, r LifecycleRequest) error {
-	if op != "provision_app" && op != "rotate_login" && op != "retire_login" && op != "revoke_login" {
+	if op != "provision_app" && op != "adopt_app" && op != "retire_legacy" && op != "rotate_login" && op != "retire_login" && op != "revoke_login" {
 		return errors.New("unknown lifecycle operation")
+	}
+	if op == "adopt_app" {
+		if err := validateAdoption(r.Adoption); err != nil {
+			return err
+		}
+		if r.Vector {
+			return errors.New("adoption cannot install extensions")
+		}
+	} else if r.Adoption != nil {
+		return errors.New("adoption mapping is only accepted by adopt_app")
 	}
 	if err := validate(r.AppRequest); err != nil {
 		return err
 	}
-	if op == "provision_app" || op == "rotate_login" {
+	if op == "provision_app" || op == "adopt_app" || op == "rotate_login" {
 		if !issuanceIDPattern.MatchString(r.IssuanceID) {
 			return errors.New("issuance_id must be a fresh 32-character lowercase hex identifier")
 		}
 	}
-	if op != "provision_app" {
+	if op != "provision_app" && op != "adopt_app" && op != "retire_legacy" {
 		if r.Kind != "runtime" && r.Kind != "migration" {
 			return errors.New("kind must be runtime or migration")
 		}
@@ -120,7 +139,7 @@ func validateLifecycle(op string, r LifecycleRequest) error {
 			return errors.New("generation must be 1..999999")
 		}
 	}
-	if op == "retire_login" && (!slug.MatchString(r.Consumer) || len(r.Consumer) > 48) {
+	if (op == "retire_login" || op == "retire_legacy") && (!slug.MatchString(r.Consumer) || len(r.Consumer) > 48) {
 		return errors.New("consumer must identify the replacement connection's application_name (a lowercase slug, max 48 characters)")
 	}
 	if !r.DryRun && (!r.Acknowledged || !planPattern.MatchString(r.ExpectedPlan)) {
@@ -134,16 +153,21 @@ func loginName(p Plan, kind string, generation int) string {
 	if kind == "migration" {
 		suffix = "m"
 	}
-	return p.Database + "_" + suffix + strconv.Itoa(generation)
+	return strings.TrimSuffix(p.OwnerRole, "_owner") + "_" + suffix + strconv.Itoa(generation)
 }
 
-func marker(r LifecycleRequest, i Inventory, kind string, generation int) ownership {
-	return ownership{Version: 1, Cluster: r.Cluster, SystemID: i.SystemID, App: r.App, Environment: r.Environment, Kind: kind, Generation: generation, IssuanceID: r.IssuanceID, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+func marker(r LifecycleRequest, i Inventory, kind string, generation int, plans ...Plan) ownership {
+	m := ownership{Version: 1, Cluster: r.Cluster, SystemID: i.SystemID, App: r.App, Environment: r.Environment, Kind: kind, Generation: generation, IssuanceID: r.IssuanceID, CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	if len(plans) != 0 && plans[0].Adoption != nil {
+		m.Version = 2
+		m.Adoption = plans[0].Adoption
+	}
+	return m
 }
 func owned(raw string, r LifecycleRequest, i Inventory, kind string) (ownership, bool) {
 	var m ownership
 	err := json.Unmarshal([]byte(raw), &m)
-	return m, err == nil && m.Version == 1 && m.Cluster == r.Cluster && m.SystemID == i.SystemID && m.App == r.App && m.Environment == r.Environment && m.Kind == kind && issuanceIDPattern.MatchString(m.IssuanceID)
+	return m, err == nil && ((m.Version == 1 && m.Adoption == nil) || (m.Version == 2 && validateAdoption(m.Adoption) == nil)) && m.Cluster == r.Cluster && m.SystemID == i.SystemID && m.App == r.App && m.Environment == r.Environment && m.Kind == kind && issuanceIDPattern.MatchString(m.IssuanceID)
 }
 
 func (b *postgresBackend) connect(ctx context.Context, write bool, database string) (*pgx.Conn, error) {
@@ -186,11 +210,14 @@ func snapshot(ctx context.Context, c *pgx.Conn, r LifecycleRequest) (appState, e
 		return appState{}, err
 	}
 	s := appState{Inventory: i, Roles: []managedRole{}, Memberships: []membership{}}
+	if err = resolveAdoption(ctx, c, r, &s, &p); err != nil {
+		return s, err
+	}
 	err = c.QueryRow(ctx, `SELECT coalesce((SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname=$1),'')`, p.Database).Scan(&s.DatabaseComment)
 	if err != nil {
 		return s, errors.New("database provenance read failed")
 	}
-	rows, err := c.Query(ctx, `SELECT r.rolname,coalesce(shobj_description(r.oid,'pg_authid'),'') FROM pg_roles r WHERE starts_with(r.rolname,$1) ORDER BY r.rolname LIMIT 1025`, p.Database+"_")
+	rows, err := c.Query(ctx, `SELECT r.rolname,coalesce(shobj_description(r.oid,'pg_authid'),'') FROM pg_roles r WHERE starts_with(r.rolname,$1) ORDER BY r.rolname LIMIT 1025`, strings.TrimSuffix(p.OwnerRole, "_owner")+"_")
 	if err != nil {
 		return s, errors.New("role provenance read failed")
 	}
@@ -211,7 +238,7 @@ func snapshot(ctx context.Context, c *pgx.Conn, r LifecycleRequest) (appState, e
 			s.Roles = append(s.Roles, managedRole{role, comment})
 		}
 	}
-	rows, err = c.Query(ctx, `SELECT parent.rolname,child.rolname,m.admin_option,m.inherit_option,m.set_option FROM pg_auth_members m JOIN pg_roles parent ON parent.oid=m.roleid JOIN pg_roles child ON child.oid=m.member WHERE starts_with(parent.rolname,$1) OR starts_with(child.rolname,$1) ORDER BY parent.rolname,child.rolname LIMIT 2049`, p.Database+"_")
+	rows, err = c.Query(ctx, `SELECT parent.rolname,child.rolname,m.admin_option,m.inherit_option,m.set_option FROM pg_auth_members m JOIN pg_roles parent ON parent.oid=m.roleid JOIN pg_roles child ON child.oid=m.member WHERE starts_with(parent.rolname,$1) OR starts_with(child.rolname,$1) ORDER BY parent.rolname,child.rolname LIMIT 2049`, strings.TrimSuffix(p.OwnerRole, "_owner")+"_")
 	if err != nil {
 		return s, errors.New("role membership read failed")
 	}
@@ -234,16 +261,25 @@ func lifecyclePlan(ctx context.Context, c *pgx.Conn, op string, r LifecycleReque
 	if err != nil {
 		return LifecyclePlan{}, err
 	}
-	l := LifecyclePlan{Operation: op, App: p, Logins: []Login{}, Blockers: []string{}, Steps: []string{}}
+	if s.Adoption != nil {
+		p.Database, p.Schema, p.Adoption = s.Adoption.Database, s.Adoption.Schema, s.Adoption
+	}
+	l := LifecyclePlan{Operation: op, App: p, Logins: []Login{}, Blockers: []string{}, Steps: []string{}, AdoptionInventory: s.AdoptionInventory}
+	if op == "adopt_app" {
+		return adoptionPlan(r, s, l)
+	}
 	if op == "provision_app" {
 		l.Blockers = append(l.Blockers, p.Blockers...)
+		if s.Adoption != nil {
+			l.Blockers = append(l.Blockers, "app already has an adopted database mapping")
+		}
 		l.Steps = p.Steps
 	} else {
 		l.App.Blockers = nil
 		l.App.Executable = false
 		l.App.PlanDigest = ""
 		m, ok := owned(s.DatabaseComment, r, s.Inventory, "database")
-		if !ok || !m.Ready {
+		if !ok || !m.Ready || digest(m.Adoption) != digest(s.Adoption) {
 			l.Blockers = append(l.Blockers, "database is not a completed plugin-managed app; inspect and reconcile partial or foreign state explicitly")
 		}
 		for _, db := range s.Inventory.Databases {
@@ -260,7 +296,7 @@ func lifecyclePlan(ctx context.Context, c *pgx.Conn, op string, r LifecycleReque
 			var rm ownership
 			_ = json.Unmarshal([]byte(mr.Comment), &rm)
 			rm, valid := owned(mr.Comment, r, s.Inventory, rm.Kind)
-			valid = valid && (rm.Kind == "owner" || rm.Kind == "runtime_role" || rm.Kind == "runtime" || rm.Kind == "migration")
+			valid = valid && digest(rm.Adoption) == digest(s.Adoption) && (rm.Kind == "owner" || rm.Kind == "runtime_role" || rm.Kind == "runtime" || rm.Kind == "migration")
 			if rm.Kind == "owner" || rm.Kind == "runtime_role" {
 				valid = valid && rm.Generation == 0
 			} else {
@@ -286,7 +322,7 @@ func lifecyclePlan(ctx context.Context, c *pgx.Conn, op string, r LifecycleReque
 					l.Blockers = append(l.Blockers, "incomplete login generation requires reconciliation: "+mr.Role.Name)
 				}
 				l.Logins = append(l.Logins, Login{mr.Role.Name, rm.Kind, rm.Generation, mr.Role.Login})
-				if rm.Kind == r.Kind && rm.Generation > maxGeneration {
+				if (rm.Kind == r.Kind || (op == "retire_legacy" && rm.Kind == "runtime")) && rm.Generation > maxGeneration {
 					maxGeneration = rm.Generation
 				}
 			}
@@ -306,7 +342,11 @@ func lifecyclePlan(ctx context.Context, c *pgx.Conn, op string, r LifecycleReque
 		}
 		// Revoke must remain possible when ACL isolation has drifted. It cannot
 		// add privilege. Rotation, however, must refuse to create a new login.
-		if op == "rotate_login" {
+		if op == "retire_legacy" {
+			if err := legacyRetirementPlan(ctx, c, r, s, &l, maxGeneration); err != nil {
+				return l, err
+			}
+		} else if op == "rotate_login" {
 			for _, db := range s.Inventory.Databases {
 				if db.PublicConnect {
 					l.Blockers = append(l.Blockers, "PUBLIC CONNECT isolation has drifted: "+db.Name)
@@ -371,6 +411,11 @@ func lifecyclePlan(ctx context.Context, c *pgx.Conn, op string, r LifecycleReque
 }
 
 func (b *postgresBackend) Preview(ctx context.Context, op string, r LifecycleRequest) (LifecyclePlan, error) {
+	check := r
+	check.DryRun = true
+	if err := validateLifecycle(op, check); err != nil {
+		return LifecyclePlan{}, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	c, err := b.connect(ctx, false, "")
@@ -380,6 +425,14 @@ func (b *postgresBackend) Preview(ctx context.Context, op string, r LifecycleReq
 	defer closeConn(c)
 	s, err := snapshot(ctx, c, r)
 	if err != nil {
+		return LifecyclePlan{}, err
+	}
+	if op == "adopt_app" {
+		if err = b.readAdoption(ctx, false, r, &s); err != nil {
+			return LifecyclePlan{}, err
+		}
+	}
+	if err = b.readManagedAdoption(ctx, false, op, &s); err != nil {
 		return LifecyclePlan{}, err
 	}
 	return lifecyclePlan(ctx, c, op, r, s)
@@ -394,12 +447,12 @@ func (b *postgresBackend) Execute(ctx context.Context, op string, r LifecycleReq
 	if err := validateLifecycle(op, r); err != nil {
 		return LifecycleResult{}, err
 	}
-	if op == "provision_app" || op == "rotate_login" {
+	if op == "provision_app" || op == "adopt_app" || op == "rotate_login" {
 		if issuance.ID != r.IssuanceID || issuance.Operation != op || issuance.BindingDigest == "" {
 			return LifecycleResult{}, errors.New("matching host credential issuance is required before any write")
 		}
 		slots := []string{"password"}
-		if op == "provision_app" {
+		if op == "provision_app" || op == "adopt_app" {
 			slots = []string{"migration_password", "runtime_password"}
 		}
 		for _, slot := range slots {
@@ -426,6 +479,12 @@ func (b *postgresBackend) Execute(ctx context.Context, op string, r LifecycleReq
 	if err != nil {
 		return LifecycleResult{}, err
 	}
+	if op == "adopt_app" {
+		return b.adopt(ctx, c, r, s, values)
+	}
+	if err = b.readManagedAdoption(ctx, true, op, &s); err != nil {
+		return LifecycleResult{}, err
+	}
 	l, err := lifecyclePlan(ctx, c, op, r, s)
 	if err != nil {
 		return LifecycleResult{}, err
@@ -438,6 +497,9 @@ func (b *postgresBackend) Execute(ctx context.Context, op string, r LifecycleReq
 	}
 	if op == "rotate_login" {
 		return b.rotate(ctx, c, r, s.Inventory, l, values["password"])
+	}
+	if op == "retire_legacy" {
+		return b.retireLegacy(ctx, c, r, s, l)
 	}
 	return disableLogin(ctx, c, op, l)
 }
