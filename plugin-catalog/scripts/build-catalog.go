@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	catalog "github.com/hollis-labs/plugins-catalog"
+	catalog "github.com/hollis-labs/plugins/plugin-catalog"
 	"github.com/hollis-labs/plugin-sdk/manifest"
 )
 

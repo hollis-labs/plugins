@@ -1,4 +1,4 @@
-module github.com/hollis-labs/plugins-catalog
+module github.com/hollis-labs/plugins/plugin-catalog
 
 go 1.26.6
 

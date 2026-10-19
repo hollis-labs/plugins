@@ -34,7 +34,7 @@ CI uploads the generated catalog and schema as an artifact. The release
 workflow builds and validates the source at a `vX.Y.Z` tag, then publishes
 `catalog.yaml` and `catalog.schema.v2.json` as GitHub release assets. Hosts and
 the plugins directory can read the stable feed at
-[the latest catalog release](https://github.com/hollis-labs/plugins-catalog/releases/latest/download/catalog.yaml).
+[the latest catalog release](https://github.com/hollis-labs/plugins/plugin-catalog/releases/latest/download/catalog.yaml).
 
 Keep feed selection in consumer deployment configuration. Old hosts expecting a
 signed catalog or schema v1 cannot consume this hard break; coordinate consumer
