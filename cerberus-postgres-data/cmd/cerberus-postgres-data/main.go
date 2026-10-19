@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/postgres-data/internal/dataplugin"
+	"github.com/hollis-labs/plugins/cerberus-postgres-data/internal/dataplugin"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 

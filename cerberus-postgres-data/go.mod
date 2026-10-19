@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/postgres-data
+module github.com/hollis-labs/plugins/cerberus-postgres-data
 
 go 1.26.9
 
