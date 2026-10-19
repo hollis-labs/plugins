@@ -1,7 +1,7 @@
 // Package policy is the avatar service's rules, kept as data: what each mode
 // falls back to when it cannot run, and how much paid engines may spend. It is a
 // short-term settings surface (a JSON file plus environment overrides); a proper
-// settings object replaces it later (Torque CW-20261015-0005).
+// settings object is meant to replace it.
 package policy
 
 import (

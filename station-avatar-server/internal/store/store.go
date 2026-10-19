@@ -28,6 +28,9 @@ var ErrInvalidURN = errors.New("invalid urn")
 // ErrCollision: two different URNs sanitise to the same file name.
 var ErrCollision = errors.New("urn collides with another agent's file name")
 
+// ErrNotFound: the agent has no stored avatar.
+var ErrNotFound = errors.New("no avatar stored for that urn")
+
 // SafeName is the file stem for urn: NFC-normalised, unicode letters and digits
 // kept, and anything else outside . @ + - _ replaced by an underscore. It matches
 // the model-side generator's safe_name so both write the same file.

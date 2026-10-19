@@ -7,7 +7,7 @@ to two engines.
 
 | mode | engine | cost | reproducible |
 |---|---|---|---|
-| `svg` | a [Hadron](../../../hadron) workflow (`workflows/avatar-generate.workflow.yaml`, one `script@v1` step) | free, ~100 ms of work (~2 s until Hadron reports it done) | yes |
+| `svg` | drawn in-process (`internal/sprite`), or by a [Hadron](https://github.com/hollis-labs/hadron) workflow (`workflows/avatar-generate.workflow.yaml`) when `AVATAR_SVG_ENGINE=hadron` | free, under a millisecond in-process (~2 s via Hadron) | yes |
 | `image` | the model tool (`avatar.py`): a model draws a new character in the house style from a golden reference | ~$0.03 | no |
 | `hybrid` (default) | the same model tool, also shown the agent's own svg sprite as its identity | ~$0.03 | no |
 
@@ -17,13 +17,15 @@ avatar is a free one.
 
 ## Layout
 
-Everything is under this directory. `main.go` is the thin entry point; the code
-is in `internal/` (Go keeps it private to this plugin, so it can be lifted out
-into its own module without touching Station): `engine` (the adapter seam),
-`service` (the chain, the spend gate, the svg and model adapters), `policy`,
-`spend`, `palette`, `render`, `store`, `model` (the model tool's CLI), `hadron`
-(the workflow client), `tools` (the MCP tools) and `avatar` (the svg knobs and
-run id). `workflows/` holds the Hadron workflow.
+Everything is under this directory. `cmd/avatar-server/main.go` is the thin entry
+point; the code is in `internal/` (Go keeps it private to this plugin, so it can be
+lifted out into its own module without touching Station): `engine` (the adapter
+seam), `service` (the chain, the spend gate, preview, delete, the svg and model
+adapters), `sprite` (the native svg generator and its golden test), `policy`,
+`spend`, `palette`, `render`, `store`, `model` (the model tool's CLI), `hadron` (the
+workflow client, used only with `AVATAR_SVG_ENGINE=hadron`), `httpapi` (the
+read-only browser surface), `tools` (the MCP tools) and `avatar` (the svg knobs and
+run id). `workflows/` holds the Hadron workflow, the reference for `sprite`.
 
 ## Tools
 
@@ -48,6 +50,12 @@ The response carries `requested_mode`, `used_mode`, `fallback_reason`
 `model_unconfigured`, or null), `existed`, the files (path, format, px,
 native grid, role), the sidecar path, `provenance` and `reproducible`.
 
+Two more tools. `avatar_preview` (`seed`, `fill`, `palette` or `accent`+`bg`)
+draws an svg avatar and returns it without storing anything or taking a palette
+slot: free, reproducible, safe to call while tweaking. `avatar_delete` (`urn`)
+archives an agent's avatar under a timestamped name (never destroys it) so the next
+`avatar_generate` draws a new face; the agent keeps its palette slot.
+
 Behaviour worth knowing:
 
 - **The stored file is the source of truth.** If the agent already has an avatar
@@ -62,6 +70,23 @@ Behaviour worth knowing:
 - **Files:** `<name>.png` (64x64, canonical), `<name>@8x.png` (512x512),
   `<name>.svg` (svg avatars), `<name>.json` (sidecar). The sidecar keeps the
   model tool's own fields and adds ours under `"avatar"`.
+
+## HTTP surface for browsers
+
+MCP needs a token and returns file paths, so a browser cannot use it. Set
+`AVATAR_HTTP_ADDR` and the process also serves a read-only HTTP surface. It never
+generates, spends or deletes, so it needs no credential; cross-origin access is
+limited to `AVATAR_HTTP_ORIGINS` (comma-separated, `*` for any).
+
+| request | |
+|---|---|
+| `GET /avatars/<name>.svg`, `.png` (64px), `@8x.png` (512px) | a stored avatar; 404 if the agent has none (nothing is generated) |
+| `GET /preview?seed=&fill=&palette=&format=svg\|png&size=` | an unsaved svg avatar. `accent=`+`bg=` (six hex digits, `#` optional) instead of `palette`; `size` is a multiple of 8 up to 1024 (png). Same query, same image. |
+| `GET /healthz` | liveness |
+
+Previews are drawn in-process (microseconds; ~2 s if `AVATAR_SVG_ENGINE=hadron`); at most 4 draw at once and recent
+ones are cached in memory. Set `AVATAR_PUBLIC_URL` to the surface's public base and
+`avatar_generate` also returns `urls` for each file.
 
 ## Engines, capabilities and policy
 
@@ -88,8 +113,7 @@ A mode or limit the file does not mention keeps its default; an unknown key is a
 error rather than a silently missing limit. `AVATAR_BUDGET_USD`,
 `AVATAR_DAILY_CAP_USD` and `AVATAR_TOTAL_CAP_USD` override the file. A chain that
 ends on a paid mode can end in an error (`fallback: "none"` does this per call).
-This is a short-term surface; a proper settings object replaces it (Torque
-CW-20261015-0005).
+This is a short-term surface; a proper settings object is meant to replace it.
 
 **Spend limits** are enforced against the plugin's own ledger
 (`spend_ledger.json`, one entry per paid attempt), not the model tool's. A paid
@@ -115,9 +139,27 @@ which the Python would do.
 Set `AVATAR_REGISTRY` to the model tool's own `palette_registry.json` to share
 slots with it. The Python takes no lock; avoid running both writers at once.
 
+## The svg engine
+
+By default the sprite is drawn in-process by `internal/sprite`, a port of the
+Hadron workflow's script: no daemon, token or workflow file is needed, and a
+preview takes microseconds. `internal/sprite/testdata/golden.json` is the
+workflow's own output for 59 cases and the port must match it byte for byte
+(`go test ./internal/sprite`); a stored avatar's face is whatever this draws, so
+change the generator and the workflow together, bump `avatar.GeneratorVersion`
+and refresh the golden file against a live hadrond:
+
+```bash
+AVATAR_WORKFLOW=~/.hadron/workflows/avatar-generate.workflow.yaml \
+  go test -tags hadron_golden -run CaptureGolden ./internal/sprite
+```
+
+Set `AVATAR_SVG_ENGINE=hadron` to run the workflow on `hadrond` instead; the
+Hadron deploy steps below then apply.
+
 ## Deploy
 
-1. Copy the workflow under `hadrond`'s workflow source root, which is
+1. (Only for `AVATAR_SVG_ENGINE=hadron`.) Copy the workflow under `hadrond`'s workflow source root, which is
    `<hadrond -data dir>/workflows` (default `~/.hadron/workflows`):
 
    ```bash
@@ -131,14 +173,15 @@ slots with it. The Python takes no lock; avoid running both writers at once.
    go build -o bin/avatar-server ./cmd/avatar-server
    ```
 
-   Set `AVATAR_WORKFLOW` in `station.yaml` to the absolute path from step 1.
+   Set `AVATAR_WORKFLOW` in the Station config to the absolute path from step 1.
 
 | env | default | |
 |---|---|---|
-| `AVATAR_WORKFLOW` | required | the workflow file as `hadrond` sees it |
-| `HADRON_URL` | `http://127.0.0.1:8095` | hadrond's API |
-| `HADRON_TOKEN_FILE` | `~/.hadron/operator.token` | re-read on every call, so `hadron auth rotate` needs no restart |
-| `AVATAR_TIMEOUT` | `10s` | how long to wait for a workflow run |
+| `AVATAR_SVG_ENGINE` | `native` | `native` (in-process) or `hadron` |
+| `AVATAR_WORKFLOW` | with `hadron` | the workflow file as `hadrond` sees it |
+| `HADRON_URL` | `http://127.0.0.1:8095` | hadrond's API (`hadron` only) |
+| `HADRON_TOKEN_FILE` | `~/.hadron/operator.token` | re-read on every call, so `hadron auth rotate` needs no restart (`hadron` only) |
+| `AVATAR_TIMEOUT` | `10s` | how long to wait for a workflow run (`hadron` only) |
 | `AVATAR_OUT_DIR` | `~/.local/share/avatars` | the avatar store. Deliberately not a tool argument: a caller-chosen path would let an agent write files anywhere |
 | `AVATAR_REGISTRY` | `<out dir>/palette_registry.json` | the palette registry |
 | `AVATAR_MODEL_DIR` | unset | the model tool's checkout. **Unset disables `image` and `hybrid`** |
@@ -152,12 +195,15 @@ slots with it. The Python takes no lock; avoid running both writers at once.
 | `AVATAR_DAILY_CAP_USD` | none | spend limit per UTC day, all paid calls |
 | `AVATAR_TOTAL_CAP_USD` | none | spend limit in total |
 | `AVATAR_POLICY_FILE` | none | JSON policy: fallback chains and spend limits (the three above override it) |
+| `AVATAR_HTTP_ADDR` | unset | listen address of the HTTP surface; unset disables it |
+| `AVATAR_HTTP_ORIGINS` | none | browser origins allowed cross-origin |
+| `AVATAR_PUBLIC_URL` | none | public base URL of the HTTP surface, for `urls` in responses |
 | `AVATAR_SPEND_LEDGER` | `<out dir>/spend_ledger.json` | the plugin's record of paid calls |
 
 ## The model path
 
 `AVATAR_MODEL_DIR` points at the model tool's checkout
-([`hollis-labs/avatars`](https://github.com/hollis-labs/avatars), private). The
+([`hollis-labs/avatars`](https://github.com/hollis-labs/avatars)). The
 plugin wraps its CLI rather than porting it, so that pipeline (model call,
 palette snap, downscale, despeckle) can change without a Go release. The
 contract (the tool's `docs/CONTRACT.md`, which changing needs a heads-up for):
@@ -194,7 +240,7 @@ not be able to spend freely.
   `hadrond`. The plugin tells that from an outage by probing `/v1/health`.
 - **Do not leave optional workflow inputs without a `default:`** if you edit the
   workflow: an optional input with no default that a step binds, started without
-  that input, can leave `hadrond` unable to start (Torque CW-20261015-0001). A
+  that input, can leave `hadrond` unable to start. A
   string default must be written `default: {literal: ""}`; a bare `""` passes
   `hadron workflow validate` and fails when a run is admitted.
 - **Generator versions.** `avatar.GeneratorVersion` is part of every run id. Bump

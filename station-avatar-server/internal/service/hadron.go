@@ -7,6 +7,7 @@ import (
 
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/avatar"
 	"github.com/hollis-labs/plugins/station-avatar-server/internal/hadron"
+	"github.com/hollis-labs/plugins/station-avatar-server/internal/sprite"
 )
 
 // ErrBadOutput: the workflow ran but did not return what this plugin's generator
@@ -42,4 +43,17 @@ func (h HadronSVG) Generate(ctx context.Context, r avatar.Request) (SVGResult, e
 		return SVGResult{}, ErrBadOutput
 	}
 	return SVGResult{SVG: svg, Sprite: out["sprite"], RunID: r.RunID()}, nil
+}
+
+// NativeSVG is the procedural engine drawn in-process: the same sprite as the
+// workflow, in microseconds, with no Hadron to run or reach.
+type NativeSVG struct{}
+
+// Generate draws r. It validates exactly as HadronSVG does.
+func (NativeSVG) Generate(_ context.Context, r avatar.Request) (SVGResult, error) {
+	if err := r.Validate(); err != nil {
+		return SVGResult{}, err
+	}
+	s := sprite.Draw(r.ID, r.Knobs.Fill, r.Knobs.Hue)
+	return SVGResult{SVG: sprite.SVG(s, r.Accent), Sprite: s.JSON(), RunID: r.RunID()}, nil
 }
