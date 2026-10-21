@@ -1,0 +1,2 @@
+# Owner-reviewed scan-public allowlist for cerberus-postgres-data (paths prefixed cerberus-postgres-data/).
+secret-assignment cerberus-postgres-data/internal/dataplugin/*_test.go fixture credentials for a throwaway local PostgreSQL in tests; no live credential (owner-approved 2026-10-19)

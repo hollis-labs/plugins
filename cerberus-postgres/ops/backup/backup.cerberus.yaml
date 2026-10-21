@@ -1,0 +1,34 @@
+kind: cerberus-project/v1
+owner: cerberus-postgres-backup
+namespace: local
+project:
+  id: cerberus-postgres-backup
+  name: Shared PostgreSQL backup operations
+resources:
+  - id: postgres-backup-worker
+    name: Shared PostgreSQL encrypted backups
+    type: process
+    connector: local
+    project: cerberus-postgres-backup
+    config:
+      mode: os_service
+      supervisor: auto
+      run_from: workspace
+      service_name: com.hollis-labs.postgres-backup
+      dir: .
+      command: [python3, backup.py, --inventory, ~/.config/cerberus/postgres/backup-inventory.json, watch]
+      auto_start: false
+      auto_restart: true
+      health_check:
+        command: [python3, backup.py, --inventory, ~/.config/cerberus/postgres/backup-inventory.json, status]
+        interval: 60s
+        timeout: 10s
+pipelines:
+  - id: postgres-backup-now
+    name: Pre-change PostgreSQL backup
+    stages:
+      - name: backup
+        actions:
+          - type: shell
+            dir: .
+            command: python3 backup.py --inventory ~/.config/cerberus/postgres/backup-inventory.json full

@@ -54,6 +54,11 @@ authors remain historical attribution. Manifest effects and hints are not grants
 | `tangent.portfolio_torque_sprints` | Read Torque sprint metadata. |
 | `tangent.portfolio_torque_facets` | Read Torque task facets for selected filters/dimensions. |
 | `tangent.portfolio_board` | Compose local and optional upstream rows, retaining notices and partial/estimated totals. |
+| `tangent.portfolio_edge_list` | List outgoing typed relationships of an admitted source. |
+| `tangent.portfolio_edge_add` | Add a typed relationship with optional source revision CAS. |
+| `tangent.portfolio_edge_remove` | Remove every representation of a typed relationship with optional source revision CAS. |
+| `tangent.portfolio_edge_backlinks` | List admitted incoming typed relationships and their source cohort. |
+| `tangent.portfolio_decision_gates` | Return distinct decision-gate target IDs of an admitted source. |
 | `tangent.portfolio_batch` | Apply bounded local registry mutations in one transaction with every operation/resource grant and one stable principal. |
 
 Administrative migration has no MCP grant or declaration. No tool provisions a
@@ -98,9 +103,11 @@ and partial=false. Local total is exact only for that complete admitted cohort;
 an upstream board estimate is a different contract. At the offset ceiling,
 has_more can remain true while next_offset is null; narrow the query or restart.
 
-Domain filters and whole-cohort admission apply before paging and totals. No
-project/workstream membership algorithm is implemented in this slice. Explicit
-scope requests are refused as unsupported, never broadened or silently ignored.
+Domain filters and whole-cohort admission apply before paging and totals. The
+source-only0105 [scope contract](query-scopes.md) implements strict project,
+workstream and unscoped arguments with selected-only membership evidence.
+Structural list/facet disposition remains pending review; unsupported scoped
+lanes refuse without broadening. Production scopes remain unbound.
 Missing upstream integrations remain unavailable or board notices, not complete
 empty result sets. Input is bounded to 32 KiB and output to 1 MiB. An oversized
 result is refused without partial disclosure.
@@ -115,6 +122,32 @@ syntax. Precommit schema, domain, CAS, storage or authority failure rolls back a
 entries, projections, children, FTS and allocation effects. Detached success is
 encoded within the transaction and bounded before publication. Batch is not
 exposed as a new HTTP route.
+
+Typed edges require an additional trusted, optional typed resource verifier;
+ordinary operation admission alone cannot enable them. Default HTTP/MCP
+constructors refuse every edge read/write, clear ambient service authority, and
+install no production cohort verifier. Injected source adapters bind verification
+to the copied request Identity and the same current principal. Caller input
+cannot supply cohorts or grant labels.
+
+The cohort is derived from the same detached State used by each handler before
+lookups, CAS errors or result disclosure. It covers requested sources/targets,
+actual local database/existence facts, all disclosed references and backlink
+sources. Full source-item results also cover legacy and external pointers.
+Explicit target database bindings must match an existing local item; unqualified
+targets retain opaque external/dangling semantics without supplying authority.
+Frozen removed/touched references remain checked before commit and final
+disclosure. Immediately after a typed verifier returns, cancellation and fresh
+ordinary admission for the same principal must still pass. Batch edge entries
+resolve cohorts against evolving transaction state before each mutation and
+recheck retained cohorts before commit and final disclosure.
+
+Relationship types are `informs`, `depends_on`, `supersedes`, `related`,
+`belongs_to`, and `decision_gates`. Outgoing order is type, target ID, field;
+backlink order is type, source ID, field. Revision CAS is checked before noop
+recognition. A noop leaves revisions, envelope timestamps and receipts unchanged;
+a change bumps once and updates projections in the existing State transaction,
+preserving legacy representations and unknown metadata outside the removal.
 
 Typed tool failures use IsError and `{"error":{"code":...,"message":...,
 "details":...}}`. Codes include bad_request, invalid, not_found, conflict,
@@ -133,5 +166,5 @@ public SDK synthetic list/get/comment/decide transcript and detached callers.
 The source manifest is checked through the public host decoder. These controls
 do not establish deployed caller issuance, host-carried authentication, atomic
 host authority, general JSON-number losslessness or the host documentation gate adopting
-this manual. Production carrier, caller provisioning, scopes, UI, CLI and writer
+this manual. Production carrier, caller provisioning, scope acceptance, UI and writer
 cutover remain separately owned work.
