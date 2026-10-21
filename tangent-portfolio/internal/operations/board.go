@@ -198,63 +198,95 @@ func board(x *execution, in object) (any, error) {
 	activity := map[string]time.Time{}
 	activityOK := true
 	if doing, has := tasks["doing"]; has {
-		for _, task := range doing {
-			if x.scope != nil && (x.budget.pages >= scopeMaxPages || x.budget.rows >= scopeMaxRows || x.budget.bytes >= scopeMaxBytes) {
-				activityOK = false
-				break
+		// Scoped reads retain the shared scanner budget across statuses and activity.
+		if batch, ok := x.torque.(ActivityUpstream); ok && x.scope == nil {
+			ids := []string{}
+			requested := map[string]bool{}
+			for _, task := range doing {
+				id := str(task["id"])
+				ids = append(ids, id)
+				requested[id] = true
 			}
-			if x.scope != nil {
-				x.budget.pages++
-			}
-			got, err := x.upstream("torque_task", object{"id": task["id"]})
-			if err != nil {
-				activityOK = false
-				if x.scope != nil && upstreamAuthorityRefused(err) {
-					upstreamRefused = true
-					tasks = map[string][]object{}
-					totals = map[string]int{}
-					break
-				}
-				continue
-			}
-			result, ok := got.(object)
-			if !ok {
-				activityOK = false
-				continue
-			}
-			if x.scope != nil {
-				raw, encodeErr := json.Marshal(result)
-				comments, validComments := result["comments"].([]any)
-				for _, value := range comments {
-					comment, ok := value.(object)
-					if !ok {
-						validComments = false
-						break
-					}
-					if _, ok := parseDate(str(comment["created_at"])); !ok {
-						validComments = false
-						break
+			if len(ids) > 0 {
+				got, err := batch.LatestCommentActivity(x.ctx, ids)
+				activityOK = err == nil && got.Complete
+				if activityOK {
+					for id, t := range got.LatestByID {
+						if !requested[id] || t.IsZero() {
+							activityOK = false
+							break
+						}
+						activity[id] = t
 					}
 				}
-				if encodeErr != nil || len(raw) > scopeMaxBytes-x.budget.bytes || len(comments) > scopeMaxRows-x.budget.rows {
+			}
+		} else {
+			for _, task := range doing {
+				if x.scope != nil && (x.budget.pages >= scopeMaxPages || x.budget.rows >= scopeMaxRows || x.budget.bytes >= scopeMaxBytes) {
 					activityOK = false
 					break
 				}
-				x.budget.bytes += len(raw)
-				x.budget.rows += len(comments)
-				meta, _ := result["comments_meta"].(object)
-				if !validComments || meta["has_more"] != false {
+				if x.scope != nil {
+					x.budget.pages++
+				}
+				got, err := x.upstream("torque_task", object{"id": task["id"]})
+				if err != nil {
 					activityOK = false
+					if x.scope != nil && upstreamAuthorityRefused(err) {
+						upstreamRefused = true
+						tasks = map[string][]object{}
+						totals = map[string]int{}
+						break
+					}
+					continue
 				}
-			}
-			latest := ""
-			for _, c := range objects(result["comments"]) {
-				if s := str(c["created_at"]); s > latest {
-					latest = s
+				result, ok := got.(object)
+				if !ok {
+					activityOK = false
+					continue
 				}
-			}
-			if t, ok := parseDate(latest); ok {
-				activity[str(task["id"])] = t
+				if x.scope != nil {
+					raw, encodeErr := json.Marshal(result)
+					comments, validComments := result["comments"].([]any)
+					for _, value := range comments {
+						comment, ok := value.(object)
+						if !ok {
+							validComments = false
+							break
+						}
+						if _, ok := parseDate(str(comment["created_at"])); !ok {
+							validComments = false
+							break
+						}
+					}
+					if encodeErr != nil || len(raw) > scopeMaxBytes-x.budget.bytes || len(comments) > scopeMaxRows-x.budget.rows {
+						activityOK = false
+						break
+					}
+					x.budget.bytes += len(raw)
+					x.budget.rows += len(comments)
+					meta, _ := result["comments_meta"].(object)
+					if !validComments || meta["has_more"] != false {
+						activityOK = false
+					}
+				}
+				if x.scope != nil {
+					// Scoped providers use the checked has_more envelope above.
+					for _, comment := range objects(result["comments"]) {
+						if created, ok := parseDate(str(comment["created_at"])); ok && created.After(activity[str(task["id"])]) {
+							activity[str(task["id"])] = created
+						}
+					}
+					continue
+				}
+				t, complete := syntheticActivity(result)
+				if !complete {
+					activityOK = false
+					continue
+				}
+				if !t.IsZero() {
+					activity[str(task["id"])] = t
+				}
 			}
 		}
 		if !activityOK {

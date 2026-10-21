@@ -43,6 +43,7 @@ func New(service operations.Service, verify VerifyRequest) *Adapter {
 // NewWithEdges clears ambient Service authority and installs explicit verifiers.
 func NewWithEdges(service operations.Service, verify VerifyRequest, edges VerifyEdges) *Adapter {
 	service.Verify, service.Admit = nil, nil
+	service.BindTorque = nil
 	service.AdmitEdges = nil
 	a := &Adapter{service: service, verify: verify, verifyEdges: edges, tools: map[string]operations.Operation{}}
 	for _, op := range operations.Registry() {

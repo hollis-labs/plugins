@@ -289,9 +289,10 @@ func TestScopedUpstreamPartialMalformedChangingPagesAndGlobalBudget(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	x := &execution{service: s, state: state, scope: &queryScope{Kind: "project", ID: "msg://project/test/a"}, ctx: t.Context(), budget: &scanBudget{selectors: scopeMaxSelectors}}
+	x := &execution{service: s, torque: s.Torque, state: state, scope: &queryScope{Kind: "project", ID: "msg://project/test/a"}, ctx: t.Context(), budget: &scanBudget{selectors: scopeMaxSelectors}}
 	reads := 0
 	s.Torque = scopeUpstreamFunc(func(context.Context, string, object) (any, error) { reads++; return taskPage(), nil })
+	x.torque = s.Torque
 	out, err := x.scopedUpstream("torque_tasks", object{})
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +373,7 @@ func TestScopedBoardSharesBudgetAcrossStatusesAndActivity(t *testing.T) {
 	}
 	reads := 0
 	s.Torque = scopeUpstreamFunc(func(context.Context, string, object) (any, error) { reads++; return taskPage(), nil })
-	x := &execution{service: s, state: state, scope: &queryScope{Kind: "project", ID: "msg://project/test/a"}, ctx: t.Context(), now: s.clock(), budget: &scanBudget{selectors: scopeMaxSelectors - 2}}
+	x := &execution{service: s, torque: s.Torque, state: state, scope: &queryScope{Kind: "project", ID: "msg://project/test/a"}, ctx: t.Context(), now: s.clock(), budget: &scanBudget{selectors: scopeMaxSelectors - 2}}
 	out, err := board(x, object{"limit": json.Number("1")})
 	if err != nil {
 		t.Fatal(err)

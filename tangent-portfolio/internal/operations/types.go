@@ -59,6 +59,7 @@ type Service struct {
 	Admit      AdmitRequest
 	AdmitEdges AdmitEdges
 	Torque     Upstream
+	BindTorque BindUpstream
 	Now        func() time.Time
 }
 
@@ -77,6 +78,7 @@ type execution struct {
 	who     string
 	now     time.Time
 	ctx     context.Context
+	torque  Upstream
 	scope   *queryScope
 	budget  *scanBudget
 }
@@ -109,6 +111,11 @@ func (s *Service) Call(ctx context.Context, caller Caller, name string, input an
 	if !exists {
 		return nil, failure("bad_request", "unknown operation: "+name, object{"operations": operationNames()})
 	}
+	if name == "board" {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+	}
 	v, err := normalize(input)
 	if err != nil {
 		return nil, failure("bad_request", "input must be JSON", nil)
@@ -121,15 +128,17 @@ func (s *Service) Call(ctx context.Context, caller Caller, name string, input an
 		return nil, failure("bad_request", "input exceeds 32 KiB", nil)
 	}
 	principal := ""
+	var parent Authority
 	if s.Admit != nil && name != "batch" {
 		a, admissionErr := s.admission(ctx, caller, name, in)
-		if admissionErr != nil || !allowed(a) {
+		if admissionErr != nil || ctx.Err() != nil || !allowed(a) {
 			return nil, failure("unavailable", "verified caller authority unavailable", nil)
 		}
 		principal = a.Principal
+		parent = a
 		defer func() {
 			current, disclosureErr := s.admission(ctx, caller, name, in)
-			if disclosureErr != nil || !allowed(current) || current.Principal != principal {
+			if disclosureErr != nil || ctx.Err() != nil || !allowed(current) || current.Principal != principal {
 				out, callErr = nil, failure("unavailable", "verified caller authority unavailable", nil)
 			}
 		}()
@@ -166,6 +175,12 @@ func (s *Service) Call(ctx context.Context, caller Caller, name string, input an
 		return s.callEdge(ctx, caller, op, in)
 	}
 	x := &execution{service: s, ctx: executionContext, now: s.clock().Truncate(time.Millisecond), scope: scope, budget: &scanBudget{}}
+	if usesTorque(name) {
+		x.torque, err = s.bindTorque(executionContext, caller, name, in, parent)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if op.Write && s.Verify == nil && s.Admit == nil {
 		return nil, failure("unavailable", "verified caller authority unavailable", nil)
 	}
@@ -261,10 +276,10 @@ func (x *execution) rawUpstream(name string, input object) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if x.service.Torque == nil {
+	if x.torque == nil {
 		return nil, failure("unavailable", "Torque unavailable", nil)
 	}
-	result, err := x.service.Torque.Read(x.ctx, name, validated)
+	result, err := x.torque.Read(x.ctx, name, validated)
 	if err != nil {
 		var e *Error
 		if errors.As(err, &e) {

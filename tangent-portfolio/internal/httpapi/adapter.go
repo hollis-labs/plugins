@@ -48,6 +48,7 @@ func New(service operations.Service, verify VerifyRequest) *Adapter {
 func NewWithEdges(service operations.Service, verify VerifyRequest, edges VerifyEdges) *Adapter {
 	service.Verify = nil
 	service.Admit = nil
+	service.BindTorque = nil
 	service.AdmitEdges = nil
 	a := &Adapter{service: service, verify: verify, verifyEdges: edges, routes: map[string]Route{}}
 	for _, route := range Routes() {
