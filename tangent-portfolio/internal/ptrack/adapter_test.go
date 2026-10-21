@@ -80,8 +80,8 @@ func TestOwnedAdapterAttributionRefusalAndScopePassThrough(t *testing.T) {
 				}
 				_, callErr = client.Call(t.Context(), "list", json.RawMessage(`{"db":"ideas","scope":{"kind":"project","id":"msg://project/test/a"}}`))
 				var typed *Error
-				if !errors.As(callErr, &typed) || typed.Code != "unsupported" {
-					t.Fatalf("main scope broadened: %v", callErr)
+				if !errors.As(callErr, &typed) || typed.Code != "not_found" {
+					t.Fatalf("missing project scope did not fail closed: %v", callErr)
 				}
 			} else {
 				var typed *Error
