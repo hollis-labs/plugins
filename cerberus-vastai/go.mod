@@ -1,4 +1,4 @@
-module github.com/hollis-labs/cerberus-plugins/vastai
+module github.com/hollis-labs/plugins/cerberus-vastai
 
 go 1.26.11
 

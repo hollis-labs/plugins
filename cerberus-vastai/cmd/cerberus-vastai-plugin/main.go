@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hollis-labs/cerberus-plugins/vastai/internal/vastaiplugin"
+	"github.com/hollis-labs/plugins/cerberus-vastai/internal/vastaiplugin"
 	"github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk/subprocess"
 )
 
