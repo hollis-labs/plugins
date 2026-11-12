@@ -4,11 +4,11 @@ Cerberus connector for [Vast.ai](https://vast.ai) GPU rental: search offers by
 VRAM and price, rent and manage instances, and report what each **workload**
 costs.
 
-> **Pre-release — v0.1.0.** Tested against recorded API shapes and a fake
-> server, **not yet against the live API**: field names come from Vast.ai's
-> OpenAPI specs. Run `vastai/scripts/live-check.sh` once with a real key and
-> read "Verify against the live API" below. No outside users, no compatibility
-> guarantees.
+> **Pre-release — v0.1.0.** Checked against the live API on 2026-11-11 for
+> `get_account`, `search_offers`, `list_instances`, `get_instance`, `status`,
+> `get_logs`, `cost_report`, `create_instance` and `destroy` (see "Verified
+> live" below). `start`, `stop` and `set_label` are covered by tests and the
+> API documentation only. No outside users, no compatibility guarantees.
 
 Scope is deliberately narrow: discovery, GPU/VRAM/price filters, provisioning,
 lifecycle, status and cost. Model caching, warm-up and multi-provider
@@ -95,35 +95,45 @@ against your own throughput numbers.
 ## Installing
 
 ```bash
-make dist                      # from the repo root, or `make dist` in vastai/
-cerberus connectors plugin managed install dist/vastai   # interactive review
+cd cerberus-vastai && make dist       # writes ../dist/vastai
+cerberus connectors plugin managed install ../dist/vastai   # interactive review
 cerberus connectors plugin managed load vastai
 cerberus connectors exec vastai get_account
 ```
 
-Supply the key as `CERBERUS_VASTAI_API_KEY`, as the `api_key` entry under
-`vastai` in `connector-secrets.yaml`, or as `keychain://vastai/api_key`.
+`install` copies the bundle, so after rebuilding, run `install` again, not just
+`load`.
 
-### Building against the current host
+Supply the key as `CERBERUS_VASTAI_API_KEY`, or as a `keychain://vastai/api_key`
+reference (store it with `cerberus secrets set`). Cerberus refuses a literal key
+in `connector-secrets.yaml`.
 
-The host (v0.5.0 and later) speaks the `plugin-init/2` handshake and imports
-its SDK from `libs/mcp/plugin-mcp`; the `cerberus v0.4.0-beta.2` and
-`plugin-sdk v0.5.0` the other plugins here pin predate that and **fail to load
-on it** with `invalid_init`. This plugin is built on the current SDK, which
-needs a `replace` to a local Cerberus checkout until a Cerberus version
-carrying the new `pkg/plugin` is published. See `go.mod`.
+An account's money may be a team's: a prepaid team account holds it as `credit`
+with `balance: 0`. `get_account` reports credit plus balance as `balance_usd`.
+Create the key from inside the account you want billed; a personal key acts as
+the personal account even when a team has funds. Teams cannot hold SSH keys, so
+an instance rented under a team needs another route in (run work from `onstart`
+and read `get_logs`).
 
-## Verify against the live API
+## Verified live
 
-Taken from Vast.ai's docs and OpenAPI specs, not yet from live responses:
+Checked against the real API on 2026-11-11:
 
-- **`gpu_name` spelling.** The specs disagree (`RTX 4090` vs `RTX_4090`). The
-  plugin sends spaces and reads underscores as spaces. If a search comes back
-  empty for a GPU you know exists, look at the `gpu_name` values in an
-  unfiltered search.
-- **`storage_total_cost` is $/hour** and `dph_total` includes it. This is
-  inferred from the spec's example numbers (0.8 + 0.0021 = 0.8021).
-- **`GetOffer` filters** (`id`, with `verified` allowed to be either) to price
-  an offer. If `max_price` refuses an offer that is plainly on the market,
-  that lookup is the suspect.
-- **`start_date`** is read as the instance's start time for runtime estimates.
+- **`gpu_name`**: both `A100 SXM4` and `A100_SXM4` match; the name is an exact
+  match, so a bare `A100` finds nothing.
+- **Offer lookup** filters on `ask_contract_id`. The search endpoint silently
+  ignores an `id` filter, which made every offer look "not found".
+- **Funds** are `credit` plus `balance`.
+- **Rent, status, logs, destroy and cost**: an offer was rented with an
+  `onstart` script, its output read back with `get_logs`, then destroyed, and
+  `cost_report` grouped the charges by label.
+
+## Still to verify live
+
+- `storage_total_cost` is $/hour and `dph_total` includes it (consistent with
+  the rates seen; not isolated).
+- `start`, `stop` and `set_label`.
+- `start_date` as the start time for runtime estimates.
+- Port mappings on instances that publish ports.
+- Charges can lag: a freshly destroyed instance's GPU cost may not appear in
+  `cost_report` for a while.
