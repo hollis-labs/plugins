@@ -10,6 +10,7 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,30 +44,60 @@ func scramVerifier(password string) (string, error) {
 
 // Password statements require a dedicated superuser connection with stock
 // PostgreSQL logging controls. Refuse preload hooks instead of claiming to
-// suppress an unknown audit extension. These SETs contain no credentials.
-// Session settings (not SET LOCAL) survive a failed password transaction.
+// suppress an unknown audit extension. The one reviewed exception is
+// pg_stat_statements: it is allowed only in shared_preload_libraries, and the
+// writer session then turns its statement tracking off and verifies that it
+// took before any role or password statement runs. These SETs contain no
+// credentials. Session settings (not SET LOCAL) survive a failed password
+// transaction.
 func secureWriter(ctx context.Context, c *pgx.Conn) error {
 	var super bool
-	var hooks string
-	err := c.QueryRow(ctx, `SELECT rolsuper,current_setting('shared_preload_libraries') || current_setting('session_preload_libraries') || current_setting('local_preload_libraries') FROM pg_roles WHERE rolname=current_user`).Scan(&super, &hooks)
-	if err != nil || !super || hooks != "" {
-		return errors.New("writes require a dedicated superuser and no preload libraries; custom audit hooks need a separately reviewed credential-safe path")
+	var shared, session, local string
+	err := c.QueryRow(ctx, `SELECT rolsuper,current_setting('shared_preload_libraries'),current_setting('session_preload_libraries'),current_setting('local_preload_libraries') FROM pg_roles WHERE rolname=current_user`).Scan(&super, &shared, &session, &local)
+	statStatements, reviewed := reviewedPreload(shared)
+	if err != nil || !super || !reviewed || strings.TrimSpace(session) != "" || strings.TrimSpace(local) != "" {
+		return errors.New("writes require a dedicated superuser and no preload libraries other than pg_stat_statements; custom audit hooks need a separately reviewed credential-safe path")
 	}
 	var extensions int
-	if c.QueryRow(ctx, `SELECT count(*) FROM pg_extension WHERE extname NOT IN ('plpgsql','vector')`).Scan(&extensions) != nil || extensions != 0 {
+	if c.QueryRow(ctx, `SELECT count(*) FROM pg_extension WHERE extname NOT IN ('plpgsql','vector','pg_stat_statements')`).Scan(&extensions) != nil || extensions != 0 {
 		return errors.New("unreviewed maintenance-database extensions prevent credential-safe writes")
 	}
-	for _, sql := range []string{
+	statements := []string{
 		`SET log_statement='none'`, `SET log_min_duration_statement=-1`, `SET log_min_duration_sample=-1`, `SET log_statement_sample_rate=0`,
 		`SET log_duration=off`, `SET log_parameter_max_length=0`, `SET log_parameter_max_length_on_error=0`,
 		`SET log_min_error_statement='panic'`, `SET log_error_verbosity='terse'`, `SET log_min_messages='panic'`,
 		`SET standard_conforming_strings=on`,
-	} {
+	}
+	if statStatements {
+		statements = append(statements, `SET pg_stat_statements.track='none'`, `SET pg_stat_statements.track_utility=off`)
+	}
+	for _, sql := range statements {
 		if _, err = c.Exec(ctx, sql); err != nil {
 			return errors.New("cannot establish credential-safe PostgreSQL session logging")
 		}
 	}
+	if statStatements {
+		var track, utility string
+		if c.QueryRow(ctx, `SELECT current_setting('pg_stat_statements.track'),current_setting('pg_stat_statements.track_utility')`).Scan(&track, &utility) != nil || track != "none" || utility != "off" {
+			return errors.New("cannot disable pg_stat_statements tracking for the credential-safe session")
+		}
+	}
 	return nil
+}
+
+// reviewedPreload reports whether a shared_preload_libraries value contains
+// only reviewed libraries, and whether pg_stat_statements is among them.
+func reviewedPreload(value string) (statStatements, reviewed bool) {
+	for _, item := range strings.Split(value, ",") {
+		switch strings.Trim(strings.TrimSpace(item), `"`) {
+		case "":
+		case "pg_stat_statements":
+			statStatements = true
+		default:
+			return false, false
+		}
+	}
+	return statStatements, true
 }
 
 func runStatements(ctx context.Context, tx pgx.Tx, statements ...string) error {
