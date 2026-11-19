@@ -1,0 +1,5 @@
+{
+  "name": "cerberus-vastai",
+  "kind": "connector",
+  "hosts": ["cerberus"]
+}

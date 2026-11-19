@@ -1,0 +1,5 @@
+# Owner-reviewed scan-public allowlist for cerberus-vastai (paths prefixed cerberus-vastai/).
+secret-assignment cerberus-vastai/internal/vastaiplugin/client_test.go Test fixture, a made-up value for redaction and decoding tests; no live credential; reviewed by the owner 2026-11-11.
+generic-api-key cerberus-vastai/internal/vastaiplugin/client_test.go Test fixture, a made-up value for redaction and decoding tests; no live credential; reviewed by the owner 2026-11-11.
+secret-assignment cerberus-vastai/internal/vastaiplugin/plugin_test.go Test fixture, a made-up environment value used to check previews hide values; no live credential; reviewed by the owner 2026-11-11.
+secret-assignment cerberus-vastai/internal/vastaiplugin/scrub_test.go Test fixture, a made-up sentinel used to check error scrubbing; no live credential; reviewed by the owner 2026-11-11.
