@@ -5,6 +5,8 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,6 +34,7 @@ const (
 
 type fixture struct {
 	binary, root, bundle string
+	ownerPassword        string
 	process              *os.Process
 	done                 chan error
 	log                  *os.File
@@ -117,12 +120,28 @@ func newFixture(t *testing.T) *fixture {
 	if err = manifest.VerifyBundle(f.bundle); err != nil {
 		t.Fatal(err)
 	}
+	// The commands below read the Substrate config file too; start() rewrites it with the port it picks.
+	if err = os.WriteFile(filepath.Join(f.root, "substrate.yaml"), []byte("httphost:\n  addr: \"127.0.0.1:0\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	f.run(t, f.binary, []string{"plugin", "install", f.bundle})
+	// Tangent v0.21.0 makes its first owner offline and answers nothing without a session or a key.
+	random := make([]byte, 16)
+	if _, err = rand.Read(random); err != nil {
+		t.Fatal(err)
+	}
+	f.ownerPassword = "owner-" + hex.EncodeToString(random)                     // made per fixture, never written anywhere
+	setup := exec.Command(f.binary, "identity", "setup", "--username", "owner") // #nosec G204 -- the host binary this fixture built.
+	setup.Env = f.env()
+	setup.Stdin = strings.NewReader(f.ownerPassword + "\n")
+	if output, e := setup.CombinedOutput(); e != nil {
+		t.Fatal("identity setup", e, string(output))
+	}
 	t.Cleanup(func() { f.stop(t) })
 	return f
 }
 func (f *fixture) env() []string {
-	return []string{"HOME=" + f.root, "XDG_CONFIG_HOME=" + f.root, "XDG_DATA_HOME=" + f.root, "TANGENT_DB_PATH=" + filepath.Join(f.root, "host.sqlite3"), "TANGENT_PLUGIN_DIR=" + filepath.Join(f.root, "plugins"), "TANGENT_OTEL=0", "TMPDIR=" + os.Getenv("TMPDIR")}
+	return []string{"HOME=" + f.root, "XDG_CONFIG_HOME=" + f.root, "XDG_DATA_HOME=" + f.root, "TANGENT_DATA_DIR=" + filepath.Join(f.root, "data"), "SUBSTRATE_CONFIG=" + filepath.Join(f.root, "substrate.yaml"), "TANGENT_PLUGIN_DIR=" + filepath.Join(f.root, "plugins"), "TANGENT_OTEL=0", "TMPDIR=" + os.Getenv("TMPDIR")}
 }
 
 // The executable paths are constructed exclusively by this fixture's builds.
@@ -183,7 +202,11 @@ func (f *fixture) start(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.process, err = os.StartProcess(f.binary, []string{f.binary}, &os.ProcAttr{Env: append(f.env(), "TANGENT_HTTP_PORT="+strconv.Itoa(port)), Files: []*os.File{nil, f.log, f.log}})
+	// The listen address is Substrate configuration now, not an environment variable.
+	if err = os.WriteFile(filepath.Join(f.root, "substrate.yaml"), []byte("httphost:\n  addr: \"127.0.0.1:"+strconv.Itoa(port)+"\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.process, err = os.StartProcess(f.binary, []string{f.binary}, &os.ProcAttr{Env: f.env(), Files: []*os.File{nil, f.log, f.log}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,6 +230,7 @@ func (f *fixture) start(t *testing.T) {
 		if e == nil {
 			_ = response.Body.Close()
 			if response.StatusCode == 200 {
+				f.signIn(t)
 				return
 			}
 		}
@@ -218,6 +242,30 @@ func (f *fixture) start(t *testing.T) {
 		}
 	}
 	t.Fatal("private host did not start")
+}
+
+// signIn gives the client the owner's session; password hashing under -race takes longer than the client's timeout.
+func (f *fixture) signIn(t *testing.T) {
+	t.Helper()
+	body, err := json.Marshal(map[string]string{"username": "owner", "password": f.ownerPassword})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, f.url+"/api/login", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Requested-With", "fixture")
+	req.Header.Set("Origin", f.url)
+	response, err := (&http.Client{Jar: f.client.Jar, Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != 200 {
+		t.Fatal("owner sign-in", response.StatusCode)
+	}
 }
 func (f *fixture) stop(t *testing.T) {
 	t.Helper()
@@ -255,6 +303,7 @@ func (f *fixture) request(t *testing.T, method, path string, body any) (int, []b
 		t.Fatal(err)
 	}
 	req.Header.Set("Origin", f.url)
+	req.Header.Set("X-Requested-With", "fixture")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	response, err := f.client.Do(req)
@@ -266,6 +315,15 @@ func (f *fixture) request(t *testing.T, method, path string, body any) (int, []b
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The v0.21.0 host answers a tool call in event-stream framing; the tests read the JSON-RPC message in it.
+	if bytes.HasPrefix(raw, []byte("event:")) || bytes.HasPrefix(raw, []byte("data:")) {
+		for _, line := range bytes.Split(raw, []byte("\n")) {
+			if data, ok := bytes.CutPrefix(line, []byte("data:")); ok {
+				raw = bytes.TrimSpace(data)
+				break
+			}
+		}
+	}
 	return response.StatusCode, raw
 }
 func (f *fixture) require(t *testing.T, method, path string, body any, target any) []byte {
@@ -276,7 +334,7 @@ func (f *fixture) require(t *testing.T, method, path string, body any, target an
 	}
 	if target != nil {
 		if err := json.Unmarshal(raw, target); err != nil {
-			t.Fatal(err)
+			t.Fatal(method, path, err, string(raw))
 		}
 	}
 	return raw
@@ -383,7 +441,7 @@ func TestPackagedDefaultOffLifecycleSettingsAndRestart(t *testing.T) {
 	f.start(t)
 	// Unknown installed IDs remain inert, including across restart and upgrade.
 	f.checkContributions(t, false)
-	if code, _ := f.request(t, "POST", management+"/reload", map[string]any{}); code != 409 {
+	if code, _ := f.request(t, "POST", management+"/reload", nil); code != 409 {
 		t.Fatal("reload enabled unknown disabled plugin", code)
 	}
 	f.stop(t)
@@ -457,7 +515,7 @@ func TestPackagedDefaultOffLifecycleSettingsAndRestart(t *testing.T) {
 	}
 	current := f.config(t)
 	f.require(t, "POST", management+"/config/reset", settingsRequest(current.Revision, map[string]any{}, []string{"rail_open"}), nil)
-	f.require(t, "POST", management+"/disable", map[string]any{}, nil)
+	f.require(t, "POST", management+"/disable", nil, nil)
 	f.checkContributions(t, false)
 	if code, _ := f.request(t, "POST", management+"/config/apply", settingsRequest(f.config(t).Revision, map[string]any{}, []string{})); code != 409 {
 		t.Fatal("apply enabled disabled plugin", code)
@@ -467,18 +525,18 @@ func TestPackagedDefaultOffLifecycleSettingsAndRestart(t *testing.T) {
 	f.run(t, f.binary, []string{"plugin", "install", f.bundle})
 	f.start(t)
 	f.checkContributions(t, false)
-	f.require(t, "POST", management+"/enable", map[string]any{}, nil)
+	f.require(t, "POST", management+"/enable", nil, nil)
 	f.checkContributions(t, true)
 	raw = f.require(t, "GET", route, nil, nil)
 	if !bytes.Contains(raw, []byte(`"rail_open":false`)) || !bytes.Contains(raw, []byte(`"density":"compact"`)) {
 		t.Fatal("saved preference/reset lost at restart", string(raw))
 	}
-	f.require(t, "POST", management+"/reload", map[string]any{}, nil)
+	f.require(t, "POST", management+"/reload", nil, nil)
 	f.checkContributions(t, true)
 	f.stop(t)
 	f.start(t)
 	f.checkContributions(t, true)
-	f.require(t, "POST", management+"/disable", map[string]any{}, nil)
+	f.require(t, "POST", management+"/disable", nil, nil)
 	f.checkContributions(t, false)
 	t.Log("packaged default-off install/restart/upgrade; CLI opt-in; preserved true/false intent; host settings projection, validation/CAS/save/apply/reset; owner withdrawal; disabled restart; enable/reload; no backend or UI integration")
 }

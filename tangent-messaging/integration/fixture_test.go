@@ -3,6 +3,8 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -104,11 +106,12 @@ func (l *lockedLog) Write(p []byte) (int, error) {
 func (l *lockedLog) text() string { l.Lock(); defer l.Unlock(); return l.String() }
 
 type host struct {
-	url    string
-	client *http.Client
-	cmd    *exec.Cmd
-	done   chan error
-	logs   lockedLog
+	keyFile string
+	url     string
+	client  *http.Client
+	cmd     *exec.Cmd
+	done    chan error
+	logs    lockedLog
 }
 
 func startHost(t *testing.T) *host {
@@ -127,8 +130,33 @@ func startHost(t *testing.T) *host {
 		t.Fatal(err)
 	}
 	h.client = &http.Client{Jar: jar, Timeout: 2 * time.Second}
+	// Tangent v0.21.0 is a Substrate host: the listen address comes from a config file, the first owner and the
+	// plugin's key are made offline with the host's own commands, and every request needs a session or a key.
+	config := filepath.Join(root, "substrate.yaml")
+	if err = os.WriteFile(config, []byte(fmt.Sprintf("httphost:\n  addr: \"127.0.0.1:%d\"\n", port)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := []string{"HOME=" + root, "XDG_CONFIG_HOME=" + root, "XDG_DATA_HOME=" + root, "TANGENT_DATA_DIR=" + filepath.Join(root, "data"), "TANGENT_PLUGIN_DIR=" + filepath.Join(root, "plugins"), "SUBSTRATE_CONFIG=" + config, "TANGENT_OTEL=0"}
+	random := make([]byte, 16)
+	if _, err = rand.Read(random); err != nil {
+		t.Fatal(err)
+	}
+	ownerPassword := "owner-" + hex.EncodeToString(random)                    // made per host, never written anywhere
+	setup := exec.Command(binary, "identity", "setup", "--username", "owner") // #nosec G204 -- the host binary this test built.
+	setup.Env = env
+	setup.Stdin = strings.NewReader(ownerPassword + "\n")
+	if output, e := setup.CombinedOutput(); e != nil {
+		t.Fatal("identity setup", e, string(output))
+	}
+	h.keyFile = filepath.Join(privateDir(t), "messaging.key")
+	mint := exec.Command(binary, "identity", "key", "create", "--name", "messaging", "--scope", "tangent.mcp", "--scope", "tangent.view", "--scope", "tangent.draft", "--scope", "tangent.submit", "--scope", "tangent.deliver", "--scope", "tangent.withdraw", "--out", h.keyFile) // #nosec G204 -- the host binary this test built.
+	mint.Env = env
+	if output, e := mint.CombinedOutput(); e != nil {
+		t.Fatal("identity key create", e, string(output))
+	}
+	hostKeyFile = h.keyFile
 	h.cmd = exec.Command(binary) // #nosec G204 -- exact published host command built by this test, never an operator-installed binary.
-	h.cmd.Env = []string{"HOME=" + root, "XDG_CONFIG_HOME=" + root, "XDG_DATA_HOME=" + root, "TANGENT_DB_PATH=" + filepath.Join(root, "host.sqlite3"), "TANGENT_PLUGIN_DIR=" + filepath.Join(root, "plugins"), "TANGENT_HTTP_PORT=" + strconv.Itoa(port), "TANGENT_OTEL=0"}
+	h.cmd.Env = env
 	h.cmd.Stdout = &h.logs
 	h.cmd.Stderr = &h.logs
 	if err = h.cmd.Start(); err != nil {
@@ -161,8 +189,33 @@ func startHost(t *testing.T) *host {
 		_ = response.Body.Close()
 		return response.StatusCode == 200
 	}, "private host document/session ready")
+	login, e := json.Marshal(map[string]string{"username": "owner", "password": ownerPassword})
+	if e != nil {
+		t.Fatal(e)
+	}
+	loginRequest, e := http.NewRequest(http.MethodPost, h.url+"/api/login", bytes.NewReader(login))
+	if e != nil {
+		t.Fatal(e)
+	}
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginRequest.Header.Set("X-Requested-With", "fixture")
+	loginRequest.Header.Set("Origin", h.url)
+	// Password hashing under -race is slower than the 2 s the other requests are given.
+	response, e := (&http.Client{Jar: h.client.Jar, Timeout: 30 * time.Second}).Do(loginRequest)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != 200 {
+		t.Fatal("owner sign-in", response.StatusCode, h.logs.text())
+	}
 	return h
 }
+
+// hostKeyFile is the key the most recently started host minted for the plugin; the tests start one host, then
+// its plugin, and never run in parallel.
+var hostKeyFile string
+
 func await(t *testing.T, check func() bool, meaning string) {
 	t.Helper()
 	deadline := time.NewTimer(8 * time.Second)
@@ -195,6 +248,7 @@ func (h *host) request(t *testing.T, method, path string, body any, target any) 
 		t.Fatal(e)
 	}
 	req.Header.Set("Origin", h.url)
+	req.Header.Set("X-Requested-With", "fixture")
 	req.Header.Set("Content-Type", "application/json")
 	response, e := h.client.Do(req)
 	if e != nil {
@@ -412,7 +466,7 @@ func startPlugin(t *testing.T, u *upstream, mcpURL, data string, generation uint
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	process, e := pluginhost.Start(ctx, pluginhost.Spec{ID: "tangent.plugin.messaging", ExpectedID: "tangent.plugin.messaging", ExpectedVersion: binaries.version, Command: binary, Env: []string{"HOME=" + privateDir(t), "TANGENT_MESSAGING_CONFIG=" + path, "TANGENT_MCP_URL=" + mcpURL, "TETHER_TOKEN="}, Init: subprocess.InitParams{PluginDir: filepath.Dir(binary), DataDir: data, CacheDir: cache, Config: map[string]string{}, CapabilityContract: capability.ContractVersion, Incarnation: capability.RuntimeIdentity{HostInstance: "stage1-private-host", OwnerID: "tangent.plugin.messaging", OwnerGeneration: generation}, Grants: capability.GrantSet{}, HostInfo: subprocess.HostInfo{Version: "0.19.0", Protocol: 2}}, HandshakeTimeout: 10 * time.Second, UnloadTimeout: 5 * time.Second, ReapTimeout: 2 * time.Second})
+	process, e := pluginhost.Start(ctx, pluginhost.Spec{ID: "tangent.plugin.messaging", ExpectedID: "tangent.plugin.messaging", ExpectedVersion: binaries.version, Command: binary, Env: []string{"HOME=" + privateDir(t), "TANGENT_MESSAGING_CONFIG=" + path, "TANGENT_MCP_URL=" + mcpURL, "TANGENT_MCP_KEY_FILE=" + hostKeyFile, "TETHER_TOKEN="}, Init: subprocess.InitParams{PluginDir: filepath.Dir(binary), DataDir: data, CacheDir: cache, Config: map[string]string{}, CapabilityContract: capability.ContractVersion, Incarnation: capability.RuntimeIdentity{HostInstance: "stage1-private-host", OwnerID: "tangent.plugin.messaging", OwnerGeneration: generation}, Grants: capability.GrantSet{}, HostInfo: subprocess.HostInfo{Version: "0.19.0", Protocol: 2}}, HandshakeTimeout: 10 * time.Second, UnloadTimeout: 5 * time.Second, ReapTimeout: 2 * time.Second})
 	if e != nil {
 		t.Fatal(e)
 	}

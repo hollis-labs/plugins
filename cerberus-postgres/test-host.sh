@@ -5,13 +5,13 @@ set -euo pipefail
 cd "$(dirname "$0")"
 work=$(mktemp -d)
 trap 'chmod -R u+w "$work"; rm -rf "$work"' EXIT
-host=$(cd ../postgres-data && go list -m -f '{{.Dir}}' github.com/hollis-labs/cerberus)
+host=$(cd ../cerberus-postgres-data && go list -m -f '{{.Dir}}' github.com/hollis-labs/cerberus)
 cp -r "$host" "$work/host"
 chmod -R u+w "$work/host"
 cp ../ci/postgres/postgres_test.go "$work/host/internal/cerbapi/zz_postgres_test.go"
 cp ../ci/postgres/data_test.go "$work/host/internal/cerbapi/zz_postgres_data_test.go"
 mkdir -p "$work/data-bundle/bin"
-(cd ../postgres-data && go build -o "$work/data-bundle/bin/cerberus-postgres-data" ./cmd/cerberus-postgres-data)
+(cd ../cerberus-postgres-data && go build -o "$work/data-bundle/bin/cerberus-postgres-data" ./cmd/cerberus-postgres-data)
 "$work/data-bundle/bin/cerberus-postgres-data" write-dist "$work/data-bundle"
 mkdir -p "$work/bundle/bin"
 go build -o "$work/bundle/bin/cerberus-postgres-plugin" ./cmd/cerberus-postgres-plugin
