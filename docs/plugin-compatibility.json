@@ -456,17 +456,6 @@
       "runtime_compatibility": "not validated by this inventory"
     },
     {
-      "plugin": "station-avatar-server",
-      "kind": "module",
-      "declared_hosts": [
-        "station"
-      ],
-      "module_requirements": {
-        "github.com/hollis-labs/go-mcp": "v0.7.1"
-      },
-      "runtime_compatibility": "not validated by this inventory"
-    },
-    {
       "plugin": "tangent-chat-agent",
       "kind": "module",
       "declared_hosts": [

@@ -33,6 +33,10 @@ NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 SEMVER = r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(\.[0-9A-Za-z-]+)*)?"
 TAG_RE = re.compile(r"^([a-z0-9][a-z0-9._-]*)/" + SEMVER + "$")
 
+# Immutable historical tag for an application removed from the plugin catalog.
+# No new tags for the retired name are permitted.
+RETIRED_TAGS = {'station-avatar-server/v0.4.0': 'e396e9d6dbd71b5f2c34b0d79898a3c658645ea3'}
+
 fail = False
 
 
@@ -181,7 +185,11 @@ def main():
             if not m:
                 bad("tag %s: not <plugin>/vX.Y.Z (no bare vX.Y.Z, no repository-wide version)" % t)
             elif m.group(1) not in tops:
-                bad("tag %s: %s is not a plugin directory here" % (t, m.group(1)))
+                expected = RETIRED_TAGS.get(t)
+                actual = subprocess.run(["git", "-C", root, "rev-parse", "refs/tags/" + t],
+                                        capture_output=True, text=True).stdout.strip()
+                if expected is None or actual != expected:
+                    bad("tag %s: %s is not a plugin directory here, or its historical tag changed" % (t, m.group(1)))
 
     bp = os.path.join(root, "scripts", "build-pending")
     if os.path.exists(bp) and not args.plugin:

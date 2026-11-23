@@ -13,3 +13,7 @@ The former aggregate's build/release bundler, contract-only dependency guard and
 ## Validation and future releases
 
 Current CI plans changed plugins independently, runs layout/descriptor/public-history guards and module vet/race checks. This ownership inventory does not prove older SDK pins resolve or plugins work with current Nanite, Surface or Exo. Preserve the public host contract and host-internal import boundary when adapting release tooling. Before publishing here, restore equivalent manifest/archive/checksum/dependency/catalog checks and record concrete tested host/contract versions.
+
+## Avatar server application
+
+The former `station-avatar-server` is an independent application and is no longer developed or cataloged as a plugin here. Historical source and version refs remain available; installed Station deployments are unchanged by source cleanup. The Python drawing engine in `hollis-labs/avatars` is complementary and remains separate.
