@@ -1,5 +1,0 @@
-{
-  "name": "station-avatar-server",
-  "kind": "module",
-  "hosts": ["station"]
-}
