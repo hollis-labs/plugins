@@ -1,0 +1,575 @@
+{
+  "schema_version": 1,
+  "meaning": "Declared hosts and build requirements are not a tested host-version range.",
+  "plugins": [
+    {
+      "plugin": "activity-monitor",
+      "kind": "module",
+      "declared_hosts": [
+        "chimera"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/harness/core": "v0.12.0",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0",
+        "github.com/hollis-labs/libs/mesh/core": "v0.6.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-apt",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-azure",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-caddy",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-cloudflare",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-contextforge",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-digitalocean",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-fail2ban",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-forge",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-github",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-journalctl",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-keeper",
+      "kind": "provider",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-kubernetes",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-namecheap",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-onepassword",
+      "kind": "provider",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-postgres",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261019042252-0ec500d90206",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.3.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-postgres-data",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261019164601-b27ec0f4e01e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.3.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-restic",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-rsync",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-sysmon",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-tailscale",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-tmux",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-ufw",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-vastai",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.2",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.3.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "cerberus-vercel",
+      "kind": "connector",
+      "declared_hosts": [
+        "cerberus"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/cerberus": "v0.5.0-beta.1.0.20261009054531-02ac61b86b4e",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.2.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "gmail",
+      "kind": "connector",
+      "declared_hosts": [
+        "fragments-engine"
+      ],
+      "module_requirements": {},
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-bookmarks",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.6",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-diagnostics",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.7",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-documents",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.7",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-example",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.0",
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-giphy",
+      "kind": "connector",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.6",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-loom",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.7",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-oembed",
+      "kind": "connector",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.6",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-pins",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.8",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-plan",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.7",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "nanite-reminders",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/nanite/pkg/pluginapi": "v0.1.7",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/plugin-sdk": "v0.6.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "plugin-catalog",
+      "kind": "module",
+      "declared_hosts": [
+        "nanite"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.5.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "station-atlas-server",
+      "kind": "module",
+      "declared_hosts": [
+        "station"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp/go-mcp": "v0.7.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "station-avatar-server",
+      "kind": "module",
+      "declared_hosts": [
+        "station"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/go-mcp": "v0.7.1"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-chat-agent",
+      "kind": "module",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-github",
+      "kind": "connector",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-messaging",
+      "kind": "connector",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/libs/mesh/core": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0",
+        "github.com/hollis-labs/libs/ui/ui-go": "v0.1.0",
+        "github.com/hollis-labs/libs/mesh/pipeline": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-portfolio",
+      "kind": "module",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0",
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-runner",
+      "kind": "module",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/libs/mesh/core": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0",
+        "github.com/hollis-labs/libs/ui/ui-go": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-tesseract",
+      "kind": "connector",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "tangent-torque",
+      "kind": "connector",
+      "declared_hosts": [
+        "tangent"
+      ],
+      "module_requirements": {
+        "github.com/hollis-labs/libs/mcp/plugin-mcp": "v0.6.0",
+        "github.com/hollis-labs/tangent": "v0.21.0",
+        "github.com/hollis-labs/libs/core/panics": "v0.1.0"
+      },
+      "runtime_compatibility": "not validated by this inventory"
+    },
+    {
+      "plugin": "webhook",
+      "kind": "connector",
+      "declared_hosts": [
+        "fragments-engine"
+      ],
+      "module_requirements": {},
+      "runtime_compatibility": "not validated by this inventory"
+    }
+  ]
+}

@@ -8,6 +8,10 @@ How end users install or load a plugin is out of scope here.
 A plugin is a Go module with a descriptor. Plugins differ in `kind` (`connector`, `provider` or `module`) and in the
 hosts that load them (for example `cerberus` or `fragments-engine`).
 
+## Ownership and compatibility
+
+See [ownership](docs/ownership.md) and the [declared-host/dependency inventory](docs/plugin-compatibility.json). The `nanite-*` plugins here are canonical; the old aggregate is release/reference history. Tested host-version compatibility is distinct from declared hosts and dependency pins.
+
 ## Layout
 
 ```
